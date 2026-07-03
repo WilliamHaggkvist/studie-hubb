@@ -288,7 +288,6 @@ function TimePage() {
         <TabsList>
           <TabsTrigger value="sessions">Studiepass</TabsTrigger>
           <TabsTrigger value="timer">Timer</TabsTrigger>
-          <TabsTrigger value="manual">Manuellt</TabsTrigger>
         </TabsList>
 
         <TabsContent value="sessions" className="mt-4">
@@ -298,11 +297,8 @@ function TimePage() {
         <TabsContent value="timer" className="mt-4">
           <TimerPanel courses={courses} allTasks={allTasks} />
         </TabsContent>
-
-        <TabsContent value="manual" className="mt-4">
-          <ManualPanel courses={courses} allTasks={allTasks} entries={entries} />
-        </TabsContent>
       </Tabs>
+
     </div>
   );
 }
