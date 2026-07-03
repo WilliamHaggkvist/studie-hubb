@@ -414,7 +414,7 @@ function TaskDialog({
   const [pending, setPending] = useState(task?.pending_review ?? false);
 
   // Reset when task changes
-  useMemo(() => {
+  useEffect(() => {
     setTitle(task?.title ?? "");
     setDescription(task?.description ?? "");
     setDueAt(task?.due_at ? task.due_at.slice(0, 16) : "");
@@ -525,7 +525,7 @@ function CompleteDialog({
 }) {
   const [grade, setGrade] = useState("");
   const [points, setPoints] = useState("");
-  useMemo(() => { setGrade(task?.grade ?? ""); setPoints(task?.points ?? ""); }, [task]);
+  useEffect(() => { setGrade(task?.grade ?? ""); setPoints(task?.points ?? ""); }, [task]);
   if (!task) return null;
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
