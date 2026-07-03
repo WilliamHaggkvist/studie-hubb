@@ -427,6 +427,7 @@ function TimerWidget() {
   const [now, setNow] = useState(Date.now());
   const [open, setOpen] = useState(false);
   const [courseId, setCourseId] = useState<string>("none");
+  const [taskIds, setTaskIds] = useState<string[]>([]);
   const [description, setDescription] = useState("");
 
   useEffect(() => {
@@ -444,11 +445,32 @@ function TimerWidget() {
     },
   });
 
+  const { data: courseTasks = [] } = useQuery({
+    queryKey: ["tasks", "for-course", courseId],
+    enabled: courseId !== "none",
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("tasks")
+        .select("id,title,status")
+        .eq("course_id", courseId)
+        .neq("status", "done")
+        .order("due_at", { ascending: true, nullsFirst: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
   async function start() {
-    timerStore.start({ courseId: courseId === "none" ? null : courseId, description });
+    timerStore.start({
+      courseId: courseId === "none" ? null : courseId,
+      taskIds,
+      description,
+    });
     setOpen(false);
+    setTaskIds([]);
     toast.success("Timer startad");
   }
+
 
   async function stop() {
     const prev = timerStore.stop();
