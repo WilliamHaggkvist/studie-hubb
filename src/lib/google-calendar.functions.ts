@@ -237,7 +237,7 @@ export const syncGoogleCalendar = createServerFn({ method: "POST" })
     if (rows.length > 0) {
       const { error, count } = await context.supabase
         .from("calendar_events")
-        .upsert(rows, { onConflict: "external_id", count: "exact" });
+        .upsert(rows, { onConflict: "user_id,external_id", count: "exact" });
       if (error) throw new Error(error.message);
       imported = count ?? rows.length;
     }
