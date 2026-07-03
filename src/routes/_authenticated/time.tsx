@@ -311,12 +311,7 @@ function TimePage() {
 
 function SessionsPanel({ courses, allTasks }: { courses: Course[]; allTasks: Task[] }) {
   const qc = useQueryClient();
-  const [open, setOpen] = useState(false);
-  const [courseId, setCourseId] = useState("none");
-  const [taskIds, setTaskIds] = useState<string[]>([]);
-  const [plannedStart, setPlannedStart] = useState("");
-  const [plannedEnd, setPlannedEnd] = useState("");
-  const [notes, setNotes] = useState("");
+
 
   const { data: sessions = [] } = useQuery({
     queryKey: ["study_sessions"],
@@ -363,39 +358,7 @@ function SessionsPanel({ courses, allTasks }: { courses: Course[]; allTasks: Tas
   });
 
 
-  const availableTasks = courseId === "none" ? [] : allTasks.filter((t) => t.course_id === courseId && t.status !== "done");
 
-  const create = useMutation({
-    mutationFn: async () => {
-      const { data: u } = await supabase.auth.getUser();
-      if (!u.user) throw new Error("no user");
-      const { data: s, error } = await supabase
-        .from("study_sessions")
-        .insert({
-          user_id: u.user.id,
-          course_id: courseId === "none" ? null : courseId,
-          planned_start: new Date(plannedStart).toISOString(),
-          planned_end: new Date(plannedEnd).toISOString(),
-          notes: notes.trim() || null,
-          source: "local",
-        })
-        .select("id")
-        .single();
-      if (error) throw error;
-      if (taskIds.length > 0 && s) {
-        const rows = taskIds.map((task_id) => ({ user_id: u.user!.id, session_id: s.id, task_id }));
-        const { error: e2 } = await supabase.from("study_session_tasks").insert(rows);
-        if (e2) throw e2;
-      }
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["study_sessions"] });
-      qc.invalidateQueries({ queryKey: ["study_session_tasks"] });
-      setOpen(false); setCourseId("none"); setTaskIds([]); setPlannedStart(""); setPlannedEnd(""); setNotes("");
-      toast.success("Studiepass skapat");
-    },
-    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Fel"),
-  });
 
   const complete = useMutation({
     mutationFn: async (sessionId: string) => {
@@ -462,62 +425,12 @@ function SessionsPanel({ courses, allTasks }: { courses: Course[]; allTasks: Tas
         <div className="text-sm text-muted-foreground">
           {planned.length} planerade · {completed.length} genomförda
         </div>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button className="gap-1 gradient-sunset text-white hover:opacity-90">
-              <CalendarPlus className="h-4 w-4" /> Nytt pass
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader><DialogTitle className="font-display">Nytt studiepass</DialogTitle></DialogHeader>
-            <div className="space-y-4">
-              <div className="space-y-2"><Label>Kurs</Label>
-                <Select value={courseId} onValueChange={(v) => { setCourseId(v); setTaskIds([]); }}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Ingen kurs</SelectItem>
-                    {courses.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              {availableTasks.length > 0 && (
-                <div className="space-y-2">
-                  <Label>Uppgifter (valfritt)</Label>
-                  <div className="max-h-40 space-y-1 overflow-y-auto rounded-md border border-border/60 p-2">
-                    {availableTasks.map((t) => {
-                      const checked = taskIds.includes(t.id);
-                      return (
-                        <label key={t.id} className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 text-sm hover:bg-accent">
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={(e) =>
-                              setTaskIds((prev) => (e.target.checked ? [...prev, t.id] : prev.filter((id) => id !== t.id)))
-                            }
-                          />
-                          <span className="truncate">{t.title}</span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2"><Label>Start</Label><Input type="datetime-local" value={plannedStart} onChange={(e) => setPlannedStart(e.target.value)} /></div>
-                <div className="space-y-2"><Label>Slut</Label><Input type="datetime-local" value={plannedEnd} onChange={(e) => setPlannedEnd(e.target.value)} /></div>
-              </div>
-              <div className="space-y-2"><Label>Anteckning</Label><Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} /></div>
-            </div>
-            <DialogFooter>
-              <Button variant="ghost" onClick={() => setOpen(false)}>Avbryt</Button>
-              <Button disabled={!plannedStart || !plannedEnd} onClick={() => create.mutate()} className="gradient-sunset text-white hover:opacity-90">Spara</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <div className="text-xs text-muted-foreground">Studiepass schemaläggs i Google Kalender</div>
       </div>
 
       {merged.length === 0 && (
-        <EmptyState icon={<CalendarPlus className="h-8 w-8" />} title="Inga studiepass än" text="Planera ett pass för att komma igång." />
+        <EmptyState icon={<CalendarPlus className="h-8 w-8" />} title="Inga studiepass än" text="Lägg in ett pass i Google Kalender så synkas det hit." />
+
       )}
 
       {planned.length > 0 && (
