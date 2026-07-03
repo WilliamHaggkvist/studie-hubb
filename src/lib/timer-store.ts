@@ -3,7 +3,7 @@
 type RunningTimer = {
   startedAt: number; // ms
   courseId: string | null;
-  taskId: string | null;
+  taskIds: string[];
   description: string;
 };
 
@@ -15,7 +15,20 @@ function load(): RunningTimer | null {
   if (typeof window === "undefined") return null;
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as RunningTimer) : null;
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<RunningTimer> & { taskId?: string | null };
+    // Back-compat: old shape had a single `taskId`
+    const taskIds = Array.isArray(parsed.taskIds)
+      ? parsed.taskIds
+      : parsed.taskId
+        ? [parsed.taskId]
+        : [];
+    return {
+      startedAt: parsed.startedAt ?? Date.now(),
+      courseId: parsed.courseId ?? null,
+      taskIds,
+      description: parsed.description ?? "",
+    };
   } catch {
     return null;
   }
@@ -41,11 +54,11 @@ export const timerStore = {
     listeners.add(l);
     return () => listeners.delete(l);
   },
-  start(input: { courseId?: string | null; taskId?: string | null; description?: string }) {
+  start(input: { courseId?: string | null; taskIds?: string[]; description?: string }) {
     state = {
       startedAt: Date.now(),
       courseId: input.courseId ?? null,
-      taskId: input.taskId ?? null,
+      taskIds: input.taskIds ?? [],
       description: input.description ?? "",
     };
     persist(state);
