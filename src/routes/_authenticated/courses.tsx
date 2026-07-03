@@ -111,6 +111,30 @@ function CoursesPage() {
     onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Fel"),
   });
 
+  const update = useMutation({
+    mutationFn: async () => {
+      if (!editing) throw new Error("no course");
+      const { error } = await supabase.from("courses").update({
+        name: name.trim(),
+        code: code.trim() || null,
+        color, icon,
+        hp: hp ? Number(hp) : null,
+        period: (period || null) as "P1" | "P2" | "P3" | "P4" | "P5" | null,
+        arskurs: arskurs ? Number(arskurs) : null,
+        university_id: universityId || null,
+        weekly_goal_hours: weeklyGoal ? Number(weeklyGoal) : 0,
+      }).eq("id", editing.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["courses"] });
+      qc.invalidateQueries({ queryKey: ["courses", "all"] });
+      toast.success("Kurs uppdaterad");
+      setEditing(null); resetForm();
+    },
+    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Fel"),
+  });
+
   const toggleArchive = useMutation({
     mutationFn: async (c: CourseRow) => {
       const { error } = await supabase.from("courses").update({ archived: !c.archived }).eq("id", c.id);
