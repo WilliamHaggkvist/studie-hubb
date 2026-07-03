@@ -191,6 +191,42 @@ export type Database = {
           },
         ]
       }
+      google_calendar_prefs: {
+        Row: {
+          background_color: string | null
+          counts_as_study: boolean
+          created_at: string
+          google_calendar_id: string
+          id: string
+          name: string
+          sync_enabled: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          background_color?: string | null
+          counts_as_study?: boolean
+          created_at?: string
+          google_calendar_id: string
+          id?: string
+          name: string
+          sync_enabled?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          background_color?: string | null
+          counts_as_study?: boolean
+          created_at?: string
+          google_calendar_id?: string
+          id?: string
+          name?: string
+          sync_enabled?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       pages: {
         Row: {
           archived: boolean
