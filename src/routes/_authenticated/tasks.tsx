@@ -446,28 +446,12 @@ function TaskDialog({
         <div className="space-y-3">
           <div className="space-y-1.5"><Label>Titel</Label><Input value={title} onChange={(e) => setTitle(e.target.value)} autoFocus /></div>
           <div className="space-y-1.5"><Label>Beskrivning</Label><Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} /></div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label>Typ</Label>
-              <Select value={type} onValueChange={(v) => {
-                const t = v as TaskType;
-                setType(t);
-                setKind(EXAM_TYPES.has(t) ? "exam" : "task");
-              }}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>{TYPES_ALPHA.map((t) => <SelectItem key={t} value={t}>{TYPE_LABELS[t]}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Kategori</Label>
-              <Select value={kind} onValueChange={(v) => setKind(v as TaskKind)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="task">Uppgift</SelectItem>
-                  <SelectItem value="exam">Examination</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="space-y-1.5">
+            <Label>Typ</Label>
+            <Select value={type} onValueChange={(v) => setType(v as TaskType)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>{TYPES_ALPHA.map((t) => <SelectItem key={t} value={t}>{TYPE_LABELS[t]}</SelectItem>)}</SelectContent>
+            </Select>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5"><Label>Deadline</Label><Input type="datetime-local" value={dueAt} onChange={(e) => setDueAt(e.target.value)} /></div>
@@ -482,25 +466,6 @@ function TaskDialog({
               </Select>
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-3">
-            <div className="space-y-1.5">
-              <Label>Status</Label>
-              <Select value={status} onValueChange={(v) => setStatus(v as TaskStatus)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todo">Ej startad</SelectItem>
-                  <SelectItem value="doing">Pågår</SelectItem>
-                  <SelectItem value="done">Klar</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5"><Label>Betyg</Label><Input value={grade} onChange={(e) => setGrade(e.target.value)} placeholder="A / 5 / -" /></div>
-            <div className="space-y-1.5"><Label>Poäng</Label><Input value={points} onChange={(e) => setPoints(e.target.value)} placeholder="18/20 / -" /></div>
-          </div>
-          <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={pending} onChange={(e) => setPending(e.target.checked)} className="h-4 w-4" />
-            Väntar på bedömning
-          </label>
         </div>
         <DialogFooter className="gap-2">
           {onDelete && <Button variant="ghost" className="mr-auto text-destructive" onClick={onDelete}><Trash2 className="mr-1 h-4 w-4" /> Ta bort</Button>}
