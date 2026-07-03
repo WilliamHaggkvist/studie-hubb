@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, BookOpen, CheckCircle2 } from "lucide-react";
+import { Plus, BookOpen, CheckCircle2, Pencil, Trash2 } from "lucide-react";
 import { PALETTE, DEFAULT_COURSE_ICONS, COURSE_PERIODS, ARSKURS_OPTIONS } from "@/lib/course-presets";
 import { useUniversities } from "@/lib/settings";
 import { cn } from "@/lib/utils";
@@ -103,6 +103,19 @@ function CoursesPage() {
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["courses"] }),
+  });
+
+  const remove = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("courses").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["courses"] });
+      qc.invalidateQueries({ queryKey: ["courses", "all"] });
+      toast.success("Kurs borttagen");
+    },
+    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Fel"),
   });
 
   const active = courses.filter((c) => !c.archived);
@@ -203,27 +216,46 @@ function CoursesPage() {
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {active.map((c) => (
-          <button
-            key={c.id}
-            onClick={() => navigate({ to: "/courses/$courseId", params: { courseId: c.id } })}
-            className="group relative overflow-hidden rounded-2xl border border-border/60 bg-surface/60 backdrop-blur-md p-5 text-left transition-all hover:border-transparent hover:shadow-lg hover:shadow-black/40"
-          >
-            <div className="absolute inset-x-0 top-0 h-1" style={{ background: c.color }} />
-            <div className="mb-2 flex items-center justify-between">
-              <span className="text-3xl">{c.icon}</span>
-              <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: c.color, boxShadow: `0 0 20px ${c.color}80` }} />
+          <div key={c.id} className="group relative">
+            <button
+              onClick={() => navigate({ to: "/courses/$courseId", params: { courseId: c.id } })}
+              className="relative w-full overflow-hidden rounded-2xl border border-border/60 bg-surface/60 backdrop-blur-md p-5 text-left transition-all hover:border-transparent hover:shadow-lg hover:shadow-black/40"
+            >
+              <div className="absolute inset-x-0 top-0 h-1" style={{ background: c.color }} />
+              <div className="mb-2 flex items-center justify-between">
+                <span className="text-3xl">{c.icon}</span>
+                <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: c.color, boxShadow: `0 0 20px ${c.color}80` }} />
+              </div>
+              <div className="font-display text-lg font-semibold flex items-center gap-1.5">
+                {c.name}
+                {c.completed && <CheckCircle2 className="h-4 w-4 text-c-7" />}
+              </div>
+              <div className="mt-1 flex flex-wrap gap-1 text-[10px] uppercase tracking-wider text-muted-foreground">
+                {c.code && <span>{c.code}</span>}
+                {c.hp != null && <span>• {c.hp} HP</span>}
+                {c.period && <span>• {c.period}</span>}
+                {c.arskurs != null && <span>• Åk {c.arskurs}</span>}
+              </div>
+            </button>
+            <div className="absolute right-2 top-2 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+              <button
+                type="button"
+                aria-label="Redigera kurs"
+                onClick={(e) => { e.stopPropagation(); navigate({ to: "/courses/$courseId", params: { courseId: c.id } }); }}
+                className="grid h-7 w-7 place-items-center rounded-lg border border-border/60 bg-background/70 backdrop-blur-md text-muted-foreground hover:text-foreground hover:bg-surface-2"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                aria-label="Ta bort kurs"
+                onClick={(e) => { e.stopPropagation(); if (confirm(`Ta bort kursen "${c.name}"?`)) remove.mutate(c.id); }}
+                className="grid h-7 w-7 place-items-center rounded-lg border border-border/60 bg-background/70 backdrop-blur-md text-muted-foreground hover:text-destructive hover:bg-surface-2"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
             </div>
-            <div className="font-display text-lg font-semibold flex items-center gap-1.5">
-              {c.name}
-              {c.completed && <CheckCircle2 className="h-4 w-4 text-c-7" />}
-            </div>
-            <div className="mt-1 flex flex-wrap gap-1 text-[10px] uppercase tracking-wider text-muted-foreground">
-              {c.code && <span>{c.code}</span>}
-              {c.hp != null && <span>• {c.hp} HP</span>}
-              {c.period && <span>• {c.period}</span>}
-              {c.arskurs != null && <span>• Åk {c.arskurs}</span>}
-            </div>
-          </button>
+          </div>
         ))}
       </div>
 
