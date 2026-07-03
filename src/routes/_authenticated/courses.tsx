@@ -311,6 +311,59 @@ function CoursesPage() {
           </div>
         </div>
       )}
+
+      <Dialog open={!!editing} onOpenChange={(o) => { if (!o) { setEditing(null); resetForm(); } }}>
+        <DialogContent className="max-w-lg glass rounded-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle className="font-display">Redigera kurs</DialogTitle></DialogHeader>
+          <div className="grid gap-4">
+            <div className="space-y-1.5">
+              <Label>Kursnamn</Label>
+              <Input value={name} onChange={(e) => setName(e.target.value)} className="rounded-xl" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Kurskod</Label>
+                <Input value={code} onChange={(e) => setCode(e.target.value)} className="rounded-xl" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Högskolepoäng</Label>
+                <Input type="number" step="0.5" value={hp} onChange={(e) => setHp(e.target.value)} className="rounded-xl" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Period</Label>
+                <Select value={period} onValueChange={setPeriod}>
+                  <SelectTrigger className="rounded-xl"><SelectValue placeholder="Välj period" /></SelectTrigger>
+                  <SelectContent>{COURSE_PERIODS.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Årskurs</Label>
+                <Select value={arskurs} onValueChange={setArskurs}>
+                  <SelectTrigger className="rounded-xl"><SelectValue placeholder="Välj årskurs" /></SelectTrigger>
+                  <SelectContent>{ARSKURS_OPTIONS.map((a) => <SelectItem key={a} value={String(a)}>Årskurs {a}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Universitet</Label>
+              <Select value={universityId} onValueChange={setUniversityId}>
+                <SelectTrigger className="rounded-xl"><SelectValue placeholder="Välj universitet" /></SelectTrigger>
+                <SelectContent>{universities.map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Veckomål studietid (h)</Label>
+              <Input type="number" step="0.5" value={weeklyGoal} onChange={(e) => setWeeklyGoal(e.target.value)} className="rounded-xl" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" className="rounded-xl" onClick={() => { setEditing(null); resetForm(); }}>Avbryt</Button>
+            <Button disabled={!name.trim() || update.isPending} onClick={() => update.mutate()} className="rounded-xl">Spara</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
