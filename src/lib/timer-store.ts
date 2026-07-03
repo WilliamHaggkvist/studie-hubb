@@ -90,6 +90,6 @@ export function formatDuration(seconds: number): string {
 
 export function formatHoursCompact(seconds: number): string {
   const h = seconds / 3600;
-  if (h < 1) return `${Math.round(seconds / 60)}m`;
-  return `${h.toFixed(1)}h`;
+  return `${h.toFixed(2)}h`;
 }
+
