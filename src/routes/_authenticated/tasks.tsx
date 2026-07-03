@@ -110,7 +110,6 @@ function daysLeftLabel(due: string): string {
 
 function TasksPage() {
   const qc = useQueryClient();
-  const [tab, setTab] = useState<TaskKind>("task");
   const [filterCourse, setFilterCourse] = useState<string>("all");
   const [filterType, setFilterType] = useState<string>("all");
   const [filterDue, setFilterDue] = useState<string>("all");
@@ -143,7 +142,6 @@ function TasksPage() {
     const now = Date.now();
     const day = 24 * 3600 * 1000;
     return allTasks.filter((t) => {
-      if (t.task_kind !== tab) return false;
       if (filterCourse !== "all" && t.course_id !== filterCourse) return false;
       if (filterType !== "all" && t.task_type !== filterType) return false;
       if (filterDue !== "all" && t.due_at) {
@@ -157,7 +155,7 @@ function TasksPage() {
       }
       return true;
     });
-  }, [allTasks, tab, filterCourse, filterType, filterDue]);
+  }, [allTasks, filterCourse, filterType, filterDue]);
 
   const pending = filtered.filter((t) => t.pending_review && t.status !== "done");
   const board = filtered.filter((t) => !t.pending_review);
