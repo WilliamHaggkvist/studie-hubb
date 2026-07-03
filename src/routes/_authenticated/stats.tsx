@@ -102,13 +102,8 @@ function StatsPage() {
 
   const combined = useMemo(() => [...entries, ...derivedEntries], [entries, derivedEntries]);
 
-  const { data: tasks = [] } = useQuery({
-    queryKey: ["stats", "tasks"],
-    queryFn: async () => {
-      const { data } = await supabase.from("tasks").select("id,title,status,course_id");
-      return (data ?? []) as Task[];
-    },
-  });
+  const { data: tasks = [] } = useQuery(tasksQuery);
+
 
   const { data: sessionsCount = 0 } = useQuery({
     queryKey: ["stats", "sessions", range.start.toISOString(), range.end.toISOString()],
