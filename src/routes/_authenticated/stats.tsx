@@ -2,20 +2,30 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { format, subDays, startOfDay, endOfDay } from "date-fns";
+import { Bar, BarChart, CartesianGrid, Cell, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis, Legend } from "recharts";
+import { format, subDays, startOfDay, endOfDay, differenceInCalendarDays, startOfWeek } from "date-fns";
 import { sv } from "date-fns/locale";
 import { formatHoursCompact } from "@/lib/timer-store";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useMemo, useState } from "react";
 
 export const Route = createFileRoute("/_authenticated/stats")({
   component: StatsPage,
 });
 
 type Course = { id: string; name: string; color: string };
-type Entry = { id: string; started_at: string; duration_seconds: number | null; course_id: string | null };
-type Task = { id: string; status: string; course_id: string | null };
+type Entry = { id: string; started_at: string; duration_seconds: number | null; course_id: string | null; task_id: string | null };
+type Task = { id: string; title: string; status: string; course_id: string | null };
+type TermRow = { id: string; year: number; term: "host" | "var" | "sommar"; start_date: string; end_date: string };
+
+function termLabel(t: TermRow) {
+  const term = t.term === "host" ? "Hösttermin" : t.term === "var" ? "Vårtermin" : "Sommar";
+  return `${term} ${t.year}`;
+}
 
 function StatsPage() {
+  const [period, setPeriod] = useState<string>("30");
+
   const { data: courses = [] } = useQuery({
     queryKey: ["courses"],
     queryFn: async () => {
@@ -24,11 +34,37 @@ function StatsPage() {
     },
   });
 
-  const since = subDays(new Date(), 29);
-  const { data: entries = [] } = useQuery({
-    queryKey: ["stats", "entries", since.toISOString().slice(0, 10)],
+  const { data: terms = [] } = useQuery({
+    queryKey: ["term_dates"],
     queryFn: async () => {
-      const { data } = await supabase.from("time_entries").select("id,started_at,duration_seconds,course_id").gte("started_at", since.toISOString());
+      const { data } = await supabase.from("term_dates").select("id,year,term,start_date,end_date").order("year", { ascending: false }).order("term");
+      return (data ?? []) as TermRow[];
+    },
+  });
+
+  const range = useMemo(() => {
+    if (period === "7") return { start: subDays(new Date(), 6), end: new Date(), label: "7 dagar" };
+    if (period === "30") return { start: subDays(new Date(), 29), end: new Date(), label: "30 dagar" };
+    if (period === "week") {
+      const s = startOfWeek(new Date(), { weekStartsOn: 1 });
+      return { start: s, end: new Date(), label: "Denna vecka" };
+    }
+    if (period.startsWith("term:")) {
+      const id = period.slice(5);
+      const t = terms.find((x) => x.id === id);
+      if (t) return { start: new Date(t.start_date), end: new Date(t.end_date), label: termLabel(t) };
+    }
+    return { start: subDays(new Date(), 29), end: new Date(), label: "30 dagar" };
+  }, [period, terms]);
+
+  const { data: entries = [] } = useQuery({
+    queryKey: ["stats", "entries", range.start.toISOString(), range.end.toISOString()],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("time_entries")
+        .select("id,started_at,duration_seconds,course_id,task_id")
+        .gte("started_at", range.start.toISOString())
+        .lte("started_at", range.end.toISOString());
       return (data ?? []) as Entry[];
     },
   });
@@ -36,17 +72,36 @@ function StatsPage() {
   const { data: tasks = [] } = useQuery({
     queryKey: ["stats", "tasks"],
     queryFn: async () => {
-      const { data } = await supabase.from("tasks").select("id,status,course_id");
+      const { data } = await supabase.from("tasks").select("id,title,status,course_id");
       return (data ?? []) as Task[];
     },
   });
 
-  const days = Array.from({ length: 30 }).map((_, i) => {
-    const d = subDays(new Date(), 29 - i);
-    const total = entries
-      .filter((e) => e.started_at >= startOfDay(d).toISOString() && e.started_at <= endOfDay(d).toISOString())
-      .reduce((s, e) => s + (e.duration_seconds ?? 0), 0);
-    return { day: format(d, "d/M", { locale: sv }), hours: +(total / 3600).toFixed(2) };
+  const { data: sessionsCount = 0 } = useQuery({
+    queryKey: ["stats", "sessions", range.start.toISOString(), range.end.toISOString()],
+    queryFn: async () => {
+      const { count } = await supabase
+        .from("study_sessions")
+        .select("id", { count: "exact", head: true })
+        .gte("planned_start", range.start.toISOString())
+        .lte("planned_start", range.end.toISOString());
+      return count ?? 0;
+    },
+  });
+
+  const totalDays = Math.max(1, differenceInCalendarDays(range.end, range.start) + 1);
+  const days = Array.from({ length: totalDays }).map((_, i) => {
+    const d = subDays(range.end, totalDays - 1 - i);
+    const row: Record<string, number | string> = { day: format(d, "d/M", { locale: sv }) };
+    let total = 0;
+    for (const c of courses) {
+      const h = entries.filter((e) => e.course_id === c.id && e.started_at >= startOfDay(d).toISOString() && e.started_at <= endOfDay(d).toISOString())
+        .reduce((s, e) => s + (e.duration_seconds ?? 0), 0) / 3600;
+      row[c.id] = +h.toFixed(2);
+      total += h;
+    }
+    row.total = +total.toFixed(2);
+    return row;
   });
 
   const perCourse = courses.map((c) => ({
@@ -54,28 +109,56 @@ function StatsPage() {
     color: c.color,
     value: +(entries.filter((e) => e.course_id === c.id).reduce((s, e) => s + (e.duration_seconds ?? 0), 0) / 3600).toFixed(2),
   })).filter((r) => r.value > 0);
-
   const noCourseHours = +(entries.filter((e) => !e.course_id).reduce((s, e) => s + (e.duration_seconds ?? 0), 0) / 3600).toFixed(2);
   if (noCourseHours > 0) perCourse.push({ name: "Övrigt", color: "#94A3B8", value: noCourseHours });
 
+  const perTask = (() => {
+    const m = new Map<string, number>();
+    for (const e of entries) {
+      if (!e.task_id || !e.duration_seconds) continue;
+      m.set(e.task_id, (m.get(e.task_id) ?? 0) + e.duration_seconds);
+    }
+    return [...m.entries()]
+      .map(([id, sec]) => {
+        const t = tasks.find((x) => x.id === id);
+        const c = courses.find((c) => c.id === t?.course_id);
+        return { id, title: t?.title ?? "Okänd", hours: +(sec / 3600).toFixed(2), color: c?.color ?? "#94A3B8" };
+      })
+      .sort((a, b) => b.hours - a.hours)
+      .slice(0, 10);
+  })();
+
   const totalSec = entries.reduce((s, e) => s + (e.duration_seconds ?? 0), 0);
-  const avgPerDay = totalSec / 30;
+  const avgPerDay = totalSec / totalDays;
 
   const statusCounts = {
-    todo: tasks.filter((t) => t.status === "todo").length,
-    doing: tasks.filter((t) => t.status === "doing").length,
+    not_started: tasks.filter((t) => t.status === "not_started").length,
+    in_progress: tasks.filter((t) => t.status === "in_progress").length,
     done: tasks.filter((t) => t.status === "done").length,
   };
   const statusData = [
-    { name: "Att göra", value: statusCounts.todo, color: "#FF7A59" },
-    { name: "Pågår", value: statusCounts.doing, color: "#FFB84D" },
+    { name: "Ej startad", value: statusCounts.not_started, color: "#FF7A59" },
+    { name: "Pågår", value: statusCounts.in_progress, color: "#FFB84D" },
     { name: "Klar", value: statusCounts.done, color: "#8B5CF6" },
   ];
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 lg:px-8">
-      <h1 className="font-display text-3xl font-bold tracking-tight">Statistik</h1>
-      <p className="mb-8 text-sm text-muted-foreground">Senaste 30 dagarna.</p>
+      <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="font-display text-3xl font-bold tracking-tight">Statistik</h1>
+          <p className="text-sm text-muted-foreground">{range.label}</p>
+        </div>
+        <Select value={period} onValueChange={setPeriod}>
+          <SelectTrigger className="w-[14rem]"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="week">Denna vecka</SelectItem>
+            <SelectItem value="7">Senaste 7 dagarna</SelectItem>
+            <SelectItem value="30">Senaste 30 dagarna</SelectItem>
+            {terms.map((t) => <SelectItem key={t.id} value={`term:${t.id}`}>{termLabel(t)}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      </div>
 
       <div className="mb-6 grid gap-4 sm:grid-cols-3">
         <Card className="border-border/60 bg-surface/60">
@@ -92,30 +175,27 @@ function StatsPage() {
         </Card>
         <Card className="border-border/60 bg-surface/60">
           <CardContent className="pt-5">
-            <div className="text-xs uppercase tracking-wider text-muted-foreground">Sessioner</div>
-            <div className="mt-2 font-display text-3xl font-bold tabular-nums">{entries.length}</div>
+            <div className="text-xs uppercase tracking-wider text-muted-foreground">Studiepass</div>
+            <div className="mt-2 font-display text-3xl font-bold tabular-nums">{sessionsCount}</div>
           </CardContent>
         </Card>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="border-border/60 bg-surface/60 lg:col-span-2">
-          <CardHeader className="pb-2"><CardTitle className="font-display text-base">Studietid senaste 30 dagarna</CardTitle></CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="font-display text-base">Studietid per kurs över tid</CardTitle></CardHeader>
           <CardContent>
-            <div className="h-64">
+            <div className="h-72">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={days}>
-                  <defs>
-                    <linearGradient id="line-grad" x1="0" y1="0" x2="1" y2="0">
-                      <stop offset="0%" stopColor="var(--sunset-coral)" />
-                      <stop offset="100%" stopColor="var(--sunset-violet)" />
-                    </linearGradient>
-                  </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
                   <XAxis dataKey="day" stroke="var(--muted-foreground)" fontSize={10} tickLine={false} axisLine={false} />
                   <YAxis stroke="var(--muted-foreground)" fontSize={10} tickLine={false} axisLine={false} width={28} />
-                  <Tooltip contentStyle={{ background: "var(--popover)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }} formatter={(v: number) => [`${v} h`, "Tid"]} />
-                  <Line type="monotone" dataKey="hours" stroke="url(#line-grad)" strokeWidth={2.5} dot={false} />
+                  <Tooltip contentStyle={{ background: "var(--popover)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }} formatter={(v: number) => [`${v} h`, ""]} />
+                  <Legend wrapperStyle={{ fontSize: 11 }} />
+                  {courses.map((c) => (
+                    <Line key={c.id} type="monotone" dataKey={c.id} name={c.name} stroke={c.color} strokeWidth={2} dot={false} />
+                  ))}
                 </LineChart>
               </ResponsiveContainer>
             </div>
@@ -127,7 +207,7 @@ function StatsPage() {
           <CardContent>
             {perCourse.length === 0 && <div className="p-6 text-center text-xs text-muted-foreground">Ingen tid loggad än.</div>}
             {perCourse.length > 0 && (
-              <div className="h-64">
+              <div className="h-72">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie data={perCourse} dataKey="value" innerRadius={50} outerRadius={90} paddingAngle={2}>
@@ -141,7 +221,27 @@ function StatsPage() {
           </CardContent>
         </Card>
 
-        <Card className="border-border/60 bg-surface/60 lg:col-span-3">
+        <Card className="border-border/60 bg-surface/60 lg:col-span-2">
+          <CardHeader className="pb-2"><CardTitle className="font-display text-base">Topp uppgifter</CardTitle></CardHeader>
+          <CardContent>
+            {perTask.length === 0 && <div className="p-6 text-center text-xs text-muted-foreground">Ingen tid loggad på uppgifter än.</div>}
+            <div className="space-y-2">
+              {perTask.map((t) => (
+                <div key={t.id}>
+                  <div className="mb-1 flex items-center justify-between text-xs">
+                    <span className="flex items-center gap-2 min-w-0"><span className="inline-block h-2 w-2 shrink-0 rounded-full" style={{ background: t.color }} /><span className="truncate">{t.title}</span></span>
+                    <span className="font-mono tabular-nums text-muted-foreground">{t.hours}h</span>
+                  </div>
+                  <div className="h-1.5 overflow-hidden rounded-full bg-surface-2">
+                    <div className="h-full rounded-full" style={{ width: `${Math.min(100, (t.hours / (perTask[0]?.hours || 1)) * 100)}%`, background: t.color }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-border/60 bg-surface/60">
           <CardHeader className="pb-2"><CardTitle className="font-display text-base">Uppgiftsstatus</CardTitle></CardHeader>
           <CardContent>
             <div className="h-56">
@@ -159,8 +259,6 @@ function StatsPage() {
           </CardContent>
         </Card>
       </div>
-      {/* silence unused */}
-      <div className="hidden">{Legend.name}</div>
     </div>
   );
 }
