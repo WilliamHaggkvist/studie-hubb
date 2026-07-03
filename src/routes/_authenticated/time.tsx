@@ -465,8 +465,11 @@ function SessionsPanel({ courses, allTasks }: { courses: Course[]; allTasks: Tas
       )}
 
       {merged.length === 0 && inbox.length === 0 && (
-        <EmptyState icon={<CalendarPlus className="h-8 w-8" />} title="Inga studiepass än" text="Lägg in ett pass i Google Kalender så synkas det hit." />
-
+        <div className="rounded-xl border border-dashed border-border/60 bg-surface/40 p-12 text-center">
+          <div className="mx-auto mb-3 text-muted-foreground"><CalendarPlus className="h-8 w-8 mx-auto" /></div>
+          <div className="font-display text-lg">Inga studiepass än</div>
+          <p className="mt-1 text-sm text-muted-foreground">Lägg in ett pass i Google Kalender så synkas det hit.</p>
+        </div>
       )}
 
       {planned.length > 0 && (
