@@ -56,19 +56,6 @@ function StatsPage() {
     },
   });
 
-  const { data: calEvents = [] } = useQuery({
-    queryKey: ["stats", "cal", range.start.toISOString(), range.end.toISOString()],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("calendar_events")
-        .select("id,starts_at,ends_at,course_id,counts_as_study")
-        .eq("counts_as_study", true)
-        .gte("starts_at", range.start.toISOString())
-        .lte("starts_at", range.end.toISOString());
-      return (data ?? []) as { id: string; starts_at: string; ends_at: string; course_id: string | null; counts_as_study: boolean }[];
-    },
-  });
-
   const { data: sessionRows = [] } = useQuery({
     queryKey: ["stats", "sessions-rows", range.start.toISOString(), range.end.toISOString()],
     queryFn: async () => {
@@ -82,23 +69,19 @@ function StatsPage() {
     },
   });
 
-  // Synthesize pseudo-entries from calendar events (counts_as_study) and uncompleted study sessions,
-  // so all planned/imported study time is reflected in the charts alongside logged time.
+  // Ej genomförda bekräftade pass räknas som planerad studietid.
+  // Genomförda pass skapar redan time_entries (source="session") så undvik dubbelräkning.
   const derivedEntries: Entry[] = useMemo(() => {
     const out: Entry[] = [];
-    for (const e of calEvents) {
-      const dur = Math.max(0, Math.floor((new Date(e.ends_at).getTime() - new Date(e.starts_at).getTime()) / 1000));
-      out.push({ id: `cal:${e.id}`, started_at: e.starts_at, duration_seconds: dur, course_id: e.course_id, task_id: null });
-    }
     for (const s of sessionRows) {
-      if (s.completed) continue; // completed sessions already produced a time_entries row
+      if (s.completed) continue;
       const start = s.actual_start ?? s.planned_start;
       const end = s.actual_end ?? s.planned_end;
       const dur = Math.max(0, Math.floor((new Date(end).getTime() - new Date(start).getTime()) / 1000));
       out.push({ id: `sess:${s.id}`, started_at: start, duration_seconds: dur, course_id: s.course_id, task_id: null });
     }
     return out;
-  }, [calEvents, sessionRows]);
+  }, [sessionRows]);
 
   const combined = useMemo(() => [...entries, ...derivedEntries], [entries, derivedEntries]);
 

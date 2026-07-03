@@ -79,6 +79,8 @@ export async function syncGoogleCalendarForUser(
     course_id: string | null;
   };
   const rows: EventRow[] = [];
+  const seenSessionIds = new Set<string>();
+  const seenEventIds = new Set<string>();
   let sessions = 0;
   let mapped = 0;
   let unmapped = 0;
@@ -111,6 +113,7 @@ export async function syncGoogleCalendarForUser(
       const isSession = isTaggedSession || !!t.counts_as_study;
 
       if (isSession) {
+        seenSessionIds.add(ev.id);
         const code = parseCourseCode(title);
         const courseId = code ? codeMap.get(code) ?? null : null;
         const { data: existing } = await supabase
@@ -129,7 +132,6 @@ export async function syncGoogleCalendarForUser(
           google_event_id: ev.id,
         };
         if (existing) {
-          // Uppdatera tider/text men rör inte needs_review, course_id eller kopplade uppgifter
           const { error } = await supabase
             .from("study_sessions")
             .update(base)
@@ -144,6 +146,7 @@ export async function syncGoogleCalendarForUser(
         continue;
       }
 
+      seenEventIds.add(ev.id);
       const code = parseCourseCode(title);
       const courseId = code ? codeMap.get(code) ?? null : null;
       if (courseId) mapped++;
@@ -171,6 +174,37 @@ export async function syncGoogleCalendarForUser(
       .upsert(rows, { onConflict: "user_id,external_id", count: "exact" });
     if (error) throw new Error(error.message);
     imported = count ?? rows.length;
+  }
+
+  // Google är källan – ta bort pass/event som inte längre finns där inom synkfönstret.
+  const inList = (ids: string[]) =>
+    `(${ids.map((id) => `"${id.replace(/"/g, "")}"`).join(",")})`;
+
+  {
+    let q = supabase
+      .from("study_sessions")
+      .delete()
+      .eq("user_id", userId)
+      .eq("source", "google")
+      .gte("planned_start", timeMin)
+      .lte("planned_start", timeMax);
+    if (seenSessionIds.size > 0) {
+      q = q.not("google_event_id", "in", inList(Array.from(seenSessionIds)));
+    }
+    await q;
+  }
+  {
+    let q = supabase
+      .from("calendar_events")
+      .delete()
+      .eq("user_id", userId)
+      .eq("source", "google")
+      .gte("starts_at", timeMin)
+      .lte("starts_at", timeMax);
+    if (seenEventIds.size > 0) {
+      q = q.not("external_id", "in", inList(Array.from(seenEventIds)));
+    }
+    await q;
   }
 
   return {

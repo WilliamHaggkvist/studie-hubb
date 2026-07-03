@@ -87,19 +87,6 @@ function TimePage() {
     },
   });
 
-  const { data: calEvents = [] } = useQuery({
-    queryKey: ["calendar_events", "study"],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("calendar_events")
-        .select("id,course_id,starts_at,ends_at,counts_as_study")
-        .eq("counts_as_study", true)
-        .order("starts_at", { ascending: false })
-        .limit(1000);
-      return (data ?? []) as { id: string; course_id: string | null; starts_at: string; ends_at: string; counts_as_study: boolean }[];
-    },
-  });
-
   // Date range for period
   const cutoffDate = useMemo(() => {
     if (period === "week") return startOfWeek(new Date(), { weekStartsOn: 1 });
@@ -111,22 +98,18 @@ function TimePage() {
   const sessionsInPeriod = allSessions.filter(
     (s) => new Date(s.planned_start).getTime() >= cutoff,
   );
-  const calInPeriod = calEvents.filter((e) => new Date(e.starts_at).getTime() >= cutoff);
 
   const sessionSeconds = (s: SessionAgg): number => {
     const start = s.actual_start ? new Date(s.actual_start) : new Date(s.planned_start);
     const end = s.actual_end ? new Date(s.actual_end) : new Date(s.planned_end);
     return Math.max(0, Math.floor((end.getTime() - start.getTime()) / 1000));
   };
-  const calSeconds = (e: { starts_at: string; ends_at: string }): number =>
-    Math.max(0, Math.floor((new Date(e.ends_at).getTime() - new Date(e.starts_at).getTime()) / 1000));
 
   const entrySeconds = inPeriod.reduce((s, e) => s + (e.duration_seconds ?? 0), 0);
-  // Avoid double-count: completed sessions insert time_entries with source="session".
+  // Undvik dubbelräkning: genomförda pass skapar time_entries med source="session".
   const sessionsOnly = sessionsInPeriod.filter((s) => !s.completed);
   const sessionSecs = sessionsOnly.reduce((s, x) => s + sessionSeconds(x), 0);
-  const calSecs = calInPeriod.reduce((s, e) => s + calSeconds(e), 0);
-  const totalPeriod = entrySeconds + sessionSecs + calSecs;
+  const totalPeriod = entrySeconds + sessionSecs;
 
   const byCourse = useMemo(() => {
     const m = new Map<string, number>();
@@ -138,17 +121,13 @@ function TimePage() {
       const key = s.course_id ?? "__none__";
       m.set(key, (m.get(key) ?? 0) + sessionSeconds(s));
     }
-    for (const e of calInPeriod) {
-      const key = e.course_id ?? "__none__";
-      m.set(key, (m.get(key) ?? 0) + calSeconds(e));
-    }
     return Array.from(m.entries())
       .map(([id, secs]) => {
         const c = courses.find((cc) => cc.id === id);
         return { id, name: c?.name ?? "Ingen kurs", color: c?.color ?? "#64748b", hours: +(secs / 3600).toFixed(2), seconds: secs };
       })
       .sort((a, b) => b.hours - a.hours);
-  }, [inPeriod, sessionsOnly, calInPeriod, courses]);
+  }, [inPeriod, sessionsOnly, courses]);
 
 
 
@@ -308,30 +287,6 @@ function SessionsPanel({ courses, allTasks }: { courses: Course[]; allTasks: Tas
     },
   });
 
-  const { data: calSessions = [] } = useQuery({
-    queryKey: ["calendar_events", "as-sessions"],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("calendar_events")
-        .select("id,course_id,title,location,starts_at,ends_at,counts_as_study")
-        .eq("counts_as_study", true)
-        .order("starts_at", { ascending: false })
-        .limit(200);
-      const now = Date.now();
-      return (data ?? []).map((e): Session => ({
-        id: `cal:${e.id}`,
-        course_id: e.course_id,
-        planned_start: e.starts_at,
-        planned_end: e.ends_at,
-        actual_start: null,
-        actual_end: null,
-        notes: [e.title, e.location].filter(Boolean).join(" · ") || null,
-        completed: new Date(e.ends_at).getTime() < now,
-        source: "calendar",
-        needs_review: false,
-      }));
-    },
-  });
 
   const { data: sessionTasks = [] } = useQuery({
     queryKey: ["study_session_tasks"],
@@ -423,12 +378,8 @@ function SessionsPanel({ courses, allTasks }: { courses: Course[]; allTasks: Tas
 
   const inbox = sessions.filter((s) => s.needs_review);
   const reviewed = sessions.filter((s) => !s.needs_review);
-  const merged = [...reviewed, ...calSessions].sort(
-    (a, b) => new Date(b.planned_start).getTime() - new Date(a.planned_start).getTime(),
-  );
-  const planned = merged.filter((s) => !s.completed);
-  const completed = merged.filter((s) => s.completed);
-  const isReadonly = (s: Session) => s.id.startsWith("cal:");
+  const planned = reviewed.filter((s) => !s.completed);
+  const completed = reviewed.filter((s) => s.completed);
 
 
   return (
@@ -464,7 +415,7 @@ function SessionsPanel({ courses, allTasks }: { courses: Course[]; allTasks: Tas
         </div>
       )}
 
-      {merged.length === 0 && inbox.length === 0 && (
+      {reviewed.length === 0 && inbox.length === 0 && (
         <div className="rounded-xl border border-dashed border-border/60 bg-surface/40 p-12 text-center">
           <div className="mx-auto mb-3 text-muted-foreground"><CalendarPlus className="h-8 w-8 mx-auto" /></div>
           <div className="font-display text-lg">Inga studiepass än</div>
@@ -478,9 +429,8 @@ function SessionsPanel({ courses, allTasks }: { courses: Course[]; allTasks: Tas
           <div className="space-y-2">
             {planned.map((s) => (
               <SessionRow key={s.id} s={s} courses={courses} allTasks={allTasks} sessionTasks={sessionTasks}
-                onComplete={isReadonly(s) ? undefined : () => complete.mutate(s.id)}
-                onDelete={isReadonly(s) ? undefined : () => remove.mutate(s.id)}
-                fromCalendar={isReadonly(s)}
+                onComplete={() => complete.mutate(s.id)}
+                onDelete={() => remove.mutate(s.id)}
               />
             ))}
           </div>
@@ -493,8 +443,7 @@ function SessionsPanel({ courses, allTasks }: { courses: Course[]; allTasks: Tas
           <div className="space-y-2 opacity-80">
             {completed.map((s) => (
               <SessionRow key={s.id} s={s} courses={courses} allTasks={allTasks} sessionTasks={sessionTasks}
-                onDelete={isReadonly(s) ? undefined : () => remove.mutate(s.id)}
-                fromCalendar={isReadonly(s)}
+                onDelete={() => remove.mutate(s.id)}
               />
             ))}
           </div>
@@ -592,10 +541,10 @@ function InboxRow({
 }
 
 function SessionRow({
-  s, courses, allTasks, sessionTasks, onComplete, onDelete, fromCalendar,
+  s, courses, allTasks, sessionTasks, onComplete, onDelete,
 }: {
   s: Session; courses: Course[]; allTasks: Task[]; sessionTasks: SessionTask[];
-  onComplete?: () => void; onDelete?: () => void; fromCalendar?: boolean;
+  onComplete?: () => void; onDelete?: () => void;
 }) {
   const c = courses.find((cc) => cc.id === s.course_id);
   const tids = sessionTasks.filter((st) => st.session_id === s.id).map((st) => st.task_id);
@@ -610,9 +559,6 @@ function SessionRow({
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-baseline gap-2">
           <div className="font-medium">{c?.name ?? "Studiepass"}</div>
-          {fromCalendar && (
-            <span className="rounded bg-surface-2 px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">Kalender</span>
-          )}
           <div className="text-xs text-muted-foreground">
             {format(start, "EEE d MMM · HH:mm", { locale: sv })}–{format(end, "HH:mm")} ({formatHoursCompact(dur)})
           </div>
