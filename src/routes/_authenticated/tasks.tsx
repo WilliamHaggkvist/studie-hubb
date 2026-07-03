@@ -14,6 +14,7 @@ import { format, parseISO, differenceInCalendarDays } from "date-fns";
 import { sv } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { coursesQuery } from "@/lib/queries";
 import {
   DndContext,
   type DragEndEvent,
