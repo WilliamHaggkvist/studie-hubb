@@ -516,7 +516,7 @@ function SessionsPanel({ courses, allTasks }: { courses: Course[]; allTasks: Tas
         </Dialog>
       </div>
 
-      {sessions.length === 0 && (
+      {merged.length === 0 && (
         <EmptyState icon={<CalendarPlus className="h-8 w-8" />} title="Inga studiepass än" text="Planera ett pass för att komma igång." />
       )}
 
@@ -526,8 +526,9 @@ function SessionsPanel({ courses, allTasks }: { courses: Course[]; allTasks: Tas
           <div className="space-y-2">
             {planned.map((s) => (
               <SessionRow key={s.id} s={s} courses={courses} allTasks={allTasks} sessionTasks={sessionTasks}
-                onComplete={() => complete.mutate(s.id)}
-                onDelete={() => remove.mutate(s.id)}
+                onComplete={isReadonly(s) ? undefined : () => complete.mutate(s.id)}
+                onDelete={isReadonly(s) ? undefined : () => remove.mutate(s.id)}
+                fromCalendar={isReadonly(s)}
               />
             ))}
           </div>
@@ -540,12 +541,14 @@ function SessionsPanel({ courses, allTasks }: { courses: Course[]; allTasks: Tas
           <div className="space-y-2 opacity-80">
             {completed.map((s) => (
               <SessionRow key={s.id} s={s} courses={courses} allTasks={allTasks} sessionTasks={sessionTasks}
-                onDelete={() => remove.mutate(s.id)}
+                onDelete={isReadonly(s) ? undefined : () => remove.mutate(s.id)}
+                fromCalendar={isReadonly(s)}
               />
             ))}
           </div>
         </div>
       )}
+
     </div>
   );
 }
