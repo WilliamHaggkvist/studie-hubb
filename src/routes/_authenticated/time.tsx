@@ -415,7 +415,7 @@ function SessionsPanel({ courses, allTasks }: { courses: Course[]; allTasks: Tas
         </div>
       )}
 
-      {merged.length === 0 && inbox.length === 0 && (
+      {reviewed.length === 0 && inbox.length === 0 && (
         <div className="rounded-xl border border-dashed border-border/60 bg-surface/40 p-12 text-center">
           <div className="mx-auto mb-3 text-muted-foreground"><CalendarPlus className="h-8 w-8 mx-auto" /></div>
           <div className="font-display text-lg">Inga studiepass än</div>
@@ -429,9 +429,8 @@ function SessionsPanel({ courses, allTasks }: { courses: Course[]; allTasks: Tas
           <div className="space-y-2">
             {planned.map((s) => (
               <SessionRow key={s.id} s={s} courses={courses} allTasks={allTasks} sessionTasks={sessionTasks}
-                onComplete={isReadonly(s) ? undefined : () => complete.mutate(s.id)}
-                onDelete={isReadonly(s) ? undefined : () => remove.mutate(s.id)}
-                fromCalendar={isReadonly(s)}
+                onComplete={() => complete.mutate(s.id)}
+                onDelete={() => remove.mutate(s.id)}
               />
             ))}
           </div>
@@ -444,8 +443,7 @@ function SessionsPanel({ courses, allTasks }: { courses: Course[]; allTasks: Tas
           <div className="space-y-2 opacity-80">
             {completed.map((s) => (
               <SessionRow key={s.id} s={s} courses={courses} allTasks={allTasks} sessionTasks={sessionTasks}
-                onDelete={isReadonly(s) ? undefined : () => remove.mutate(s.id)}
-                fromCalendar={isReadonly(s)}
+                onDelete={() => remove.mutate(s.id)}
               />
             ))}
           </div>
