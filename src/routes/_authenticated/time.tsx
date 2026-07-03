@@ -343,6 +343,7 @@ function SessionsPanel({ courses, allTasks }: { courses: Course[]; allTasks: Tas
         notes: [e.title, e.location].filter(Boolean).join(" · ") || null,
         completed: new Date(e.ends_at).getTime() < now,
         source: "calendar",
+        needs_review: false,
       }));
     },
   });
