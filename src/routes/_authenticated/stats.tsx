@@ -114,6 +114,13 @@ function StatsPage() {
 
   const combined = useMemo(() => [...entries, ...derivedEntries], [entries, derivedEntries]);
 
+  const { data: tasks = [] } = useQuery({
+    queryKey: ["stats", "tasks"],
+    queryFn: async () => {
+      const { data } = await supabase.from("tasks").select("id,title,status,course_id");
+      return (data ?? []) as Task[];
+    },
+  });
 
   const { data: sessionsCount = 0 } = useQuery({
     queryKey: ["stats", "sessions", range.start.toISOString(), range.end.toISOString()],
@@ -133,7 +140,7 @@ function StatsPage() {
     const row: Record<string, number | string> = { day: format(d, "d/M", { locale: sv }) };
     let total = 0;
     for (const c of courses) {
-      const h = entries.filter((e) => e.course_id === c.id && e.started_at >= startOfDay(d).toISOString() && e.started_at <= endOfDay(d).toISOString())
+      const h = combined.filter((e) => e.course_id === c.id && e.started_at >= startOfDay(d).toISOString() && e.started_at <= endOfDay(d).toISOString())
         .reduce((s, e) => s + (e.duration_seconds ?? 0), 0) / 3600;
       row[c.id] = +h.toFixed(2);
       total += h;
@@ -145,9 +152,9 @@ function StatsPage() {
   const perCourse = courses.map((c) => ({
     name: c.name,
     color: c.color,
-    value: +(entries.filter((e) => e.course_id === c.id).reduce((s, e) => s + (e.duration_seconds ?? 0), 0) / 3600).toFixed(2),
+    value: +(combined.filter((e) => e.course_id === c.id).reduce((s, e) => s + (e.duration_seconds ?? 0), 0) / 3600).toFixed(2),
   })).filter((r) => r.value > 0);
-  const noCourseHours = +(entries.filter((e) => !e.course_id).reduce((s, e) => s + (e.duration_seconds ?? 0), 0) / 3600).toFixed(2);
+  const noCourseHours = +(combined.filter((e) => !e.course_id).reduce((s, e) => s + (e.duration_seconds ?? 0), 0) / 3600).toFixed(2);
   if (noCourseHours > 0) perCourse.push({ name: "Övrigt", color: "#94A3B8", value: noCourseHours });
 
   const perTask = (() => {
@@ -166,8 +173,9 @@ function StatsPage() {
       .slice(0, 10);
   })();
 
-  const totalSec = entries.reduce((s, e) => s + (e.duration_seconds ?? 0), 0);
+  const totalSec = combined.reduce((s, e) => s + (e.duration_seconds ?? 0), 0);
   const avgPerDay = totalSec / totalDays;
+
 
   const statusCounts = {
     not_started: tasks.filter((t) => t.status === "not_started").length,
