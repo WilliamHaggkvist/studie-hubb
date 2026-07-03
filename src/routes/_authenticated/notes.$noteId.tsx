@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { sv } from "date-fns/locale";
 
-export const Route = createFileRoute("/_authenticated/pages/$pageId")({
+export const Route = createFileRoute("/_authenticated/notes/$noteId")({
   component: PageDetail,
 });
 
