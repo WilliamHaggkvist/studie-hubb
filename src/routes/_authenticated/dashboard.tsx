@@ -15,7 +15,6 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
 
 type TimeEntry = { id: string; started_at: string; duration_seconds: number | null; course_id: string | null };
 type Session = { id: string; planned_start: string; planned_end: string; completed: boolean; course_id: string | null };
-type TermRow = { year: number; term: "host" | "var" | "sommar"; start_date: string; end_date: string };
 
 function todayPeriod(terms: TermRow[]): TermRow["term"] | null {
   const today = new Date().toISOString().slice(0, 10);
@@ -25,7 +24,6 @@ function todayPeriod(terms: TermRow[]): TermRow["term"] | null {
 
 function periodMatches(coursePeriod: string | null, activePeriod: TermRow["term"] | null): boolean {
   if (!activePeriod || !coursePeriod) return true;
-  // coursePeriod values include hosttermin/vartermin/period-1..4/helar etc
   if (coursePeriod === "helar") return true;
   if (activePeriod === "host" && (coursePeriod.startsWith("host") || coursePeriod === "period-1" || coursePeriod === "period-2")) return true;
   if (activePeriod === "var" && (coursePeriod.startsWith("var") || coursePeriod === "period-3" || coursePeriod === "period-4")) return true;
@@ -40,21 +38,12 @@ function Dashboard() {
   const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
   const weekEnd = endOfWeek(new Date(), { weekStartsOn: 1 });
 
-  const { data: courses = [] } = useQuery({
-    queryKey: ["courses"],
-    queryFn: async () => {
-      const { data } = await supabase.from("courses").select("id,name,color,icon,arskurs,period,weekly_goal_hours").eq("archived", false);
-      return (data ?? []) as Course[];
-    },
-  });
-
-  const { data: terms = [] } = useQuery({
-    queryKey: ["term_dates"],
-    queryFn: async () => {
-      const { data } = await supabase.from("term_dates").select("year,term,start_date,end_date");
-      return (data ?? []) as TermRow[];
-    },
-  });
+  const { data: allCourses = [] } = useQuery(coursesQuery);
+  const courses = allCourses.filter((c) => !c.archived);
+  const { data: terms = [] } = useQuery(termsQuery);
+  const { data: allTasks = [] } = useQuery(tasksQuery);
+  const openTasks = allTasks.filter((t) => t.status !== "done");
+  const pendingReview = allTasks.filter((t) => t.pending_review && t.status !== "done");
 
   const activePeriod = todayPeriod(terms);
   const activeCourses = courses.filter((c) =>
@@ -62,29 +51,6 @@ function Dashboard() {
     periodMatches(c.period, activePeriod),
   );
 
-  const { data: openTasks = [] } = useQuery({
-    queryKey: ["tasks", "open"],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("tasks")
-        .select("id,title,due_at,status,course_id,task_kind,pending_review")
-        .neq("status", "done")
-        .order("due_at", { ascending: true, nullsFirst: false });
-      return (data ?? []) as TaskLite[];
-    },
-  });
-
-  const { data: pendingReview = [] } = useQuery({
-    queryKey: ["tasks", "pending_review"],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("tasks")
-        .select("id,title,due_at,status,course_id,task_kind,pending_review")
-        .eq("pending_review", true)
-        .neq("status", "done");
-      return (data ?? []) as TaskLite[];
-    },
-  });
 
   const { data: weekEntries = [] } = useQuery({
     queryKey: ["time_entries", "week", weekStart.toISOString()],
