@@ -105,6 +105,19 @@ function CoursesPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["courses"] }),
   });
 
+  const remove = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("courses").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["courses"] });
+      qc.invalidateQueries({ queryKey: ["courses", "all"] });
+      toast.success("Kurs borttagen");
+    },
+    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Fel"),
+  });
+
   const active = courses.filter((c) => !c.archived);
   const archived = courses.filter((c) => c.archived);
 
