@@ -471,7 +471,7 @@ function TimerWidget() {
       duration_seconds: duration,
       source: "timer",
     };
-    const rows =
+    const rows: Array<typeof base & { task_id: string | null }> =
       prev.taskIds.length > 0
         ? prev.taskIds.map((task_id) => ({ ...base, task_id }))
         : [{ ...base, task_id: null }];
