@@ -1,17 +1,21 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useState } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { formatDuration, formatHoursCompact } from "@/lib/timer-store";
-import { format, parseISO, startOfDay, isSameDay } from "date-fns";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { timerStore, formatDuration, formatHoursCompact } from "@/lib/timer-store";
+import { format, parseISO, startOfDay, isSameDay, subDays } from "date-fns";
 import { sv } from "date-fns/locale";
-import { Plus, Trash2, Clock } from "lucide-react";
+import { Plus, Trash2, Clock, Play, Square, CheckCircle2, CalendarPlus } from "lucide-react";
 import { toast } from "sonner";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/time")({
   component: TimePage,
@@ -28,20 +32,36 @@ type Entry = {
   source: string;
 };
 type Course = { id: string; name: string; color: string };
+type Task = { id: string; title: string; course_id: string | null; status: string };
+type Session = {
+  id: string;
+  course_id: string | null;
+  planned_start: string;
+  planned_end: string;
+  actual_start: string | null;
+  actual_end: string | null;
+  notes: string | null;
+  completed: boolean;
+  source: string;
+};
+type SessionTask = { session_id: string; task_id: string };
 
 function TimePage() {
-  const qc = useQueryClient();
-  const [open, setOpen] = useState(false);
-  const [courseId, setCourseId] = useState("none");
-  const [description, setDescription] = useState("");
-  const [startedAt, setStartedAt] = useState("");
-  const [endedAt, setEndedAt] = useState("");
+  const [period, setPeriod] = useState<"7" | "30">("7");
 
   const { data: courses = [] } = useQuery({
     queryKey: ["courses"],
     queryFn: async () => {
       const { data } = await supabase.from("courses").select("id,name,color").eq("archived", false);
       return (data ?? []) as Course[];
+    },
+  });
+
+  const { data: allTasks = [] } = useQuery({
+    queryKey: ["tasks", "all-min"],
+    queryFn: async () => {
+      const { data } = await supabase.from("tasks").select("id,title,course_id,status");
+      return (data ?? []) as Task[];
     },
   });
 
@@ -53,33 +73,558 @@ function TimePage() {
         .select("id,course_id,task_id,description,started_at,ended_at,duration_seconds,source")
         .not("duration_seconds", "is", null)
         .order("started_at", { ascending: false })
-        .limit(100);
+        .limit(200);
       return (data ?? []) as Entry[];
     },
   });
+
+  // Summary aggregations
+  const cutoff = Date.now() - Number(period) * 24 * 3600 * 1000;
+  const inPeriod = entries.filter((e) => new Date(e.started_at).getTime() > cutoff);
+  const totalPeriod = inPeriod.reduce((s, e) => s + (e.duration_seconds ?? 0), 0);
+
+  const byCourse = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const e of inPeriod) {
+      const key = e.course_id ?? "__none__";
+      m.set(key, (m.get(key) ?? 0) + (e.duration_seconds ?? 0));
+    }
+    return Array.from(m.entries())
+      .map(([id, secs]) => {
+        const c = courses.find((cc) => cc.id === id);
+        return { id, name: c?.name ?? "Ingen kurs", color: c?.color ?? "#64748b", hours: +(secs / 3600).toFixed(2) };
+      })
+      .sort((a, b) => b.hours - a.hours);
+  }, [inPeriod, courses]);
+
+  const byTask = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const e of inPeriod) {
+      if (!e.task_id) continue;
+      m.set(e.task_id, (m.get(e.task_id) ?? 0) + (e.duration_seconds ?? 0));
+    }
+    return Array.from(m.entries())
+      .map(([id, secs]) => {
+        const t = allTasks.find((tt) => tt.id === id);
+        return { id, title: t?.title ?? "Uppgift borttagen", seconds: secs };
+      })
+      .sort((a, b) => b.seconds - a.seconds)
+      .slice(0, 5);
+  }, [inPeriod, allTasks]);
+
+  return (
+    <div className="mx-auto max-w-6xl px-4 py-8 lg:px-8">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="font-display text-3xl font-bold tracking-tight">Studietid</h1>
+          <p className="text-sm text-muted-foreground">
+            <span className="text-sunset-amber">{formatHoursCompact(totalPeriod)}</span> senaste{" "}
+            {period === "7" ? "7" : "30"} dagarna
+          </p>
+        </div>
+        <Select value={period} onValueChange={(v) => setPeriod(v as "7" | "30")}>
+          <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="7">Senaste 7 dagar</SelectItem>
+            <SelectItem value="30">Senaste 30 dagar</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Summary */}
+      <div className="mb-8 grid gap-4 md:grid-cols-2">
+        <div className="rounded-xl border border-border/60 bg-surface/40 p-4">
+          <div className="mb-2 font-display text-sm font-semibold">Tid per kurs</div>
+          {byCourse.length === 0 ? (
+            <div className="py-6 text-center text-sm text-muted-foreground">Ingen tid loggad</div>
+          ) : (
+            <div className="h-48">
+              <ResponsiveContainer>
+                <BarChart data={byCourse} layout="vertical" margin={{ left: 8, right: 12, top: 4, bottom: 4 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" horizontal={false} />
+                  <XAxis type="number" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" unit="h" />
+                  <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" width={100} />
+                  <Tooltip
+                    cursor={{ fill: "hsl(var(--accent))" }}
+                    contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }}
+                    formatter={(v: number) => [`${v} h`, "Tid"]}
+                  />
+                  <Bar dataKey="hours" radius={[0, 4, 4, 0]}>
+                    {byCourse.map((c) => <cell key={c.id} />)}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </div>
+        <div className="rounded-xl border border-border/60 bg-surface/40 p-4">
+          <div className="mb-2 font-display text-sm font-semibold">Toppuppgifter</div>
+          {byTask.length === 0 ? (
+            <div className="py-6 text-center text-sm text-muted-foreground">Ingen tid loggad på uppgifter</div>
+          ) : (
+            <div className="space-y-2">
+              {byTask.map((t) => {
+                const pct = totalPeriod > 0 ? (t.seconds / totalPeriod) * 100 : 0;
+                return (
+                  <div key={t.id}>
+                    <div className="mb-1 flex items-baseline justify-between gap-2">
+                      <div className="truncate text-sm">{t.title}</div>
+                      <div className="font-mono tabular-nums text-xs text-muted-foreground">
+                        {formatHoursCompact(t.seconds)}
+                      </div>
+                    </div>
+                    <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+                      <div className="h-full gradient-sunset" style={{ width: `${pct}%` }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <Tabs defaultValue="sessions" className="w-full">
+        <TabsList>
+          <TabsTrigger value="sessions">Studiepass</TabsTrigger>
+          <TabsTrigger value="timer">Timer</TabsTrigger>
+          <TabsTrigger value="manual">Manuellt</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="sessions" className="mt-4">
+          <SessionsPanel courses={courses} allTasks={allTasks} />
+        </TabsContent>
+
+        <TabsContent value="timer" className="mt-4">
+          <TimerPanel courses={courses} allTasks={allTasks} />
+        </TabsContent>
+
+        <TabsContent value="manual" className="mt-4">
+          <ManualPanel courses={courses} allTasks={allTasks} entries={entries} />
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+
+/* ============================== Studiepass ============================== */
+
+function SessionsPanel({ courses, allTasks }: { courses: Course[]; allTasks: Task[] }) {
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [courseId, setCourseId] = useState("none");
+  const [taskIds, setTaskIds] = useState<string[]>([]);
+  const [plannedStart, setPlannedStart] = useState("");
+  const [plannedEnd, setPlannedEnd] = useState("");
+  const [notes, setNotes] = useState("");
+
+  const { data: sessions = [] } = useQuery({
+    queryKey: ["study_sessions"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("study_sessions")
+        .select("id,course_id,planned_start,planned_end,actual_start,actual_end,notes,completed,source")
+        .order("planned_start", { ascending: false })
+        .limit(50);
+      return (data ?? []) as Session[];
+    },
+  });
+
+  const { data: sessionTasks = [] } = useQuery({
+    queryKey: ["study_session_tasks"],
+    queryFn: async () => {
+      const { data } = await supabase.from("study_session_tasks").select("session_id,task_id");
+      return (data ?? []) as SessionTask[];
+    },
+  });
+
+  const availableTasks = courseId === "none" ? [] : allTasks.filter((t) => t.course_id === courseId && t.status !== "done");
 
   const create = useMutation({
     mutationFn: async () => {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) throw new Error("no user");
-      const s = new Date(startedAt);
-      const e = new Date(endedAt);
-      const dur = Math.max(0, Math.floor((e.getTime() - s.getTime()) / 1000));
-      const { error } = await supabase.from("time_entries").insert({
+      const { data: s, error } = await supabase
+        .from("study_sessions")
+        .insert({
+          user_id: u.user.id,
+          course_id: courseId === "none" ? null : courseId,
+          planned_start: new Date(plannedStart).toISOString(),
+          planned_end: new Date(plannedEnd).toISOString(),
+          notes: notes.trim() || null,
+          source: "local",
+        })
+        .select("id")
+        .single();
+      if (error) throw error;
+      if (taskIds.length > 0 && s) {
+        const rows = taskIds.map((task_id) => ({ user_id: u.user!.id, session_id: s.id, task_id }));
+        const { error: e2 } = await supabase.from("study_session_tasks").insert(rows);
+        if (e2) throw e2;
+      }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["study_sessions"] });
+      qc.invalidateQueries({ queryKey: ["study_session_tasks"] });
+      setOpen(false); setCourseId("none"); setTaskIds([]); setPlannedStart(""); setPlannedEnd(""); setNotes("");
+      toast.success("Studiepass skapat");
+    },
+    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Fel"),
+  });
+
+  const complete = useMutation({
+    mutationFn: async (sessionId: string) => {
+      const s = sessions.find((x) => x.id === sessionId);
+      if (!s) return;
+      const { data: u } = await supabase.auth.getUser();
+      if (!u.user) throw new Error("no user");
+      const start = s.actual_start ? new Date(s.actual_start) : new Date(s.planned_start);
+      const end = s.actual_end ? new Date(s.actual_end) : new Date(s.planned_end);
+      const duration = Math.max(0, Math.floor((end.getTime() - start.getTime()) / 1000));
+
+      const tids = sessionTasks.filter((st) => st.session_id === s.id).map((st) => st.task_id);
+      const base = {
+        user_id: u.user.id,
+        course_id: s.course_id,
+        description: s.notes,
+        started_at: start.toISOString(),
+        ended_at: end.toISOString(),
+        duration_seconds: duration,
+        source: "session",
+      };
+      const rows: Array<typeof base & { task_id: string | null }> =
+        tids.length > 0 ? tids.map((task_id) => ({ ...base, task_id })) : [{ ...base, task_id: null }];
+      const { error: eIns } = await supabase.from("time_entries").insert(rows);
+      if (eIns) throw eIns;
+
+      const { error: eUpd } = await supabase
+        .from("study_sessions")
+        .update({
+          completed: true,
+          actual_start: start.toISOString(),
+          actual_end: end.toISOString(),
+        })
+        .eq("id", s.id);
+      if (eUpd) throw eUpd;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["study_sessions"] });
+      qc.invalidateQueries({ queryKey: ["time_entries"] });
+      toast.success("Pass markerat som genomfört");
+    },
+    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Fel"),
+  });
+
+  const remove = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("study_sessions").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["study_sessions"] }),
+  });
+
+  const planned = sessions.filter((s) => !s.completed);
+  const completed = sessions.filter((s) => s.completed);
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div className="text-sm text-muted-foreground">
+          {planned.length} planerade · {completed.length} genomförda
+        </div>
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogTrigger asChild>
+            <Button className="gap-1 gradient-sunset text-white hover:opacity-90">
+              <CalendarPlus className="h-4 w-4" /> Nytt pass
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader><DialogTitle className="font-display">Nytt studiepass</DialogTitle></DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2"><Label>Kurs</Label>
+                <Select value={courseId} onValueChange={(v) => { setCourseId(v); setTaskIds([]); }}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Ingen kurs</SelectItem>
+                    {courses.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              {availableTasks.length > 0 && (
+                <div className="space-y-2">
+                  <Label>Uppgifter (valfritt)</Label>
+                  <div className="max-h-40 space-y-1 overflow-y-auto rounded-md border border-border/60 p-2">
+                    {availableTasks.map((t) => {
+                      const checked = taskIds.includes(t.id);
+                      return (
+                        <label key={t.id} className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 text-sm hover:bg-accent">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={(e) =>
+                              setTaskIds((prev) => (e.target.checked ? [...prev, t.id] : prev.filter((id) => id !== t.id)))
+                            }
+                          />
+                          <span className="truncate">{t.title}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2"><Label>Start</Label><Input type="datetime-local" value={plannedStart} onChange={(e) => setPlannedStart(e.target.value)} /></div>
+                <div className="space-y-2"><Label>Slut</Label><Input type="datetime-local" value={plannedEnd} onChange={(e) => setPlannedEnd(e.target.value)} /></div>
+              </div>
+              <div className="space-y-2"><Label>Anteckning</Label><Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} /></div>
+            </div>
+            <DialogFooter>
+              <Button variant="ghost" onClick={() => setOpen(false)}>Avbryt</Button>
+              <Button disabled={!plannedStart || !plannedEnd} onClick={() => create.mutate()} className="gradient-sunset text-white hover:opacity-90">Spara</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {sessions.length === 0 && (
+        <EmptyState icon={<CalendarPlus className="h-8 w-8" />} title="Inga studiepass än" text="Planera ett pass för att komma igång." />
+      )}
+
+      {planned.length > 0 && (
+        <div>
+          <div className="mb-2 font-display text-sm font-semibold">Planerade</div>
+          <div className="space-y-2">
+            {planned.map((s) => (
+              <SessionRow key={s.id} s={s} courses={courses} allTasks={allTasks} sessionTasks={sessionTasks}
+                onComplete={() => complete.mutate(s.id)}
+                onDelete={() => remove.mutate(s.id)}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {completed.length > 0 && (
+        <div>
+          <div className="mb-2 font-display text-sm font-semibold text-muted-foreground">Genomförda</div>
+          <div className="space-y-2 opacity-80">
+            {completed.map((s) => (
+              <SessionRow key={s.id} s={s} courses={courses} allTasks={allTasks} sessionTasks={sessionTasks}
+                onDelete={() => remove.mutate(s.id)}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SessionRow({
+  s, courses, allTasks, sessionTasks, onComplete, onDelete,
+}: {
+  s: Session; courses: Course[]; allTasks: Task[]; sessionTasks: SessionTask[];
+  onComplete?: () => void; onDelete: () => void;
+}) {
+  const c = courses.find((cc) => cc.id === s.course_id);
+  const tids = sessionTasks.filter((st) => st.session_id === s.id).map((st) => st.task_id);
+  const titles = tids.map((id) => allTasks.find((t) => t.id === id)?.title).filter(Boolean) as string[];
+  const start = parseISO(s.planned_start);
+  const end = parseISO(s.planned_end);
+  const dur = Math.max(0, Math.floor((end.getTime() - start.getTime()) / 1000));
+
+  return (
+    <div className="group flex items-start gap-3 rounded-xl border border-border/60 bg-surface/40 p-3">
+      <span className="mt-1.5 inline-block h-2 w-2 shrink-0 rounded-full" style={{ background: c?.color ?? "var(--muted-foreground)" }} />
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-baseline gap-2">
+          <div className="font-medium">{c?.name ?? "Studiepass"}</div>
+          <div className="text-xs text-muted-foreground">
+            {format(start, "EEE d MMM · HH:mm", { locale: sv })}–{format(end, "HH:mm")} ({formatHoursCompact(dur)})
+          </div>
+        </div>
+        {titles.length > 0 && (
+          <div className="mt-1 text-xs text-muted-foreground">Uppgifter: {titles.join(", ")}</div>
+        )}
+        {s.notes && <div className="mt-1 text-sm">{s.notes}</div>}
+      </div>
+      <div className="flex items-center gap-1">
+        {onComplete && (
+          <Button size="sm" variant="outline" className="gap-1" onClick={onComplete}>
+            <CheckCircle2 className="h-3.5 w-3.5" /> Genomfört
+          </Button>
+        )}
+        <button onClick={onDelete} className="opacity-0 transition-opacity group-hover:opacity-100">
+          <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ================================ Timer ================================= */
+
+function TimerPanel({ courses, allTasks }: { courses: Course[]; allTasks: Task[] }) {
+  const qc = useQueryClient();
+  const running = useSyncExternalStore(timerStore.subscribe, timerStore.getSnapshot, timerStore.getServerSnapshot);
+  const [now, setNow] = useState(Date.now());
+  const [courseId, setCourseId] = useState("none");
+  const [taskIds, setTaskIds] = useState<string[]>([]);
+  const [description, setDescription] = useState("");
+
+  useEffect(() => {
+    if (!running) return;
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [running]);
+
+  const availableTasks = courseId === "none" ? [] : allTasks.filter((t) => t.course_id === courseId && t.status !== "done");
+
+  async function start() {
+    timerStore.start({ courseId: courseId === "none" ? null : courseId, taskIds, description });
+    setTaskIds([]);
+    toast.success("Timer startad");
+  }
+  async function stop() {
+    const prev = timerStore.stop();
+    if (!prev) return;
+    const startedAt = new Date(prev.startedAt);
+    const endedAt = new Date();
+    const duration = Math.floor((endedAt.getTime() - startedAt.getTime()) / 1000);
+    if (duration < 5) { toast.info("Under 5s – sparades inte"); return; }
+    const { data: u } = await supabase.auth.getUser();
+    if (!u.user) return;
+    const base = {
+      user_id: u.user.id,
+      course_id: prev.courseId,
+      description: prev.description || null,
+      started_at: startedAt.toISOString(),
+      ended_at: endedAt.toISOString(),
+      duration_seconds: duration,
+      source: "timer",
+    };
+    const rows: Array<typeof base & { task_id: string | null }> =
+      prev.taskIds.length > 0
+        ? prev.taskIds.map((task_id) => ({ ...base, task_id }))
+        : [{ ...base, task_id: null }];
+    const { error } = await supabase.from("time_entries").insert(rows);
+    if (error) toast.error(error.message);
+    else {
+      toast.success(`Tid sparad: ${formatDuration(duration)}`);
+      qc.invalidateQueries({ queryKey: ["time_entries"] });
+    }
+  }
+
+  if (running) {
+    const seconds = Math.floor((now - running.startedAt) / 1000);
+    const c = courses.find((cc) => cc.id === running.courseId);
+    const titles = running.taskIds.map((id) => allTasks.find((t) => t.id === id)?.title).filter(Boolean) as string[];
+    return (
+      <div className="rounded-xl border border-border/60 bg-surface/40 p-8 text-center">
+        <div className="font-mono text-5xl tabular-nums">{formatDuration(seconds)}</div>
+        {c && (
+          <div className="mt-3 inline-flex items-center gap-2 text-sm">
+            <span className="inline-block h-2 w-2 rounded-full" style={{ background: c.color }} />
+            {c.name}
+          </div>
+        )}
+        {titles.length > 0 && (
+          <div className="mt-1 text-xs text-muted-foreground">{titles.join(" · ")}</div>
+        )}
+        {running.description && <div className="mt-1 text-sm">{running.description}</div>}
+        <Button variant="destructive" onClick={stop} className="mt-6 gap-1">
+          <Square className="h-4 w-4" /> Stoppa och spara
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-xl border border-border/60 bg-surface/40 p-6">
+      <div className="mx-auto max-w-md space-y-4">
+        <div className="space-y-2"><Label>Kurs</Label>
+          <Select value={courseId} onValueChange={(v) => { setCourseId(v); setTaskIds([]); }}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">Ingen kurs</SelectItem>
+              {courses.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+        {availableTasks.length > 0 && (
+          <div className="space-y-2">
+            <Label>Uppgifter (valfritt)</Label>
+            <div className="max-h-40 space-y-1 overflow-y-auto rounded-md border border-border/60 p-2">
+              {availableTasks.map((t) => {
+                const checked = taskIds.includes(t.id);
+                return (
+                  <label key={t.id} className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 text-sm hover:bg-accent">
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={(e) =>
+                        setTaskIds((prev) => (e.target.checked ? [...prev, t.id] : prev.filter((id) => id !== t.id)))
+                      }
+                    />
+                    <span className="truncate">{t.title}</span>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+        )}
+        <div className="space-y-2"><Label>Beskrivning</Label>
+          <Input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="T.ex. Läsa kap 3" />
+        </div>
+        <Button onClick={start} className="w-full gap-1 gradient-sunset text-white hover:opacity-90">
+          <Play className="h-4 w-4" /> Starta timer
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/* =============================== Manuellt =============================== */
+
+function ManualPanel({
+  courses, allTasks, entries,
+}: {
+  courses: Course[]; allTasks: Task[]; entries: Entry[];
+}) {
+  const qc = useQueryClient();
+  const [courseId, setCourseId] = useState("none");
+  const [taskIds, setTaskIds] = useState<string[]>([]);
+  const [minutes, setMinutes] = useState<string>("");
+  const [date, setDate] = useState(format(new Date(), "yyyy-MM-dd"));
+  const [description, setDescription] = useState("");
+
+  const availableTasks = courseId === "none" ? [] : allTasks.filter((t) => t.course_id === courseId && t.status !== "done");
+
+  const create = useMutation({
+    mutationFn: async () => {
+      const { data: u } = await supabase.auth.getUser();
+      if (!u.user) throw new Error("no user");
+      const mins = Math.max(1, parseInt(minutes, 10) || 0);
+      const start = new Date(`${date}T12:00:00`);
+      const end = new Date(start.getTime() + mins * 60 * 1000);
+      const base = {
         user_id: u.user.id,
         course_id: courseId === "none" ? null : courseId,
         description: description.trim() || null,
-        started_at: s.toISOString(),
-        ended_at: e.toISOString(),
-        duration_seconds: dur,
+        started_at: start.toISOString(),
+        ended_at: end.toISOString(),
+        duration_seconds: mins * 60,
         source: "manual",
-      });
+      };
+      const rows: Array<typeof base & { task_id: string | null }> =
+        taskIds.length > 0 ? taskIds.map((task_id) => ({ ...base, task_id })) : [{ ...base, task_id: null }];
+      const { error } = await supabase.from("time_entries").insert(rows);
       if (error) throw error;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["time_entries"] });
-      setOpen(false); setCourseId("none"); setDescription(""); setStartedAt(""); setEndedAt("");
-      toast.success("Tidspost tillagd");
+      setMinutes(""); setDescription(""); setTaskIds([]);
+      toast.success("Tid tillagd");
     },
     onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Fel"),
   });
@@ -92,7 +637,6 @@ function TimePage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["time_entries"] }),
   });
 
-  // Group by day
   const grouped = new Map<string, Entry[]>();
   for (const e of entries) {
     const key = format(startOfDay(parseISO(e.started_at)), "yyyy-MM-dd");
@@ -101,53 +645,66 @@ function TimePage() {
     grouped.set(key, arr);
   }
 
-  const total7Days = entries
-    .filter((e) => new Date(e.started_at).getTime() > Date.now() - 7 * 24 * 3600 * 1000)
-    .reduce((s, e) => s + (e.duration_seconds ?? 0), 0);
-
   return (
-    <div className="mx-auto max-w-5xl px-4 py-8 lg:px-8">
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="font-display text-3xl font-bold tracking-tight">Tid</h1>
-          <p className="text-sm text-muted-foreground">Historik och manuella tidsposter — <span className="text-sunset-amber">{formatHoursCompact(total7Days)}</span> senaste 7 dagarna.</p>
+    <div className="space-y-6">
+      <div className="rounded-xl border border-border/60 bg-surface/40 p-4">
+        <div className="grid gap-3 md:grid-cols-4">
+          <div className="space-y-1.5"><Label>Kurs</Label>
+            <Select value={courseId} onValueChange={(v) => { setCourseId(v); setTaskIds([]); }}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Ingen kurs</SelectItem>
+                {courses.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5"><Label>Minuter</Label>
+            <Input type="number" min={1} value={minutes} onChange={(e) => setMinutes(e.target.value)} placeholder="60" />
+          </div>
+          <div className="space-y-1.5"><Label>Datum</Label>
+            <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          </div>
+          <div className="flex items-end">
+            <Button
+              disabled={!minutes || parseInt(minutes, 10) < 1}
+              onClick={() => create.mutate()}
+              className="w-full gap-1 gradient-sunset text-white hover:opacity-90"
+            >
+              <Plus className="h-4 w-4" /> Lägg till
+            </Button>
+          </div>
         </div>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button className="gap-1 gradient-sunset text-white hover:opacity-90"><Plus className="h-4 w-4" /> Manuell tid</Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader><DialogTitle className="font-display">Manuell tidspost</DialogTitle></DialogHeader>
-            <div className="space-y-4">
-              <div className="space-y-2"><Label>Kurs</Label>
-                <Select value={courseId} onValueChange={setCourseId}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Ingen kurs</SelectItem>
-                    {courses.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2"><Label>Beskrivning</Label><Input value={description} onChange={(e) => setDescription(e.target.value)} /></div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2"><Label>Start</Label><Input type="datetime-local" value={startedAt} onChange={(e) => setStartedAt(e.target.value)} /></div>
-                <div className="space-y-2"><Label>Slut</Label><Input type="datetime-local" value={endedAt} onChange={(e) => setEndedAt(e.target.value)} /></div>
+        <div className="mt-3 grid gap-3 md:grid-cols-2">
+          <div className="space-y-1.5"><Label>Beskrivning (valfritt)</Label>
+            <Input value={description} onChange={(e) => setDescription(e.target.value)} />
+          </div>
+          {availableTasks.length > 0 && (
+            <div className="space-y-1.5">
+              <Label>Uppgifter (valfritt)</Label>
+              <div className="max-h-24 space-y-1 overflow-y-auto rounded-md border border-border/60 p-2">
+                {availableTasks.map((t) => {
+                  const checked = taskIds.includes(t.id);
+                  return (
+                    <label key={t.id} className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 text-sm hover:bg-accent">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={(e) =>
+                          setTaskIds((prev) => (e.target.checked ? [...prev, t.id] : prev.filter((id) => id !== t.id)))
+                        }
+                      />
+                      <span className="truncate">{t.title}</span>
+                    </label>
+                  );
+                })}
               </div>
             </div>
-            <DialogFooter>
-              <Button variant="ghost" onClick={() => setOpen(false)}>Avbryt</Button>
-              <Button disabled={!startedAt || !endedAt} onClick={() => create.mutate()} className="gradient-sunset text-white hover:opacity-90">Spara</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+          )}
+        </div>
       </div>
 
       {entries.length === 0 && (
-        <div className="rounded-xl border border-dashed border-border/60 bg-surface/40 p-12 text-center">
-          <Clock className="mx-auto mb-3 h-8 w-8 text-muted-foreground" />
-          <div className="font-display text-lg">Ingen tid loggad än</div>
-          <p className="mt-1 text-sm text-muted-foreground">Starta en timer i toppfältet eller lägg till manuellt.</p>
-        </div>
+        <EmptyState icon={<Clock className="h-8 w-8" />} title="Ingen tid loggad än" text="Använd formuläret ovan, timern eller studiepass." />
       )}
 
       <div className="space-y-6">
@@ -165,23 +722,28 @@ function TimePage() {
               <div className="divide-y divide-border/40 overflow-hidden rounded-xl border border-border/60 bg-surface/40">
                 {list.map((e) => {
                   const c = courses.find((cc) => cc.id === e.course_id);
+                  const task = e.task_id ? allTasks.find((t) => t.id === e.task_id) : null;
                   return (
                     <div key={e.id} className="group flex items-center gap-3 px-4 py-2.5 text-sm">
                       <span className="inline-block h-2 w-2 rounded-full" style={{ background: c?.color ?? "var(--muted-foreground)" }} />
                       <div className="min-w-0 flex-1">
-                        <div className="truncate">{e.description || (c?.name ?? "Studietid")}</div>
+                        <div className="truncate">{task?.title || e.description || (c?.name ?? "Studietid")}</div>
                         <div className="text-[11px] text-muted-foreground">
                           {c?.name && `${c.name} • `}
                           {format(parseISO(e.started_at), "HH:mm")}
                           {e.ended_at && `–${format(parseISO(e.ended_at), "HH:mm")}`}
                           {e.source === "manual" && " • manuell"}
-                          {e.source === "calendar" && " • från kalender"}
+                          {e.source === "session" && " • studiepass"}
+                          {e.source === "timer" && " • timer"}
+                          {e.source === "calendar" && " • kalender"}
                         </div>
                       </div>
                       <div className="font-mono tabular-nums text-xs text-muted-foreground">
                         {formatDuration(e.duration_seconds ?? 0)}
                       </div>
-                      <button onClick={() => remove.mutate(e.id)} className="opacity-0 group-hover:opacity-100"><Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" /></button>
+                      <button onClick={() => remove.mutate(e.id)} className="opacity-0 group-hover:opacity-100">
+                        <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
+                      </button>
                     </div>
                   );
                 })}
@@ -190,6 +752,16 @@ function TimePage() {
           );
         })}
       </div>
+    </div>
+  );
+}
+
+function EmptyState({ icon, title, text }: { icon: React.ReactNode; title: string; text: string }) {
+  return (
+    <div className="rounded-xl border border-dashed border-border/60 bg-surface/40 p-12 text-center">
+      <div className="mx-auto mb-3 text-muted-foreground">{icon}</div>
+      <div className="font-display text-lg">{title}</div>
+      <p className="mt-1 text-sm text-muted-foreground">{text}</p>
     </div>
   );
 }
