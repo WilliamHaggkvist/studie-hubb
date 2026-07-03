@@ -94,6 +94,7 @@ function TimePage() {
       const { data } = await supabase
         .from("study_sessions")
         .select("id,course_id,planned_start,planned_end,actual_start,actual_end,completed")
+        .eq("needs_review", false)
         .order("planned_start", { ascending: false })
         .limit(500);
       return (data ?? []) as SessionAgg[];
