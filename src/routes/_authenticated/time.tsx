@@ -448,8 +448,13 @@ function SessionsPanel({ courses, allTasks }: { courses: Course[]; allTasks: Tas
     onSuccess: () => qc.invalidateQueries({ queryKey: ["study_sessions"] }),
   });
 
-  const planned = sessions.filter((s) => !s.completed);
-  const completed = sessions.filter((s) => s.completed);
+  const merged = [...sessions, ...calSessions].sort(
+    (a, b) => new Date(b.planned_start).getTime() - new Date(a.planned_start).getTime(),
+  );
+  const planned = merged.filter((s) => !s.completed);
+  const completed = merged.filter((s) => s.completed);
+  const isReadonly = (s: Session) => s.id.startsWith("cal:");
+
 
   return (
     <div className="space-y-6">
