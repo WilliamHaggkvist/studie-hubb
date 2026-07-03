@@ -190,30 +190,6 @@ function SidebarContent() {
           ))}
         </Section>
 
-        <Section
-          label="Anteckningar"
-          action={
-            <button
-              onClick={() => createPage.mutate(null)}
-              className="rounded p-1 text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
-              title="Ny anteckning"
-            >
-              <Plus className="h-3.5 w-3.5" />
-            </button>
-          }
-        >
-          {rootPages.length === 0 && (
-            <button
-              onClick={() => createPage.mutate(null)}
-              className="mx-2 block w-[calc(100%-1rem)] rounded-md border border-dashed border-sidebar-border px-3 py-2 text-left text-xs text-muted-foreground hover:text-foreground"
-            >
-              + Skapa din första anteckning
-            </button>
-          )}
-          {rootPages.map((p) => (
-            <PageTree key={p.id} page={p} allPages={pages} depth={0} />
-          ))}
-        </Section>
       </div>
 
       <UserFooter />
