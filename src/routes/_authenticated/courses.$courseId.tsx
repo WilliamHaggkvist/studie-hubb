@@ -78,6 +78,7 @@ function CourseDetail() {
     queryFn: async () => {
       const { data } = await supabase.from("study_sessions")
         .select("id,planned_start,planned_end,actual_start,actual_end,completed")
+        .eq("needs_review", false)
         .eq("course_id", courseId)
         .order("planned_start", { ascending: false })
         .limit(10);

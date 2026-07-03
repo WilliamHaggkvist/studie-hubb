@@ -105,6 +105,7 @@ function Dashboard() {
       const { data } = await supabase
         .from("study_sessions")
         .select("id,planned_start,planned_end,completed,course_id")
+        .eq("needs_review", false)
         .gte("planned_start", startOfDay(new Date()).toISOString())
         .lte("planned_start", endOfDay(new Date()).toISOString())
         .order("planned_start");
