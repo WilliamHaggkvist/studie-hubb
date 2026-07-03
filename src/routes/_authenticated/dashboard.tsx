@@ -274,6 +274,3 @@ function Dashboard() {
     </div>
   );
 }
-
-// silence potential unused
-void BookOpen;
