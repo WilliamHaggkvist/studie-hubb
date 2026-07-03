@@ -19,26 +19,28 @@ export const Route = createFileRoute("/auth")({
   component: AuthPage,
 });
 
-// Username → internal email/password mapping so Supabase (which requires an email
-// + min-6-char password) can back a simple username + PIN login for personal use.
+// Koden är den enda identifieraren. Vi mappar den till en intern e-post +
+// lösenord som Supabase kräver bakom kulisserna.
 const EMAIL_DOMAIN = "studyos.local";
-const PW_SALT = "-studyos-pin";
+const PW_SALT = "-studyos-code";
+const MIN_CODE_LENGTH = 6;
 
-function normalizeUsername(raw: string) {
-  return raw.trim().toLowerCase().replace(/[^a-z0-9_.-]/g, "");
+function normalizeCode(raw: string) {
+  return raw.trim().toLowerCase().replace(/[^a-z0-9]/g, "");
 }
-function toEmail(username: string) {
-  return `${normalizeUsername(username)}@${EMAIL_DOMAIN}`;
+function toEmail(code: string) {
+  return `code-${normalizeCode(code)}@${EMAIL_DOMAIN}`;
 }
-function toInternalPassword(pin: string) {
-  return `${pin}${PW_SALT}`;
+function toInternalPassword(code: string) {
+  return `${normalizeCode(code)}${PW_SALT}`;
 }
 
 function AuthPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
-  const [username, setUsername] = useState("");
-  const [pin, setPin] = useState("");
+  const [signInCode, setSignInCode] = useState("");
+  const [signUpCode, setSignUpCode] = useState("");
+  const [confirmCode, setConfirmCode] = useState("");
   const [name, setName] = useState("");
 
   useEffect(() => {
@@ -48,43 +50,48 @@ function AuthPage() {
     return () => sub.subscription.unsubscribe();
   }, [navigate]);
 
-  function validate(): string | null {
-    const u = normalizeUsername(username);
-    if (u.length < 2) return "Ange ett användarnamn (minst 2 tecken).";
-    if (pin.length < 1) return "Ange en kod.";
-    return null;
-  }
-
   async function handleSignIn(e: React.FormEvent) {
     e.preventDefault();
-    const err = validate();
-    if (err) return toast.error(err);
+    const code = normalizeCode(signInCode);
+    if (code.length < MIN_CODE_LENGTH) {
+      return toast.error(`Koden måste vara minst ${MIN_CODE_LENGTH} tecken.`);
+    }
     setLoading(true);
     const { error } = await supabase.auth.signInWithPassword({
-      email: toEmail(username),
-      password: toInternalPassword(pin),
+      email: toEmail(code),
+      password: toInternalPassword(code),
     });
     setLoading(false);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error("Felaktig kod");
     toast.success("Välkommen tillbaka");
   }
 
   async function handleSignUp(e: React.FormEvent) {
     e.preventDefault();
-    const err = validate();
-    if (err) return toast.error(err);
+    const code = normalizeCode(signUpCode);
+    if (code.length < MIN_CODE_LENGTH) {
+      return toast.error(`Koden måste vara minst ${MIN_CODE_LENGTH} tecken (bokstäver och siffror).`);
+    }
+    if (normalizeCode(confirmCode) !== code) {
+      return toast.error("Koderna matchar inte.");
+    }
     setLoading(true);
     const { error } = await supabase.auth.signUp({
-      email: toEmail(username),
-      password: toInternalPassword(pin),
+      email: toEmail(code),
+      password: toInternalPassword(code),
       options: {
         emailRedirectTo: `${window.location.origin}/dashboard`,
-        data: { display_name: name || normalizeUsername(username) },
+        data: { display_name: name.trim() || `Användare` },
       },
     });
     setLoading(false);
-    if (error) return toast.error(error.message);
-    toast.success("Konto skapat – du är inloggad");
+    if (error) {
+      if (error.message.toLowerCase().includes("already") || error.message.toLowerCase().includes("registered")) {
+        return toast.error("Den koden är redan tagen — välj en annan.");
+      }
+      return toast.error(error.message);
+    }
+    toast.success("Konto skapat – spara din kod!");
   }
 
   return (
@@ -112,7 +119,7 @@ function AuthPage() {
         <Card className="w-full max-w-md border-border/60 bg-surface/70 backdrop-blur-xl">
           <CardHeader>
             <CardTitle className="font-display">Kom igång</CardTitle>
-            <CardDescription>Personlig arbetsyta — logga in med användarnamn och kod.</CardDescription>
+            <CardDescription>Personlig arbetsyta — logga in med din kod.</CardDescription>
           </CardHeader>
           <CardContent>
             <Tabs defaultValue="signin" className="w-full">
@@ -123,12 +130,16 @@ function AuthPage() {
               <TabsContent value="signin">
                 <form onSubmit={handleSignIn} className="space-y-4 pt-2">
                   <div className="space-y-2">
-                    <Label htmlFor="si-user">Användarnamn</Label>
-                    <Input id="si-user" value={username} onChange={(e) => setUsername(e.target.value)} required autoComplete="username" placeholder="t.ex. anna" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="si-pin">Kod</Label>
-                    <Input id="si-pin" type="password" inputMode="numeric" value={pin} onChange={(e) => setPin(e.target.value)} required autoComplete="current-password" placeholder="t.ex. 1234" />
+                    <Label htmlFor="si-code">Kod</Label>
+                    <Input
+                      id="si-code"
+                      type="password"
+                      value={signInCode}
+                      onChange={(e) => setSignInCode(e.target.value)}
+                      required
+                      autoComplete="current-password"
+                      placeholder="Din personliga kod"
+                    />
                   </div>
                   <Button type="submit" disabled={loading} className="w-full gradient-sunset text-white hover:opacity-90">
                     {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Logga in
@@ -142,12 +153,31 @@ function AuthPage() {
                     <Input id="su-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ditt namn" />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="su-user">Användarnamn</Label>
-                    <Input id="su-user" value={username} onChange={(e) => setUsername(e.target.value)} required autoComplete="username" placeholder="t.ex. anna" />
+                    <Label htmlFor="su-code">Välj en kod</Label>
+                    <Input
+                      id="su-code"
+                      type="password"
+                      value={signUpCode}
+                      onChange={(e) => setSignUpCode(e.target.value)}
+                      required
+                      autoComplete="new-password"
+                      placeholder="Minst 6 tecken (a–z, 0–9)"
+                    />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="su-pin">Kod</Label>
-                    <Input id="su-pin" type="password" inputMode="numeric" value={pin} onChange={(e) => setPin(e.target.value)} required autoComplete="new-password" placeholder="t.ex. 1234" />
+                    <Label htmlFor="su-code-confirm">Bekräfta koden</Label>
+                    <Input
+                      id="su-code-confirm"
+                      type="password"
+                      value={confirmCode}
+                      onChange={(e) => setConfirmCode(e.target.value)}
+                      required
+                      autoComplete="new-password"
+                      placeholder="Skriv koden igen"
+                    />
+                  </div>
+                  <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-200">
+                    ⚠️ Spara koden på ett säkert ställe. Tappar du bort den kan du <strong>inte</strong> återställa kontot — all data försvinner.
                   </div>
                   <Button type="submit" disabled={loading} className="w-full gradient-sunset text-white hover:opacity-90">
                     {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Skapa konto
