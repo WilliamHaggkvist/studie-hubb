@@ -39,6 +39,7 @@ function CoursesPage() {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<CourseRow | null>(null);
   const { data: universities = [] } = useUniversities();
 
   // form state
@@ -56,6 +57,19 @@ function CoursesPage() {
     setName(""); setCode(""); setHp(""); setPeriod(""); setArskurs("");
     setUniversityId(""); setWeeklyGoal("");
     setColor(PALETTE[1].value); setIcon(DEFAULT_COURSE_ICONS[0]);
+  }
+
+  function openEdit(c: CourseRow) {
+    setEditing(c);
+    setName(c.name);
+    setCode(c.code ?? "");
+    setHp(c.hp != null ? String(c.hp) : "");
+    setPeriod(c.period ?? "");
+    setArskurs(c.arskurs != null ? String(c.arskurs) : "");
+    setUniversityId(c.university_id ?? "");
+    setWeeklyGoal(c.weekly_goal_hours != null ? String(c.weekly_goal_hours) : "");
+    setColor(c.color);
+    setIcon(c.icon ?? DEFAULT_COURSE_ICONS[0]);
   }
 
   const { data: courses = [] } = useQuery({
@@ -93,6 +107,30 @@ function CoursesPage() {
       toast.success("Kurs tillagd");
       setOpen(false); resetForm();
       navigate({ to: "/courses/$courseId", params: { courseId: id } });
+    },
+    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Fel"),
+  });
+
+  const update = useMutation({
+    mutationFn: async () => {
+      if (!editing) throw new Error("no course");
+      const { error } = await supabase.from("courses").update({
+        name: name.trim(),
+        code: code.trim() || null,
+        color, icon,
+        hp: hp ? Number(hp) : null,
+        period: (period || null) as "P1" | "P2" | "P3" | "P4" | "P5" | null,
+        arskurs: arskurs ? Number(arskurs) : null,
+        university_id: universityId || null,
+        weekly_goal_hours: weeklyGoal ? Number(weeklyGoal) : 0,
+      }).eq("id", editing.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["courses"] });
+      qc.invalidateQueries({ queryKey: ["courses", "all"] });
+      toast.success("Kurs uppdaterad");
+      setEditing(null); resetForm();
     },
     onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Fel"),
   });
@@ -237,12 +275,12 @@ function CoursesPage() {
                 {c.arskurs != null && <span>• Åk {c.arskurs}</span>}
               </div>
             </button>
-            <div className="absolute right-2 top-2 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+            <div className="absolute right-2 top-2 flex gap-1 opacity-100 sm:opacity-0 transition-opacity sm:group-hover:opacity-100 focus-within:opacity-100">
               <button
                 type="button"
                 aria-label="Redigera kurs"
-                onClick={(e) => { e.stopPropagation(); navigate({ to: "/courses/$courseId", params: { courseId: c.id } }); }}
-                className="grid h-7 w-7 place-items-center rounded-lg border border-border/60 bg-background/70 backdrop-blur-md text-muted-foreground hover:text-foreground hover:bg-surface-2"
+                onClick={(e) => { e.stopPropagation(); openEdit(c); }}
+                className="grid h-8 w-8 place-items-center rounded-lg border border-border/60 bg-background/80 backdrop-blur-md text-muted-foreground hover:text-foreground hover:bg-surface-2"
               >
                 <Pencil className="h-3.5 w-3.5" />
               </button>
@@ -250,7 +288,7 @@ function CoursesPage() {
                 type="button"
                 aria-label="Ta bort kurs"
                 onClick={(e) => { e.stopPropagation(); if (confirm(`Ta bort kursen "${c.name}"?`)) remove.mutate(c.id); }}
-                className="grid h-7 w-7 place-items-center rounded-lg border border-border/60 bg-background/70 backdrop-blur-md text-muted-foreground hover:text-destructive hover:bg-surface-2"
+                className="grid h-8 w-8 place-items-center rounded-lg border border-border/60 bg-background/80 backdrop-blur-md text-muted-foreground hover:text-destructive hover:bg-surface-2"
               >
                 <Trash2 className="h-3.5 w-3.5" />
               </button>
@@ -273,6 +311,59 @@ function CoursesPage() {
           </div>
         </div>
       )}
+
+      <Dialog open={!!editing} onOpenChange={(o) => { if (!o) { setEditing(null); resetForm(); } }}>
+        <DialogContent className="max-w-lg glass rounded-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle className="font-display">Redigera kurs</DialogTitle></DialogHeader>
+          <div className="grid gap-4">
+            <div className="space-y-1.5">
+              <Label>Kursnamn</Label>
+              <Input value={name} onChange={(e) => setName(e.target.value)} className="rounded-xl" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Kurskod</Label>
+                <Input value={code} onChange={(e) => setCode(e.target.value)} className="rounded-xl" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Högskolepoäng</Label>
+                <Input type="number" step="0.5" value={hp} onChange={(e) => setHp(e.target.value)} className="rounded-xl" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Period</Label>
+                <Select value={period} onValueChange={setPeriod}>
+                  <SelectTrigger className="rounded-xl"><SelectValue placeholder="Välj period" /></SelectTrigger>
+                  <SelectContent>{COURSE_PERIODS.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Årskurs</Label>
+                <Select value={arskurs} onValueChange={setArskurs}>
+                  <SelectTrigger className="rounded-xl"><SelectValue placeholder="Välj årskurs" /></SelectTrigger>
+                  <SelectContent>{ARSKURS_OPTIONS.map((a) => <SelectItem key={a} value={String(a)}>Årskurs {a}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Universitet</Label>
+              <Select value={universityId} onValueChange={setUniversityId}>
+                <SelectTrigger className="rounded-xl"><SelectValue placeholder="Välj universitet" /></SelectTrigger>
+                <SelectContent>{universities.map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Veckomål studietid (h)</Label>
+              <Input type="number" step="0.5" value={weeklyGoal} onChange={(e) => setWeeklyGoal(e.target.value)} className="rounded-xl" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" className="rounded-xl" onClick={() => { setEditing(null); resetForm(); }}>Avbryt</Button>
+            <Button disabled={!name.trim() || update.isPending} onClick={() => update.mutate()} className="rounded-xl">Spara</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
