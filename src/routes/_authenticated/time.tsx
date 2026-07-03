@@ -100,6 +100,19 @@ function TimePage() {
     },
   });
 
+  const { data: calEvents = [] } = useQuery({
+    queryKey: ["calendar_events", "study"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("calendar_events")
+        .select("id,course_id,starts_at,ends_at,counts_as_study")
+        .eq("counts_as_study", true)
+        .order("starts_at", { ascending: false })
+        .limit(1000);
+      return (data ?? []) as { id: string; course_id: string | null; starts_at: string; ends_at: string; counts_as_study: boolean }[];
+    },
+  });
+
   // Date range for period
   const cutoffDate = useMemo(() => {
     if (period === "week") return startOfWeek(new Date(), { weekStartsOn: 1 });
@@ -111,18 +124,22 @@ function TimePage() {
   const sessionsInPeriod = allSessions.filter(
     (s) => new Date(s.planned_start).getTime() >= cutoff,
   );
+  const calInPeriod = calEvents.filter((e) => new Date(e.starts_at).getTime() >= cutoff);
 
   const sessionSeconds = (s: SessionAgg): number => {
     const start = s.actual_start ? new Date(s.actual_start) : new Date(s.planned_start);
     const end = s.actual_end ? new Date(s.actual_end) : new Date(s.planned_end);
     return Math.max(0, Math.floor((end.getTime() - start.getTime()) / 1000));
   };
+  const calSeconds = (e: { starts_at: string; ends_at: string }): number =>
+    Math.max(0, Math.floor((new Date(e.ends_at).getTime() - new Date(e.starts_at).getTime()) / 1000));
 
   const entrySeconds = inPeriod.reduce((s, e) => s + (e.duration_seconds ?? 0), 0);
   // Avoid double-count: completed sessions insert time_entries with source="session".
   const sessionsOnly = sessionsInPeriod.filter((s) => !s.completed);
   const sessionSecs = sessionsOnly.reduce((s, x) => s + sessionSeconds(x), 0);
-  const totalPeriod = entrySeconds + sessionSecs;
+  const calSecs = calInPeriod.reduce((s, e) => s + calSeconds(e), 0);
+  const totalPeriod = entrySeconds + sessionSecs + calSecs;
 
   const byCourse = useMemo(() => {
     const m = new Map<string, number>();
@@ -134,13 +151,18 @@ function TimePage() {
       const key = s.course_id ?? "__none__";
       m.set(key, (m.get(key) ?? 0) + sessionSeconds(s));
     }
+    for (const e of calInPeriod) {
+      const key = e.course_id ?? "__none__";
+      m.set(key, (m.get(key) ?? 0) + calSeconds(e));
+    }
     return Array.from(m.entries())
       .map(([id, secs]) => {
         const c = courses.find((cc) => cc.id === id);
         return { id, name: c?.name ?? "Ingen kurs", color: c?.color ?? "#64748b", hours: +(secs / 3600).toFixed(2), seconds: secs };
       })
       .sort((a, b) => b.hours - a.hours);
-  }, [inPeriod, sessionsOnly, courses]);
+  }, [inPeriod, sessionsOnly, calInPeriod, courses]);
+
 
 
   const byTask = useMemo(() => {
