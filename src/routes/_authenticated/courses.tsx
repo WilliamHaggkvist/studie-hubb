@@ -275,12 +275,12 @@ function CoursesPage() {
                 {c.arskurs != null && <span>• Åk {c.arskurs}</span>}
               </div>
             </button>
-            <div className="absolute right-2 top-2 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+            <div className="absolute right-2 top-2 flex gap-1 opacity-100 sm:opacity-0 transition-opacity sm:group-hover:opacity-100 focus-within:opacity-100">
               <button
                 type="button"
                 aria-label="Redigera kurs"
-                onClick={(e) => { e.stopPropagation(); navigate({ to: "/courses/$courseId", params: { courseId: c.id } }); }}
-                className="grid h-7 w-7 place-items-center rounded-lg border border-border/60 bg-background/70 backdrop-blur-md text-muted-foreground hover:text-foreground hover:bg-surface-2"
+                onClick={(e) => { e.stopPropagation(); openEdit(c); }}
+                className="grid h-8 w-8 place-items-center rounded-lg border border-border/60 bg-background/80 backdrop-blur-md text-muted-foreground hover:text-foreground hover:bg-surface-2"
               >
                 <Pencil className="h-3.5 w-3.5" />
               </button>
@@ -288,7 +288,7 @@ function CoursesPage() {
                 type="button"
                 aria-label="Ta bort kurs"
                 onClick={(e) => { e.stopPropagation(); if (confirm(`Ta bort kursen "${c.name}"?`)) remove.mutate(c.id); }}
-                className="grid h-7 w-7 place-items-center rounded-lg border border-border/60 bg-background/70 backdrop-blur-md text-muted-foreground hover:text-destructive hover:bg-surface-2"
+                className="grid h-8 w-8 place-items-center rounded-lg border border-border/60 bg-background/80 backdrop-blur-md text-muted-foreground hover:text-destructive hover:bg-surface-2"
               >
                 <Trash2 className="h-3.5 w-3.5" />
               </button>
