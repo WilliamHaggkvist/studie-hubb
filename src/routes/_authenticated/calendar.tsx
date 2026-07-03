@@ -3,10 +3,11 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { addDays, addMonths, addWeeks, endOfMonth, format, getDay, isSameDay, isSameMonth, startOfMonth, startOfWeek, subMonths, subWeeks, parseISO } from "date-fns";
+import { addDays, addMonths, addWeeks, format, getDay, isSameDay, isSameMonth, startOfMonth, startOfWeek, subMonths, subWeeks, parseISO } from "date-fns";
 import { sv } from "date-fns/locale";
 import { ChevronLeft, ChevronRight, Clock, Flag, GraduationCap } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { coursesQuery } from "@/lib/queries";
 
 export const Route = createFileRoute("/_authenticated/calendar")({
   component: CalendarPage,
@@ -33,7 +34,6 @@ type SessionRow = {
   notes: string | null;
 };
 type TaskRow = { id: string; title: string; due_at: string | null; course_id: string | null; task_kind: string; task_type: string | null };
-type Course = { id: string; name: string; color: string };
 
 function CalendarPage() {
   const [view, setView] = useState<"month" | "week">("month");
@@ -49,13 +49,9 @@ function CalendarPage() {
   const rangeStart = gridStart.toISOString();
   const rangeEnd = addDays(gridStart, cellCount).toISOString();
 
-  const { data: courses = [] } = useQuery({
-    queryKey: ["courses"],
-    queryFn: async () => {
-      const { data } = await supabase.from("courses").select("id,name,color").eq("archived", false);
-      return (data ?? []) as Course[];
-    },
-  });
+  const { data: allCourses = [] } = useQuery(coursesQuery);
+  const courses = allCourses.filter((c) => !c.archived);
+
 
   const { data: events = [] } = useQuery({
     queryKey: ["events", view, rangeStart],

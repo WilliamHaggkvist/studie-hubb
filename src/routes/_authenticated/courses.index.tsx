@@ -14,6 +14,7 @@ import { PALETTE, DEFAULT_COURSE_ICONS, COURSE_PERIODS, ARSKURS_OPTIONS } from "
 import { useUniversities } from "@/lib/settings";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { coursesQuery } from "@/lib/queries";
 
 export const Route = createFileRoute("/_authenticated/courses/")({
   component: CoursesPage,
@@ -72,16 +73,8 @@ function CoursesPage() {
     setIcon(c.icon ?? DEFAULT_COURSE_ICONS[0]);
   }
 
-  const { data: courses = [] } = useQuery({
-    queryKey: ["courses", "all"],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("courses")
-        .select("id,name,code,color,icon,archived,hp,period,arskurs,university_id,weekly_goal_hours,completed,final_grade")
-        .order("created_at");
-      return (data ?? []) as CourseRow[];
-    },
-  });
+  const { data: courses = [] } = useQuery(coursesQuery);
+
 
   const create = useMutation({
     mutationFn: async () => {

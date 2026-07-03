@@ -8,15 +8,13 @@ import { sv } from "date-fns/locale";
 import { formatHoursCompact } from "@/lib/timer-store";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useMemo, useState } from "react";
+import { coursesQuery, tasksQuery, termsQuery, type TermRow } from "@/lib/queries";
 
 export const Route = createFileRoute("/_authenticated/stats")({
   component: StatsPage,
 });
 
-type Course = { id: string; name: string; color: string };
 type Entry = { id: string; started_at: string; duration_seconds: number | null; course_id: string | null; task_id: string | null };
-type Task = { id: string; title: string; status: string; course_id: string | null };
-type TermRow = { id: string; year: number; term: "host" | "var" | "sommar"; start_date: string; end_date: string };
 
 function termLabel(t: TermRow) {
   const term = t.term === "host" ? "Hösttermin" : t.term === "var" ? "Vårtermin" : "Sommar";
@@ -26,21 +24,10 @@ function termLabel(t: TermRow) {
 function StatsPage() {
   const [period, setPeriod] = useState<string>("30");
 
-  const { data: courses = [] } = useQuery({
-    queryKey: ["courses"],
-    queryFn: async () => {
-      const { data } = await supabase.from("courses").select("id,name,color").eq("archived", false);
-      return (data ?? []) as Course[];
-    },
-  });
+  const { data: allCourses = [] } = useQuery(coursesQuery);
+  const courses = allCourses.filter((c) => !c.archived);
+  const { data: terms = [] } = useQuery(termsQuery);
 
-  const { data: terms = [] } = useQuery({
-    queryKey: ["term_dates"],
-    queryFn: async () => {
-      const { data } = await supabase.from("term_dates").select("id,year,term,start_date,end_date").order("year", { ascending: false }).order("term");
-      return (data ?? []) as TermRow[];
-    },
-  });
 
   const range = useMemo(() => {
     if (period === "7") return { start: subDays(new Date(), 6), end: new Date(), label: "7 dagar" };
@@ -115,13 +102,8 @@ function StatsPage() {
 
   const combined = useMemo(() => [...entries, ...derivedEntries], [entries, derivedEntries]);
 
-  const { data: tasks = [] } = useQuery({
-    queryKey: ["stats", "tasks"],
-    queryFn: async () => {
-      const { data } = await supabase.from("tasks").select("id,title,status,course_id");
-      return (data ?? []) as Task[];
-    },
-  });
+  const { data: tasks = [] } = useQuery(tasksQuery);
+
 
   const { data: sessionsCount = 0 } = useQuery({
     queryKey: ["stats", "sessions", range.start.toISOString(), range.end.toISOString()],
@@ -180,13 +162,13 @@ function StatsPage() {
 
 
   const statusCounts = {
-    not_started: tasks.filter((t) => t.status === "not_started").length,
-    in_progress: tasks.filter((t) => t.status === "in_progress").length,
+    todo: tasks.filter((t) => t.status === "todo").length,
+    doing: tasks.filter((t) => t.status === "doing").length,
     done: tasks.filter((t) => t.status === "done").length,
   };
   const statusData = [
-    { name: "Ej startad", value: statusCounts.not_started, color: "#FF7A59" },
-    { name: "Pågår", value: statusCounts.in_progress, color: "#FFB84D" },
+    { name: "Ej startad", value: statusCounts.todo, color: "#FF7A59" },
+    { name: "Pågår", value: statusCounts.doing, color: "#FFB84D" },
     { name: "Klar", value: statusCounts.done, color: "#8B5CF6" },
   ];
 

@@ -14,6 +14,7 @@ import { format, parseISO, differenceInCalendarDays } from "date-fns";
 import { sv } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { coursesQuery } from "@/lib/queries";
 import {
   DndContext,
   type DragEndEvent,
@@ -118,13 +119,8 @@ function TasksPage() {
   const [editing, setEditing] = useState<Task | null>(null);
   const [completeFor, setCompleteFor] = useState<Task | null>(null);
 
-  const { data: courses = [] } = useQuery({
-    queryKey: ["courses"],
-    queryFn: async () => {
-      const { data } = await supabase.from("courses").select("id,name,color").eq("archived", false);
-      return (data ?? []) as Course[];
-    },
-  });
+  const { data: allCourses = [] } = useQuery(coursesQuery);
+  const courses = allCourses.filter((c) => !c.archived);
 
   const { data: allTasks = [] } = useQuery({
     queryKey: ["tasks"],
