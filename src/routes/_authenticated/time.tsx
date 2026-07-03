@@ -554,10 +554,10 @@ function SessionsPanel({ courses, allTasks }: { courses: Course[]; allTasks: Tas
 }
 
 function SessionRow({
-  s, courses, allTasks, sessionTasks, onComplete, onDelete,
+  s, courses, allTasks, sessionTasks, onComplete, onDelete, fromCalendar,
 }: {
   s: Session; courses: Course[]; allTasks: Task[]; sessionTasks: SessionTask[];
-  onComplete?: () => void; onDelete: () => void;
+  onComplete?: () => void; onDelete?: () => void; fromCalendar?: boolean;
 }) {
   const c = courses.find((cc) => cc.id === s.course_id);
   const tids = sessionTasks.filter((st) => st.session_id === s.id).map((st) => st.task_id);
