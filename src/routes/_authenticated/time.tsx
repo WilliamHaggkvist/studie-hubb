@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { timerStore, formatDuration, formatHoursCompact } from "@/lib/timer-store";
-import { format, parseISO, startOfDay, isSameDay, subDays } from "date-fns";
+import { format, parseISO, startOfDay, isSameDay, subDays, startOfWeek } from "date-fns";
 import { sv } from "date-fns/locale";
 import { Plus, Trash2, Clock, Play, Square, CheckCircle2, CalendarPlus } from "lucide-react";
 import { toast } from "sonner";
@@ -46,8 +46,18 @@ type Session = {
 };
 type SessionTask = { session_id: string; task_id: string };
 
+type SessionAgg = {
+  id: string;
+  course_id: string | null;
+  planned_start: string;
+  planned_end: string;
+  actual_start: string | null;
+  actual_end: string | null;
+  completed: boolean;
+};
+
 function TimePage() {
-  const [period, setPeriod] = useState<"7" | "30">("7");
+  const [period, setPeriod] = useState<"week" | "30">("week");
 
   const { data: courses = [] } = useQuery({
     queryKey: ["courses"],
@@ -78,10 +88,41 @@ function TimePage() {
     },
   });
 
-  // Summary aggregations
-  const cutoff = Date.now() - Number(period) * 24 * 3600 * 1000;
-  const inPeriod = entries.filter((e) => new Date(e.started_at).getTime() > cutoff);
-  const totalPeriod = inPeriod.reduce((s, e) => s + (e.duration_seconds ?? 0), 0);
+  const { data: allSessions = [] } = useQuery({
+    queryKey: ["study_sessions", "agg"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("study_sessions")
+        .select("id,course_id,planned_start,planned_end,actual_start,actual_end,completed")
+        .order("planned_start", { ascending: false })
+        .limit(500);
+      return (data ?? []) as SessionAgg[];
+    },
+  });
+
+  // Date range for period
+  const cutoffDate = useMemo(() => {
+    if (period === "week") return startOfWeek(new Date(), { weekStartsOn: 1 });
+    return subDays(new Date(), 30);
+  }, [period]);
+  const cutoff = cutoffDate.getTime();
+
+  const inPeriod = entries.filter((e) => new Date(e.started_at).getTime() >= cutoff);
+  const sessionsInPeriod = allSessions.filter(
+    (s) => new Date(s.planned_start).getTime() >= cutoff,
+  );
+
+  const sessionSeconds = (s: SessionAgg): number => {
+    const start = s.actual_start ? new Date(s.actual_start) : new Date(s.planned_start);
+    const end = s.actual_end ? new Date(s.actual_end) : new Date(s.planned_end);
+    return Math.max(0, Math.floor((end.getTime() - start.getTime()) / 1000));
+  };
+
+  const entrySeconds = inPeriod.reduce((s, e) => s + (e.duration_seconds ?? 0), 0);
+  // Avoid double-count: completed sessions insert time_entries with source="session".
+  const sessionsOnly = sessionsInPeriod.filter((s) => !s.completed);
+  const sessionSecs = sessionsOnly.reduce((s, x) => s + sessionSeconds(x), 0);
+  const totalPeriod = entrySeconds + sessionSecs;
 
   const byCourse = useMemo(() => {
     const m = new Map<string, number>();
@@ -89,13 +130,18 @@ function TimePage() {
       const key = e.course_id ?? "__none__";
       m.set(key, (m.get(key) ?? 0) + (e.duration_seconds ?? 0));
     }
+    for (const s of sessionsOnly) {
+      const key = s.course_id ?? "__none__";
+      m.set(key, (m.get(key) ?? 0) + sessionSeconds(s));
+    }
     return Array.from(m.entries())
       .map(([id, secs]) => {
         const c = courses.find((cc) => cc.id === id);
-        return { id, name: c?.name ?? "Ingen kurs", color: c?.color ?? "#64748b", hours: +(secs / 3600).toFixed(2) };
+        return { id, name: c?.name ?? "Ingen kurs", color: c?.color ?? "#64748b", hours: +(secs / 3600).toFixed(2), seconds: secs };
       })
       .sort((a, b) => b.hours - a.hours);
-  }, [inPeriod, courses]);
+  }, [inPeriod, sessionsOnly, courses]);
+
 
   const byTask = useMemo(() => {
     const m = new Map<string, number>();
@@ -118,18 +164,46 @@ function TimePage() {
         <div>
           <h1 className="font-display text-3xl font-bold tracking-tight">Studietid</h1>
           <p className="text-sm text-muted-foreground">
-            <span className="text-sunset-amber">{formatHoursCompact(totalPeriod)}</span> senaste{" "}
-            {period === "7" ? "7" : "30"} dagarna
+            <span className="text-sunset-amber">{formatHoursCompact(totalPeriod)}</span>{" "}
+            {period === "week" ? "denna vecka" : "senaste 30 dagarna"}
           </p>
         </div>
-        <Select value={period} onValueChange={(v) => setPeriod(v as "7" | "30")}>
+        <Select value={period} onValueChange={(v) => setPeriod(v as "week" | "30")}>
           <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="7">Senaste 7 dagar</SelectItem>
+            <SelectItem value="week">Denna vecka</SelectItem>
             <SelectItem value="30">Senaste 30 dagar</SelectItem>
           </SelectContent>
         </Select>
       </div>
+
+      {/* Weekly hours per course – prominent */}
+      {period === "week" && (
+        <div className="mb-6 rounded-xl border border-border/60 bg-surface/60 p-5">
+          <div className="mb-3 flex items-baseline justify-between">
+            <div className="font-display text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+              Studietimmar denna vecka
+            </div>
+            <div className="font-display text-2xl font-bold tabular-nums text-sunset-amber">
+              {formatHoursCompact(totalPeriod)}
+            </div>
+          </div>
+          {byCourse.length === 0 ? (
+            <div className="py-4 text-center text-sm text-muted-foreground">Inga studietimmar än denna vecka.</div>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {byCourse.map((c) => (
+                <div key={c.id} className="flex items-center gap-2 rounded-lg border border-border/60 bg-surface-2/60 px-3 py-2">
+                  <span className="h-2.5 w-2.5 rounded-full" style={{ background: c.color }} />
+                  <span className="text-sm">{c.name}</span>
+                  <span className="font-mono text-sm font-semibold tabular-nums">{formatHoursCompact(c.seconds)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
 
       {/* Summary */}
       <div className="mb-8 grid gap-4 md:grid-cols-2">
