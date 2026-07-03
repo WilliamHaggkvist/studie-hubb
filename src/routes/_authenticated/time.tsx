@@ -311,12 +311,7 @@ function TimePage() {
 
 function SessionsPanel({ courses, allTasks }: { courses: Course[]; allTasks: Task[] }) {
   const qc = useQueryClient();
-  const [open, setOpen] = useState(false);
-  const [courseId, setCourseId] = useState("none");
-  const [taskIds, setTaskIds] = useState<string[]>([]);
-  const [plannedStart, setPlannedStart] = useState("");
-  const [plannedEnd, setPlannedEnd] = useState("");
-  const [notes, setNotes] = useState("");
+
 
   const { data: sessions = [] } = useQuery({
     queryKey: ["study_sessions"],
