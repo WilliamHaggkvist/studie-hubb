@@ -20,6 +20,7 @@ import { Route as AuthenticatedNotesRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedCoursesRouteImport } from './routes/_authenticated/courses'
 import { Route as AuthenticatedCalendarRouteImport } from './routes/_authenticated/calendar'
+import { Route as AuthenticatedCoursesIndexRouteImport } from './routes/_authenticated/courses.index'
 import { Route as AuthenticatedNotesNoteIdRouteImport } from './routes/_authenticated/notes.$noteId'
 import { Route as AuthenticatedCoursesCourseIdRouteImport } from './routes/_authenticated/courses.$courseId'
 import { Route as ApiPublicHooksSyncGoogleCalendarRouteImport } from './routes/api/public/hooks/sync-google-calendar'
@@ -78,6 +79,12 @@ const AuthenticatedCalendarRoute = AuthenticatedCalendarRouteImport.update({
   path: '/calendar',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedCoursesIndexRoute =
+  AuthenticatedCoursesIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedCoursesRoute,
+  } as any)
 const AuthenticatedNotesNoteIdRoute =
   AuthenticatedNotesNoteIdRouteImport.update({
     id: '/$noteId',
@@ -110,13 +117,13 @@ export interface FileRoutesByFullPath {
   '/time': typeof AuthenticatedTimeRoute
   '/courses/$courseId': typeof AuthenticatedCoursesCourseIdRoute
   '/notes/$noteId': typeof AuthenticatedNotesNoteIdRoute
+  '/courses/': typeof AuthenticatedCoursesIndexRoute
   '/api/public/hooks/sync-google-calendar': typeof ApiPublicHooksSyncGoogleCalendarRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/calendar': typeof AuthenticatedCalendarRoute
-  '/courses': typeof AuthenticatedCoursesRouteWithChildren
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/notes': typeof AuthenticatedNotesRouteWithChildren
   '/settings': typeof AuthenticatedSettingsRoute
@@ -125,6 +132,7 @@ export interface FileRoutesByTo {
   '/time': typeof AuthenticatedTimeRoute
   '/courses/$courseId': typeof AuthenticatedCoursesCourseIdRoute
   '/notes/$noteId': typeof AuthenticatedNotesNoteIdRoute
+  '/courses': typeof AuthenticatedCoursesIndexRoute
   '/api/public/hooks/sync-google-calendar': typeof ApiPublicHooksSyncGoogleCalendarRoute
 }
 export interface FileRoutesById {
@@ -142,6 +150,7 @@ export interface FileRoutesById {
   '/_authenticated/time': typeof AuthenticatedTimeRoute
   '/_authenticated/courses/$courseId': typeof AuthenticatedCoursesCourseIdRoute
   '/_authenticated/notes/$noteId': typeof AuthenticatedNotesNoteIdRoute
+  '/_authenticated/courses/': typeof AuthenticatedCoursesIndexRoute
   '/api/public/hooks/sync-google-calendar': typeof ApiPublicHooksSyncGoogleCalendarRoute
 }
 export interface FileRouteTypes {
@@ -159,13 +168,13 @@ export interface FileRouteTypes {
     | '/time'
     | '/courses/$courseId'
     | '/notes/$noteId'
+    | '/courses/'
     | '/api/public/hooks/sync-google-calendar'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/auth'
     | '/calendar'
-    | '/courses'
     | '/dashboard'
     | '/notes'
     | '/settings'
@@ -174,6 +183,7 @@ export interface FileRouteTypes {
     | '/time'
     | '/courses/$courseId'
     | '/notes/$noteId'
+    | '/courses'
     | '/api/public/hooks/sync-google-calendar'
   id:
     | '__root__'
@@ -190,6 +200,7 @@ export interface FileRouteTypes {
     | '/_authenticated/time'
     | '/_authenticated/courses/$courseId'
     | '/_authenticated/notes/$noteId'
+    | '/_authenticated/courses/'
     | '/api/public/hooks/sync-google-calendar'
   fileRoutesById: FileRoutesById
 }
@@ -279,6 +290,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCalendarRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/courses/': {
+      id: '/_authenticated/courses/'
+      path: '/'
+      fullPath: '/courses/'
+      preLoaderRoute: typeof AuthenticatedCoursesIndexRouteImport
+      parentRoute: typeof AuthenticatedCoursesRoute
+    }
     '/_authenticated/notes/$noteId': {
       id: '/_authenticated/notes/$noteId'
       path: '/$noteId'
@@ -305,10 +323,12 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedCoursesRouteChildren {
   AuthenticatedCoursesCourseIdRoute: typeof AuthenticatedCoursesCourseIdRoute
+  AuthenticatedCoursesIndexRoute: typeof AuthenticatedCoursesIndexRoute
 }
 
 const AuthenticatedCoursesRouteChildren: AuthenticatedCoursesRouteChildren = {
   AuthenticatedCoursesCourseIdRoute: AuthenticatedCoursesCourseIdRoute,
+  AuthenticatedCoursesIndexRoute: AuthenticatedCoursesIndexRoute,
 }
 
 const AuthenticatedCoursesRouteWithChildren =
