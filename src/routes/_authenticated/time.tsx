@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { timerStore, formatDuration, formatHoursCompact } from "@/lib/timer-store";
-import { format, parseISO, startOfDay, isSameDay, subDays } from "date-fns";
+import { format, parseISO, startOfDay, isSameDay, subDays, startOfWeek } from "date-fns";
 import { sv } from "date-fns/locale";
 import { Plus, Trash2, Clock, Play, Square, CheckCircle2, CalendarPlus } from "lucide-react";
 import { toast } from "sonner";
