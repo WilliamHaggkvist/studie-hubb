@@ -378,12 +378,8 @@ function SessionsPanel({ courses, allTasks }: { courses: Course[]; allTasks: Tas
 
   const inbox = sessions.filter((s) => s.needs_review);
   const reviewed = sessions.filter((s) => !s.needs_review);
-  const merged = [...reviewed, ...calSessions].sort(
-    (a, b) => new Date(b.planned_start).getTime() - new Date(a.planned_start).getTime(),
-  );
-  const planned = merged.filter((s) => !s.completed);
-  const completed = merged.filter((s) => s.completed);
-  const isReadonly = (s: Session) => s.id.startsWith("cal:");
+  const planned = reviewed.filter((s) => !s.completed);
+  const completed = reviewed.filter((s) => s.completed);
 
 
   return (
