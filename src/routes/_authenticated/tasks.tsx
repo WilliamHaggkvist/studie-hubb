@@ -270,7 +270,7 @@ function TasksPage() {
             </div>
             <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
               {pending.map((t) => (
-                <Card key={t.id} task={t} courses={courses} onOpen={setEditing} />
+                <Card key={t.id} task={t} courses={courses} onOpen={setCompleteFor} />
               ))}
             </div>
           </div>
