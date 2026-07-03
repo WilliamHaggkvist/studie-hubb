@@ -39,6 +39,7 @@ function CoursesPage() {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<CourseRow | null>(null);
   const { data: universities = [] } = useUniversities();
 
   // form state
@@ -56,6 +57,19 @@ function CoursesPage() {
     setName(""); setCode(""); setHp(""); setPeriod(""); setArskurs("");
     setUniversityId(""); setWeeklyGoal("");
     setColor(PALETTE[1].value); setIcon(DEFAULT_COURSE_ICONS[0]);
+  }
+
+  function openEdit(c: CourseRow) {
+    setEditing(c);
+    setName(c.name);
+    setCode(c.code ?? "");
+    setHp(c.hp != null ? String(c.hp) : "");
+    setPeriod(c.period ?? "");
+    setArskurs(c.arskurs != null ? String(c.arskurs) : "");
+    setUniversityId(c.university_id ?? "");
+    setWeeklyGoal(c.weekly_goal_hours != null ? String(c.weekly_goal_hours) : "");
+    setColor(c.color);
+    setIcon(c.icon ?? DEFAULT_COURSE_ICONS[0]);
   }
 
   const { data: courses = [] } = useQuery({
