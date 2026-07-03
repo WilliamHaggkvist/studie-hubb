@@ -43,6 +43,7 @@ type Session = {
   notes: string | null;
   completed: boolean;
   source: string;
+  needs_review: boolean;
 };
 type SessionTask = { session_id: string; task_id: string };
 
