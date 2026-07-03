@@ -50,7 +50,18 @@ export const syncGoogleCalendar = createServerFn({ method: "POST" })
 
     let imported = 0;
     let sessions = 0;
-    const rows: Array<Record<string, unknown>> = [];
+    type EventRow = {
+      user_id: string;
+      title: string;
+      location: string | null;
+      starts_at: string;
+      ends_at: string;
+      all_day: boolean;
+      source: string;
+      external_id: string;
+      counts_as_study: boolean;
+    };
+    const rows: EventRow[] = [];
 
     for (const ev of items) {
       if (ev.status === "cancelled") continue;
