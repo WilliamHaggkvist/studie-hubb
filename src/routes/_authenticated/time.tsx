@@ -5,17 +5,15 @@ import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { timerStore, formatDuration, formatHoursCompact } from "@/lib/timer-store";
-import { format, parseISO, startOfDay, isSameDay, subDays, startOfWeek } from "date-fns";
+import { format, parseISO, subDays, startOfWeek } from "date-fns";
 import { sv } from "date-fns/locale";
-import { Plus, Trash2, Clock, Play, Square, CheckCircle2, CalendarPlus } from "lucide-react";
+import { Trash2, Play, Square, CheckCircle2, CalendarPlus } from "lucide-react";
 import { toast } from "sonner";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
-import { cn } from "@/lib/utils";
+import { coursesQuery, tasksQuery, durationSeconds, type Course, type Task } from "@/lib/queries";
 
 export const Route = createFileRoute("/_authenticated/time")({
   component: TimePage,
