@@ -85,3 +85,12 @@ Om du vill: säg "kör alla fyra" så levererar jag i följd utan att stanna, an
 
 1. Ska `priority`-kolumnen droppas helt (kräver att jag samtidigt tar bort ev. sortering på den) eller bara döljas i UI nu och droppas senare? Föreslår dölja nu.
 2. Vill du att jag byter route `/pages` → `/notes` (renare URL) eller behåller `/pages` och bara byter etikett i menyn? Föreslår byte till `/notes`.
+
+---
+
+## Status
+
+- Paket 1 ✅ klar
+- Paket 2 ✅ klar
+- Paket 3 ✅ klar — kalender read-only + studiepass, dashboard 4 sektioner, statistik med period+termin, /notes-lista + rename av route
+- Paket 4 🟡 kod klar (server fn + Synka nu-knapp i Inställningar). **Kräver att du länkar Google Calendar-connectorn** — säg till så länkar vi. Cron körs manuellt via knappen tills koppling finns.

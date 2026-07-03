@@ -3,40 +3,86 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatHoursCompact } from "@/lib/timer-store";
-import { Clock, ListTodo, BookOpen, Calendar as CalendarIcon, TrendingUp } from "lucide-react";
-import { format, startOfWeek, endOfWeek, startOfDay, endOfDay, addDays, isSameDay } from "date-fns";
+import { Clock, ListTodo, BookOpen, Calendar as CalendarIcon, GraduationCap, AlertCircle } from "lucide-react";
+import { format, startOfWeek, endOfWeek, startOfDay, endOfDay, addDays, isSameDay, differenceInCalendarDays, parseISO } from "date-fns";
 import { sv } from "date-fns/locale";
-import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, Cell } from "recharts";
+import { useUserSettings } from "@/lib/settings";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   component: Dashboard,
 });
 
-type CourseLite = { id: string; name: string; color: string; icon: string | null };
-type TaskLite = { id: string; title: string; due_at: string | null; status: string; course_id: string | null };
+type Course = { id: string; name: string; color: string; icon: string | null; arskurs: number | null; period: string | null; weekly_goal_hours: number | null };
+type TaskLite = { id: string; title: string; due_at: string | null; status: string; course_id: string | null; task_kind: string; pending_review: boolean };
 type TimeEntry = { id: string; started_at: string; duration_seconds: number | null; course_id: string | null };
+type Session = { id: string; planned_start: string; planned_end: string; completed: boolean; course_id: string | null };
+type TermRow = { year: number; term: "host" | "var" | "sommar"; start_date: string; end_date: string };
+
+function todayPeriod(terms: TermRow[]): TermRow["term"] | null {
+  const today = new Date().toISOString().slice(0, 10);
+  const active = terms.find((t) => today >= t.start_date && today <= t.end_date);
+  return active?.term ?? null;
+}
+
+function periodMatches(coursePeriod: string | null, activePeriod: TermRow["term"] | null): boolean {
+  if (!activePeriod || !coursePeriod) return true;
+  // coursePeriod values include hosttermin/vartermin/period-1..4/helar etc
+  if (coursePeriod === "helar") return true;
+  if (activePeriod === "host" && (coursePeriod.startsWith("host") || coursePeriod === "period-1" || coursePeriod === "period-2")) return true;
+  if (activePeriod === "var" && (coursePeriod.startsWith("var") || coursePeriod === "period-3" || coursePeriod === "period-4")) return true;
+  if (activePeriod === "sommar" && coursePeriod.startsWith("sommar")) return true;
+  return false;
+}
 
 function Dashboard() {
+  const { data: settings } = useUserSettings();
+  const currentYear = settings?.current_year ?? null;
+
   const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
   const weekEnd = endOfWeek(new Date(), { weekStartsOn: 1 });
 
   const { data: courses = [] } = useQuery({
     queryKey: ["courses"],
     queryFn: async () => {
-      const { data } = await supabase.from("courses").select("id,name,color,icon").eq("archived", false);
-      return (data ?? []) as CourseLite[];
+      const { data } = await supabase.from("courses").select("id,name,color,icon,arskurs,period,weekly_goal_hours").eq("archived", false);
+      return (data ?? []) as Course[];
     },
   });
 
-  const { data: upcoming = [] } = useQuery({
-    queryKey: ["tasks", "upcoming"],
+  const { data: terms = [] } = useQuery({
+    queryKey: ["term_dates"],
+    queryFn: async () => {
+      const { data } = await supabase.from("term_dates").select("year,term,start_date,end_date");
+      return (data ?? []) as TermRow[];
+    },
+  });
+
+  const activePeriod = todayPeriod(terms);
+  const activeCourses = courses.filter((c) =>
+    (currentYear === null || c.arskurs === null || c.arskurs === currentYear) &&
+    periodMatches(c.period, activePeriod),
+  );
+
+  const { data: openTasks = [] } = useQuery({
+    queryKey: ["tasks", "open"],
     queryFn: async () => {
       const { data } = await supabase
         .from("tasks")
-        .select("id,title,due_at,status,course_id")
+        .select("id,title,due_at,status,course_id,task_kind,pending_review")
         .neq("status", "done")
-        .order("due_at", { ascending: true, nullsFirst: false })
-        .limit(8);
+        .order("due_at", { ascending: true, nullsFirst: false });
+      return (data ?? []) as TaskLite[];
+    },
+  });
+
+  const { data: pendingReview = [] } = useQuery({
+    queryKey: ["tasks", "pending_review"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("tasks")
+        .select("id,title,due_at,status,course_id,task_kind,pending_review")
+        .eq("pending_review", true)
+        .neq("status", "done");
       return (data ?? []) as TaskLite[];
     },
   });
@@ -53,26 +99,29 @@ function Dashboard() {
     },
   });
 
-  const totalWeekSec = weekEntries.reduce((sum, e) => sum + (e.duration_seconds ?? 0), 0);
-  const todayEntries = weekEntries.filter((e) => isSameDay(new Date(e.started_at), new Date()));
-  const totalTodaySec = todayEntries.reduce((sum, e) => sum + (e.duration_seconds ?? 0), 0);
+  const { data: todaysSessions = [] } = useQuery({
+    queryKey: ["sessions", "today"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("study_sessions")
+        .select("id,planned_start,planned_end,completed,course_id")
+        .gte("planned_start", startOfDay(new Date()).toISOString())
+        .lte("planned_start", endOfDay(new Date()).toISOString())
+        .order("planned_start");
+      return (data ?? []) as Session[];
+    },
+  });
+
+  const todayTasks = openTasks.filter((t) => t.due_at && isSameDay(parseISO(t.due_at), new Date()));
 
   const perDay = Array.from({ length: 7 }).map((_, i) => {
     const d = addDays(weekStart, i);
     const total = weekEntries
       .filter((e) => e.started_at >= startOfDay(d).toISOString() && e.started_at <= endOfDay(d).toISOString())
       .reduce((s, e) => s + (e.duration_seconds ?? 0), 0);
-    return { day: format(d, "EEE", { locale: sv }), hours: +(total / 3600).toFixed(2) };
+    return { d, hours: total / 3600 };
   });
-
-  const perCourse = courses
-    .map((c) => ({
-      name: c.name,
-      color: c.color,
-      hours: +(weekEntries.filter((e) => e.course_id === c.id).reduce((s, e) => s + (e.duration_seconds ?? 0), 0) / 3600).toFixed(2),
-    }))
-    .filter((r) => r.hours > 0)
-    .sort((a, b) => b.hours - a.hours);
+  const maxDayH = Math.max(1, ...perDay.map((p) => p.hours));
 
   const now = new Date();
   const hour = now.getHours();
@@ -87,142 +136,178 @@ function Dashboard() {
         </h1>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Idag" value={formatHoursCompact(totalTodaySec)} sub="studietid" icon={<Clock className="h-4 w-4" />} accent="var(--sunset-coral)" />
-        <StatCard label="Denna vecka" value={formatHoursCompact(totalWeekSec)} sub={`${weekEntries.length} sessioner`} icon={<TrendingUp className="h-4 w-4" />} accent="var(--sunset-amber)" />
-        <StatCard label="Öppna uppgifter" value={String(upcoming.length)} sub="att göra / pågår" icon={<ListTodo className="h-4 w-4" />} accent="var(--sunset-violet)" />
-        <StatCard label="Aktiva kurser" value={String(courses.length)} sub="i din arbetsyta" icon={<BookOpen className="h-4 w-4" />} accent="var(--sunset-rose)" />
-      </div>
-
-      <div className="mt-6 grid gap-4 lg:grid-cols-3">
-        <Card className="border-border/60 bg-surface/60 lg:col-span-2">
-          <CardHeader className="pb-2">
-            <CardTitle className="font-display text-base">Veckans studietid</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-56">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={perDay}>
-                  <defs>
-                    <linearGradient id="grad-hours" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="var(--sunset-coral)" stopOpacity={0.9} />
-                      <stop offset="100%" stopColor="var(--sunset-violet)" stopOpacity={0.7} />
-                    </linearGradient>
-                  </defs>
-                  <XAxis dataKey="day" stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
-                  <YAxis stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} width={28} />
-                  <Tooltip
-                    cursor={{ fill: "var(--accent)" }}
-                    contentStyle={{ background: "var(--popover)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }}
-                    formatter={(v: number) => [`${v} h`, "Tid"]}
-                  />
-                  <Bar dataKey="hours" fill="url(#grad-hours)" radius={[6, 6, 2, 2]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-border/60 bg-surface/60">
-          <CardHeader className="pb-2 flex-row items-center justify-between space-y-0">
-            <CardTitle className="font-display text-base">Tid per kurs</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {perCourse.length === 0 && (
-              <div className="rounded-md border border-dashed border-border/60 p-6 text-center text-sm text-muted-foreground">
-                Ingen tid loggad än den här veckan.
-              </div>
-            )}
-            {perCourse.length > 0 && (
-              <div className="space-y-2">
-                {perCourse.map((r) => (
-                  <div key={r.name}>
-                    <div className="mb-1 flex items-center justify-between text-xs">
-                      <span className="flex items-center gap-2">
-                        <span className="inline-block h-2 w-2 rounded-full" style={{ background: r.color }} />
-                        {r.name}
-                      </span>
-                      <span className="font-mono tabular-nums text-muted-foreground">{r.hours}h</span>
+      {/* Aktiva kurser */}
+      <section className="mb-6">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="font-display text-lg font-semibold">Aktiva kurser</h2>
+          <Link to="/courses" className="text-xs text-muted-foreground hover:text-foreground">Se alla →</Link>
+        </div>
+        {activeCourses.length === 0 && (
+          <div className="rounded-xl border border-dashed border-border/60 p-6 text-center text-sm text-muted-foreground">
+            Inga kurser matchar aktuell period/årskurs. <Link to="/courses" className="underline">Lägg till en</Link>.
+          </div>
+        )}
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {activeCourses.map((c) => {
+            const hoursThisWeek = weekEntries.filter((e) => e.course_id === c.id).reduce((s, e) => s + (e.duration_seconds ?? 0), 0) / 3600;
+            const goal = c.weekly_goal_hours ?? 0;
+            const pct = goal > 0 ? Math.min(100, (hoursThisWeek / goal) * 100) : 0;
+            return (
+              <Link key={c.id} to="/courses/$courseId" params={{ courseId: c.id }} className="group rounded-xl border border-border/60 bg-surface/60 p-4 transition-colors hover:border-sunset-coral/40">
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">{c.icon || "📚"}</span>
+                  <span className="min-w-0 flex-1 truncate font-display font-semibold">{c.name}</span>
+                  <span className="inline-block h-2 w-2 rounded-full" style={{ background: c.color }} />
+                </div>
+                {goal > 0 ? (
+                  <>
+                    <div className="mt-3 flex items-center justify-between text-xs">
+                      <span className="text-muted-foreground">Vecka</span>
+                      <span className="tabular-nums">{hoursThisWeek.toFixed(1)} / {goal} h</span>
                     </div>
-                    <div className="h-1.5 overflow-hidden rounded-full bg-surface-2">
-                      <div className="h-full rounded-full" style={{ width: `${Math.min(100, (r.hours / Math.max(...perCourse.map((p) => p.hours))) * 100)}%`, background: r.color }} />
+                    <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-surface-2">
+                      <div className="h-full rounded-full" style={{ width: `${pct}%`, background: c.color }} />
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+                  </>
+                ) : (
+                  <div className="mt-3 text-xs text-muted-foreground">Inget veckomål · {hoursThisWeek.toFixed(1)} h denna vecka</div>
+                )}
+              </Link>
+            );
+          })}
+        </div>
+      </section>
 
-      <div className="mt-6 grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-4 lg:grid-cols-2">
+        {/* Idag */}
         <Card className="border-border/60 bg-surface/60">
           <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="font-display text-base flex items-center gap-2"><ListTodo className="h-4 w-4 text-sunset-coral" /> Kommande uppgifter</CardTitle>
-            <Link to="/tasks" className="text-xs text-muted-foreground hover:text-foreground">Se alla →</Link>
+            <CardTitle className="font-display text-base flex items-center gap-2"><Clock className="h-4 w-4 text-sunset-coral" /> Idag</CardTitle>
+            <div className="text-xs text-muted-foreground">
+              {formatHoursCompact(weekEntries.filter((e) => isSameDay(new Date(e.started_at), new Date())).reduce((s, e) => s + (e.duration_seconds ?? 0), 0))} loggat
+            </div>
           </CardHeader>
-          <CardContent>
-            {upcoming.length === 0 && <div className="rounded-md border border-dashed border-border/60 p-6 text-center text-sm text-muted-foreground">Inga öppna uppgifter. Bra jobbat!</div>}
-            <div className="space-y-1">
-              {upcoming.map((t) => {
+          <CardContent className="space-y-3">
+            <div>
+              <div className="mb-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">Studiepass</div>
+              {todaysSessions.length === 0 && <div className="text-sm text-muted-foreground">Inga planerade pass.</div>}
+              {todaysSessions.map((s) => {
+                const c = courses.find((c) => c.id === s.course_id);
+                return (
+                  <div key={s.id} className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-surface">
+                    <GraduationCap className="h-3.5 w-3.5" style={{ color: c?.color ?? "var(--sunset-violet)" }} />
+                    <span className="tabular-nums text-xs text-muted-foreground">{format(parseISO(s.planned_start), "HH:mm")}–{format(parseISO(s.planned_end), "HH:mm")}</span>
+                    <span className="min-w-0 flex-1 truncate">{c?.name ?? "Ingen kurs"}</span>
+                    {s.completed && <span className="text-[10px] uppercase text-sunset-coral">Klart</span>}
+                  </div>
+                );
+              })}
+            </div>
+            <div>
+              <div className="mb-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">Deadlines idag</div>
+              {todayTasks.length === 0 && <div className="text-sm text-muted-foreground">Inga deadlines idag.</div>}
+              {todayTasks.map((t) => {
                 const c = courses.find((c) => c.id === t.course_id);
                 return (
-                  <div key={t.id} className="flex items-center gap-3 rounded-md px-2 py-2 hover:bg-surface">
+                  <Link key={t.id} to="/tasks" className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-surface">
                     <span className="inline-block h-2 w-2 rounded-full" style={{ background: c?.color ?? "var(--muted-foreground)" }} />
-                    <span className="min-w-0 flex-1 truncate text-sm">{t.title}</span>
-                    {t.due_at && (
-                      <span className="text-xs text-muted-foreground">{format(new Date(t.due_at), "d MMM", { locale: sv })}</span>
-                    )}
-                  </div>
+                    <span className="min-w-0 flex-1 truncate">{t.title}</span>
+                    {t.task_kind === "exam" && <span className="rounded-full bg-sunset-rose/20 px-1.5 py-0.5 text-[9px] uppercase text-sunset-rose">Exam</span>}
+                  </Link>
                 );
               })}
             </div>
           </CardContent>
         </Card>
 
+        {/* Denna vecka */}
         <Card className="border-border/60 bg-surface/60">
           <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="font-display text-base flex items-center gap-2"><CalendarIcon className="h-4 w-4 text-sunset-violet" /> Snabbstart</CardTitle>
+            <CardTitle className="font-display text-base flex items-center gap-2"><CalendarIcon className="h-4 w-4 text-sunset-violet" /> Denna vecka</CardTitle>
+            <Link to="/stats" className="text-xs text-muted-foreground hover:text-foreground">Statistik →</Link>
           </CardHeader>
-          <CardContent className="grid grid-cols-2 gap-2">
-            <QuickAction to="/tasks" label="Ny uppgift" icon={<ListTodo className="h-4 w-4" />} />
-            <QuickAction to="/courses" label="Ny kurs" icon={<BookOpen className="h-4 w-4" />} />
-            <QuickAction to="/calendar" label="Kalender" icon={<CalendarIcon className="h-4 w-4" />} />
-            <QuickAction to="/time" label="Tidshistorik" icon={<Clock className="h-4 w-4" />} />
+          <CardContent className="space-y-3">
+            <div>
+              <div className="mb-2 text-xs uppercase tracking-wider text-muted-foreground">Studietid</div>
+              <div className="flex items-end gap-1.5">
+                {perDay.map((p) => (
+                  <div key={p.d.toISOString()} className="flex flex-1 flex-col items-center gap-1">
+                    <div className="flex h-16 w-full items-end">
+                      <div className="w-full rounded-t bg-gradient-to-t from-sunset-violet to-sunset-coral" style={{ height: `${Math.max(4, (p.hours / maxDayH) * 100)}%` }} />
+                    </div>
+                    <div className={`text-[10px] uppercase ${isSameDay(p.d, new Date()) ? "font-semibold text-foreground" : "text-muted-foreground"}`}>{format(p.d, "EEEEE", { locale: sv })}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="flex items-center justify-between rounded-md border border-border/60 bg-surface/60 px-3 py-2 text-sm">
+              <span className="flex items-center gap-2"><ListTodo className="h-3.5 w-3.5 text-sunset-amber" /> Uppgifter kvar</span>
+              <span className="tabular-nums font-semibold">{openTasks.length}</span>
+            </div>
+            <div className="flex items-center justify-between rounded-md border border-border/60 bg-surface/60 px-3 py-2 text-sm">
+              <span className="flex items-center gap-2"><Clock className="h-3.5 w-3.5 text-sunset-coral" /> Total studietid</span>
+              <span className="tabular-nums font-semibold">{formatHoursCompact(weekEntries.reduce((s, e) => s + (e.duration_seconds ?? 0), 0))}</span>
+            </div>
           </CardContent>
         </Card>
       </div>
+
+      {/* Väntar på bedömning */}
+      {pendingReview.length > 0 && (
+        <Card className="mt-6 border-sunset-amber/40 bg-surface/60">
+          <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="font-display text-base flex items-center gap-2"><AlertCircle className="h-4 w-4 text-sunset-amber" /> Väntar på bedömning</CardTitle>
+            <Link to="/tasks" className="text-xs text-muted-foreground hover:text-foreground">Se alla →</Link>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-1">
+              {pendingReview.map((t) => {
+                const c = courses.find((c) => c.id === t.course_id);
+                return (
+                  <Link key={t.id} to="/tasks" className="flex items-center gap-3 rounded-md px-2 py-2 text-sm hover:bg-surface">
+                    <span className="inline-block h-2 w-2 rounded-full" style={{ background: c?.color ?? "var(--muted-foreground)" }} />
+                    <span className="min-w-0 flex-1 truncate">{t.title}</span>
+                    {t.due_at && (
+                      <span className="text-xs text-muted-foreground">
+                        {(() => { const d = differenceInCalendarDays(parseISO(t.due_at), new Date()); return d < 0 ? `försenad ${Math.abs(d)} d` : d === 0 ? "idag" : d === 1 ? "imorgon" : `${d} d`; })()}
+                      </span>
+                    )}
+                  </Link>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Kommande uppgifter */}
+      <Card className="mt-6 border-border/60 bg-surface/60">
+        <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="font-display text-base flex items-center gap-2"><ListTodo className="h-4 w-4 text-sunset-coral" /> Kommande uppgifter</CardTitle>
+          <Link to="/tasks" className="text-xs text-muted-foreground hover:text-foreground">Se alla →</Link>
+        </CardHeader>
+        <CardContent>
+          {openTasks.length === 0 && <div className="rounded-md border border-dashed border-border/60 p-6 text-center text-sm text-muted-foreground">Inga öppna uppgifter. Bra jobbat!</div>}
+          <div className="space-y-1">
+            {openTasks.slice(0, 8).map((t) => {
+              const c = courses.find((c) => c.id === t.course_id);
+              return (
+                <Link key={t.id} to="/tasks" className="flex items-center gap-3 rounded-md px-2 py-2 text-sm hover:bg-surface">
+                  <span className="inline-block h-2 w-2 rounded-full" style={{ background: c?.color ?? "var(--muted-foreground)" }} />
+                  <span className="min-w-0 flex-1 truncate">{t.title}</span>
+                  {t.task_kind === "exam" && <span className="rounded-full bg-sunset-rose/20 px-1.5 py-0.5 text-[9px] uppercase text-sunset-rose">Exam</span>}
+                  {t.due_at && (
+                    <span className="text-xs text-muted-foreground">{format(new Date(t.due_at), "d MMM", { locale: sv })}</span>
+                  )}
+                </Link>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
 
-function StatCard({ label, value, sub, icon, accent }: { label: string; value: string; sub: string; icon: React.ReactNode; accent: string }) {
-  return (
-    <Card className="relative overflow-hidden border-border/60 bg-surface/60">
-      <div className="absolute inset-x-0 top-0 h-0.5" style={{ background: accent }} />
-      <CardContent className="pt-5">
-        <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-muted-foreground">
-          <span style={{ color: accent }}>{icon}</span>
-          {label}
-        </div>
-        <div className="mt-2 font-display text-3xl font-bold tabular-nums">{value}</div>
-        <div className="text-xs text-muted-foreground">{sub}</div>
-      </CardContent>
-    </Card>
-  );
-}
-
-function QuickAction({ to, label, icon }: { to: string; label: string; icon: React.ReactNode }) {
-  return (
-    <Link
-      to={to}
-      className="group flex items-center gap-2 rounded-md border border-border/60 bg-surface px-3 py-3 text-sm hover:border-sunset-coral/40 hover:bg-surface-2"
-    >
-      <span className="text-muted-foreground group-hover:text-sunset-coral">{icon}</span>
-      {label}
-    </Link>
-  );
-}
-
-// silence unused import in Cell
-void Cell;
+// silence potential unused
+void BookOpen;

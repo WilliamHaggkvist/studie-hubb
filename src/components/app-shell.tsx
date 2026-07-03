@@ -23,6 +23,7 @@ import {
   BarChart3,
   Star,
   Settings,
+  StickyNote,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -125,7 +126,7 @@ function SidebarContent() {
     },
     onSuccess: (id) => {
       qc.invalidateQueries({ queryKey: ["pages"] });
-      navigate({ to: "/pages/$pageId", params: { pageId: id } });
+      navigate({ to: "/notes/$noteId", params: { noteId: id } });
     },
     onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Kunde inte skapa sida"),
   });
@@ -151,6 +152,7 @@ function SidebarContent() {
         <NavItem to="/calendar" icon={<Calendar className="h-4 w-4" />} label="Kalender" />
         <NavItem to="/time" icon={<Clock className="h-4 w-4" />} label="Studietid" />
         <NavItem to="/stats" icon={<BarChart3 className="h-4 w-4" />} label="Statistik" />
+        <NavItem to="/notes" icon={<StickyNote className="h-4 w-4" />} label="Anteckningar" />
         <NavItem to="/settings" icon={<Settings className="h-4 w-4" />} label="Inställningar" />
       </nav>
 
@@ -189,12 +191,12 @@ function SidebarContent() {
         </Section>
 
         <Section
-          label="Sidor"
+          label="Anteckningar"
           action={
             <button
               onClick={() => createPage.mutate(null)}
               className="rounded p-1 text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
-              title="Ny sida"
+              title="Ny anteckning"
             >
               <Plus className="h-3.5 w-3.5" />
             </button>
@@ -205,7 +207,7 @@ function SidebarContent() {
               onClick={() => createPage.mutate(null)}
               className="mx-2 block w-[calc(100%-1rem)] rounded-md border border-dashed border-sidebar-border px-3 py-2 text-left text-xs text-muted-foreground hover:text-foreground"
             >
-              + Skapa din första sida
+              + Skapa din första anteckning
             </button>
           )}
           {rootPages.map((p) => (
@@ -273,7 +275,7 @@ function CourseNode({ course, pages }: { course: CourseRow; pages: PageRow[] }) 
       {open && (
         <div className="ml-5 border-l border-sidebar-border/50 pl-1">
           {pages.length === 0 && (
-            <div className="px-3 py-1 text-xs text-muted-foreground/70">Inga sidor än</div>
+            <div className="px-3 py-1 text-xs text-muted-foreground/70">Inga anteckningar än</div>
           )}
           {pages.map((p) => (
             <PageLink key={p.id} page={p} />
@@ -286,11 +288,11 @@ function CourseNode({ course, pages }: { course: CourseRow; pages: PageRow[] }) 
 
 function PageLink({ page }: { page: PageRow }) {
   const pathname = useRouterState({ select: (r) => r.location.pathname });
-  const active = pathname === `/pages/${page.id}`;
+  const active = pathname === `/notes/${page.id}`;
   return (
     <Link
-      to="/pages/$pageId"
-      params={{ pageId: page.id }}
+      to="/notes/$noteId"
+      params={{ noteId: page.id }}
       className={cn(
         "flex items-center gap-2 rounded-md px-3 py-1 text-sm text-sidebar-foreground",
         active ? "bg-sidebar-accent text-foreground" : "hover:bg-sidebar-accent/60 hover:text-foreground",
@@ -391,23 +393,23 @@ function GlobalSearch() {
       <PopoverTrigger asChild>
         <button className="flex h-9 w-full max-w-sm items-center gap-2 rounded-md border border-border/60 bg-surface px-3 text-sm text-muted-foreground hover:border-border">
           <Search className="h-4 w-4" />
-          <span>Sök sidor…</span>
+          <span>Sök anteckningar…</span>
         </button>
       </PopoverTrigger>
       <PopoverContent className="w-[min(28rem,90vw)] p-0" align="start">
         <div className="border-b border-border/60 p-2">
-          <Input autoFocus placeholder="Sök i alla sidor…" value={q} onChange={(e) => setQ(e.target.value)} />
+          <Input autoFocus placeholder="Sök i anteckningar…" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
         <div className="max-h-72 overflow-y-auto p-1">
           {results.length === 0 && q && <div className="p-3 text-sm text-muted-foreground">Inga träffar</div>}
-          {!q && <div className="p-3 text-sm text-muted-foreground">Börja skriv för att söka bland dina sidor.</div>}
+          {!q && <div className="p-3 text-sm text-muted-foreground">Börja skriv för att söka i dina anteckningar.</div>}
           {results.map((r) => (
             <button
               key={r.id}
               onClick={() => {
                 setOpen(false);
                 setQ("");
-                navigate({ to: "/pages/$pageId", params: { pageId: r.id } });
+                navigate({ to: "/notes/$noteId", params: { noteId: r.id } });
               }}
               className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent"
             >
