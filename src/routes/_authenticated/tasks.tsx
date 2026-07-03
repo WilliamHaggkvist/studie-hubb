@@ -82,7 +82,16 @@ const TYPES_ALPHA: TaskType[] = [
   "tenta",
   "ovning",
 ];
-const EXAM_TYPES = new Set<TaskType>(["tenta", "kontrollskrivning", "modul", "quiz", "redovisning"]);
+const EXAM_TYPES = new Set<TaskType>([
+  "inlamningsuppgift",
+  "kontrollskrivning",
+  "laboration",
+  "quiz",
+  "redovisning",
+  "seminarie",
+  "tenta",
+  "ovning",
+]);
 
 const COLUMNS: { key: TaskStatus; label: string; accent: string }[] = [
   { key: "todo", label: "Ej startad", accent: "var(--sunset-coral, #f94144)" },
