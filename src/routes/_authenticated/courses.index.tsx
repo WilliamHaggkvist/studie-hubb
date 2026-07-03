@@ -15,7 +15,7 @@ import { useUniversities } from "@/lib/settings";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/_authenticated/courses")({
+export const Route = createFileRoute("/_authenticated/courses/")({
   component: CoursesPage,
 });
 
