@@ -287,7 +287,7 @@ function TasksPage() {
         open={createOpen}
         onOpenChange={setCreateOpen}
         courses={courses}
-        defaultKind={tab}
+        
         onSave={(v) => {
           upsert.mutate(v, {
             onSuccess: () => {
