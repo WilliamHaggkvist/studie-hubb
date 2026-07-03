@@ -109,20 +109,32 @@ export async function syncGoogleCalendarForUser(
       const isSession = title.startsWith("[Studiepass]");
 
       if (isSession) {
-        const { error } = await supabase
+        const { data: existing } = await supabase
           .from("study_sessions")
-          .upsert(
-            {
-              user_id: userId,
-              planned_start: new Date(startsRaw).toISOString(),
-              planned_end: new Date(endsRaw).toISOString(),
-              notes: title.replace("[Studiepass]", "").trim() || null,
-              source: "google",
-              google_event_id: ev.id,
-            },
-            { onConflict: "google_event_id" },
-          );
-        if (!error) sessions++;
+          .select("id")
+          .eq("google_event_id", ev.id)
+          .maybeSingle();
+        const base = {
+          user_id: userId,
+          planned_start: new Date(startsRaw).toISOString(),
+          planned_end: new Date(endsRaw).toISOString(),
+          notes: title.replace("[Studiepass]", "").trim() || null,
+          source: "google",
+          google_event_id: ev.id,
+        };
+        if (existing) {
+          // Uppdatera tider/text men rör inte needs_review eller kopplade uppgifter
+          const { error } = await supabase
+            .from("study_sessions")
+            .update(base)
+            .eq("id", existing.id);
+          if (!error) sessions++;
+        } else {
+          const { error } = await supabase
+            .from("study_sessions")
+            .insert({ ...base, needs_review: true });
+          if (!error) sessions++;
+        }
         continue;
       }
 
