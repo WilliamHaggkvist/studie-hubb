@@ -234,11 +234,41 @@ function TermsCard() {
 }
 
 function GoogleCard() {
+  const qc = useQueryClient();
+  const [status, setStatus] = useState<{ imported: number; sessions: number; total: number } | null>(null);
+  const sync = useMutation({
+    mutationFn: async () => {
+      const { syncGoogleCalendar } = await import("@/lib/google-calendar.functions");
+      return await syncGoogleCalendar();
+    },
+    onSuccess: (r) => {
+      setStatus(r);
+      qc.invalidateQueries({ queryKey: ["events"] });
+      qc.invalidateQueries({ queryKey: ["sessions"] });
+      toast.success(`Synkat: ${r.imported} händelser, ${r.sessions} studiepass`);
+    },
+    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Synkfel"),
+  });
   return (
     <Card className="border-border/60 bg-surface/60 backdrop-blur-md rounded-2xl">
-      <CardHeader><CardTitle className="font-display text-base">Google Calendar</CardTitle></CardHeader>
-      <CardContent>
-        <p className="text-sm text-muted-foreground">Kopplingen till Google Calendar aktiveras i Etapp C. Vi använder Lovables inbyggda connector — ingen egen OAuth-app behövs.</p>
+      <CardHeader><CardTitle className="font-display text-base flex items-center gap-2"><CalIcon className="h-4 w-4" /> Google Calendar</CardTitle></CardHeader>
+      <CardContent className="space-y-3">
+        <p className="text-sm text-muted-foreground">
+          Koppla Google Calendar via Lovables inbyggda connector för att importera dina föreläsningar, tentor och studiepass. Händelser med prefix <code className="rounded bg-surface px-1 text-xs">[Studiepass]</code> importeras som studiepass.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <Button size="sm" onClick={() => sync.mutate()} disabled={sync.isPending} className="gap-1 rounded-xl gradient-sunset text-white hover:opacity-90">
+            {sync.isPending ? "Synkar…" : "Synka nu"}
+          </Button>
+        </div>
+        {status && (
+          <div className="rounded-md border border-border/60 bg-surface/60 px-3 py-2 text-xs text-muted-foreground">
+            Senaste synk: {status.imported} händelser · {status.sessions} studiepass · {status.total} rader hämtade
+          </div>
+        )}
+        <p className="text-xs text-muted-foreground">
+          Kopplas via Lovables connector-inställningar. Är kopplingen inte gjord får du ett felmeddelande här — säg till så länkar vi.
+        </p>
       </CardContent>
     </Card>
   );
