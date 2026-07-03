@@ -29,8 +29,6 @@ type Entry = {
   duration_seconds: number | null;
   source: string;
 };
-type Course = { id: string; name: string; color: string };
-type Task = { id: string; title: string; course_id: string | null; status: string };
 type Session = {
   id: string;
   course_id: string | null;
@@ -58,21 +56,10 @@ type SessionAgg = {
 function TimePage() {
   const [period, setPeriod] = useState<"week" | "30">("week");
 
-  const { data: courses = [] } = useQuery({
-    queryKey: ["courses"],
-    queryFn: async () => {
-      const { data } = await supabase.from("courses").select("id,name,color").eq("archived", false);
-      return (data ?? []) as Course[];
-    },
-  });
+  const { data: allCourses = [] } = useQuery(coursesQuery);
+  const courses = allCourses.filter((c) => !c.archived);
+  const { data: allTasks = [] } = useQuery(tasksQuery);
 
-  const { data: allTasks = [] } = useQuery({
-    queryKey: ["tasks", "all-min"],
-    queryFn: async () => {
-      const { data } = await supabase.from("tasks").select("id,title,course_id,status");
-      return (data ?? []) as Task[];
-    },
-  });
 
   const { data: entries = [] } = useQuery({
     queryKey: ["time_entries", "list"],
