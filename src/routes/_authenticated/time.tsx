@@ -412,15 +412,16 @@ function SessionsPanel({ courses, allTasks }: { courses: Course[]; allTasks: Tas
 
   const confirmInbox = useMutation({
     mutationFn: async ({ sessionId, courseId, taskIds }: { sessionId: string; courseId: string | null; taskIds: string[] }) => {
+      const { data: u } = await supabase.auth.getUser();
+      if (!u.user) throw new Error("no user");
       const { error: eUpd } = await supabase
         .from("study_sessions")
         .update({ needs_review: false, course_id: courseId })
         .eq("id", sessionId);
       if (eUpd) throw eUpd;
-      // Rensa gamla kopplingar och lägg in valda uppgifter
       await supabase.from("study_session_tasks").delete().eq("session_id", sessionId);
       if (taskIds.length > 0) {
-        const rows = taskIds.map((task_id) => ({ session_id: sessionId, task_id }));
+        const rows = taskIds.map((task_id) => ({ session_id: sessionId, task_id, user_id: u.user!.id }));
         const { error } = await supabase.from("study_session_tasks").insert(rows);
         if (error) throw error;
       }
