@@ -164,18 +164,46 @@ function TimePage() {
         <div>
           <h1 className="font-display text-3xl font-bold tracking-tight">Studietid</h1>
           <p className="text-sm text-muted-foreground">
-            <span className="text-sunset-amber">{formatHoursCompact(totalPeriod)}</span> senaste{" "}
-            {period === "7" ? "7" : "30"} dagarna
+            <span className="text-sunset-amber">{formatHoursCompact(totalPeriod)}</span>{" "}
+            {period === "week" ? "denna vecka" : "senaste 30 dagarna"}
           </p>
         </div>
-        <Select value={period} onValueChange={(v) => setPeriod(v as "7" | "30")}>
+        <Select value={period} onValueChange={(v) => setPeriod(v as "week" | "30")}>
           <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="7">Senaste 7 dagar</SelectItem>
+            <SelectItem value="week">Denna vecka</SelectItem>
             <SelectItem value="30">Senaste 30 dagar</SelectItem>
           </SelectContent>
         </Select>
       </div>
+
+      {/* Weekly hours per course – prominent */}
+      {period === "week" && (
+        <div className="mb-6 rounded-xl border border-border/60 bg-surface/60 p-5">
+          <div className="mb-3 flex items-baseline justify-between">
+            <div className="font-display text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+              Studietimmar denna vecka
+            </div>
+            <div className="font-display text-2xl font-bold tabular-nums text-sunset-amber">
+              {formatHoursCompact(totalPeriod)}
+            </div>
+          </div>
+          {byCourse.length === 0 ? (
+            <div className="py-4 text-center text-sm text-muted-foreground">Inga studietimmar än denna vecka.</div>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {byCourse.map((c) => (
+                <div key={c.id} className="flex items-center gap-2 rounded-lg border border-border/60 bg-surface-2/60 px-3 py-2">
+                  <span className="h-2.5 w-2.5 rounded-full" style={{ background: c.color }} />
+                  <span className="text-sm">{c.name}</span>
+                  <span className="font-mono text-sm font-semibold tabular-nums">{formatHoursCompact(c.seconds)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
 
       {/* Summary */}
       <div className="mb-8 grid gap-4 md:grid-cols-2">
