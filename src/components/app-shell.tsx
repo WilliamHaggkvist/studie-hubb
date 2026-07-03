@@ -427,6 +427,7 @@ function TimerWidget() {
   const [now, setNow] = useState(Date.now());
   const [open, setOpen] = useState(false);
   const [courseId, setCourseId] = useState<string>("none");
+  const [taskIds, setTaskIds] = useState<string[]>([]);
   const [description, setDescription] = useState("");
 
   useEffect(() => {
@@ -444,11 +445,32 @@ function TimerWidget() {
     },
   });
 
+  const { data: courseTasks = [] } = useQuery({
+    queryKey: ["tasks", "for-course", courseId],
+    enabled: courseId !== "none",
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("tasks")
+        .select("id,title,status")
+        .eq("course_id", courseId)
+        .neq("status", "done")
+        .order("due_at", { ascending: true, nullsFirst: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
   async function start() {
-    timerStore.start({ courseId: courseId === "none" ? null : courseId, description });
+    timerStore.start({
+      courseId: courseId === "none" ? null : courseId,
+      taskIds,
+      description,
+    });
     setOpen(false);
+    setTaskIds([]);
     toast.success("Timer startad");
   }
+
 
   async function stop() {
     const prev = timerStore.stop();
@@ -462,16 +484,20 @@ function TimerWidget() {
     }
     const { data: u } = await supabase.auth.getUser();
     if (!u.user) return;
-    const { error } = await supabase.from("time_entries").insert({
+    const base = {
       user_id: u.user.id,
       course_id: prev.courseId,
-      task_id: prev.taskId,
       description: prev.description || null,
       started_at: startedAt.toISOString(),
       ended_at: endedAt.toISOString(),
       duration_seconds: duration,
       source: "timer",
-    });
+    };
+    const rows: Array<typeof base & { task_id: string | null }> =
+      prev.taskIds.length > 0
+        ? prev.taskIds.map((task_id) => ({ ...base, task_id }))
+        : [{ ...base, task_id: null }];
+    const { error } = await supabase.from("time_entries").insert(rows);
     if (error) {
       toast.error(error.message);
     } else {
@@ -505,12 +531,12 @@ function TimerWidget() {
           <Play className="h-3.5 w-3.5" /> Starta timer
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-72">
+      <PopoverContent align="end" className="w-80">
         <div className="space-y-3">
           <div className="text-sm font-semibold">Ny tidssession</div>
           <div>
             <label className="mb-1 block text-xs text-muted-foreground">Kurs</label>
-            <Select value={courseId} onValueChange={setCourseId}>
+            <Select value={courseId} onValueChange={(v) => { setCourseId(v); setTaskIds([]); }}>
               <SelectTrigger><SelectValue placeholder="Välj kurs" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">Ingen kurs</SelectItem>
@@ -520,6 +546,30 @@ function TimerWidget() {
               </SelectContent>
             </Select>
           </div>
+          {courseId !== "none" && courseTasks.length > 0 && (
+            <div>
+              <label className="mb-1 block text-xs text-muted-foreground">Uppgifter (valfritt)</label>
+              <div className="max-h-40 space-y-1 overflow-y-auto rounded-md border border-border/60 p-2">
+                {courseTasks.map((t) => {
+                  const checked = taskIds.includes(t.id);
+                  return (
+                    <label key={t.id} className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 text-sm hover:bg-accent">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={(e) => {
+                          setTaskIds((prev) =>
+                            e.target.checked ? [...prev, t.id] : prev.filter((id) => id !== t.id),
+                          );
+                        }}
+                      />
+                      <span className="truncate">{t.title}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          )}
           <div>
             <label className="mb-1 block text-xs text-muted-foreground">Beskrivning (valfritt)</label>
             <Input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="T.ex. Läsa kap 3" />
