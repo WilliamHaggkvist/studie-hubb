@@ -416,11 +416,7 @@ function TaskDialog({
   const [dueAt, setDueAt] = useState(task?.due_at ? task.due_at.slice(0, 16) : "");
   const [courseId, setCourseId] = useState(task?.course_id ?? "none");
   const [type, setType] = useState<TaskType>(task?.task_type ?? "annat");
-  const [kind, setKind] = useState<TaskKind>(task?.task_kind ?? defaultKind ?? "task");
-  const [status, setStatus] = useState<TaskStatus>(task?.status ?? "todo");
-  const [grade, setGrade] = useState(task?.grade ?? "");
-  const [points, setPoints] = useState(task?.points ?? "");
-  const [pending, setPending] = useState(task?.pending_review ?? false);
+  const kind: TaskKind = EXAM_TYPES.has(type) ? "exam" : "task";
 
   // Reset when task changes
   useEffect(() => {
@@ -429,11 +425,6 @@ function TaskDialog({
     setDueAt(task?.due_at ? task.due_at.slice(0, 16) : "");
     setCourseId(task?.course_id ?? "none");
     setType(task?.task_type ?? "annat");
-    setKind(task?.task_kind ?? defaultKind ?? "task");
-    setStatus(task?.status ?? "todo");
-    setGrade(task?.grade ?? "");
-    setPoints(task?.points ?? "");
-    setPending(task?.pending_review ?? false);
   }, [task, defaultKind]);
 
   const submit = () => {
@@ -444,10 +435,7 @@ function TaskDialog({
       course_id: courseId === "none" ? null : courseId,
       task_type: type,
       task_kind: kind,
-      status,
-      grade: grade.trim() || null,
-      points: points.trim() || null,
-      pending_review: pending,
+      ...(task ? {} : { status: "todo" as TaskStatus, pending_review: false }),
     });
   };
 
