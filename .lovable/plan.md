@@ -1,79 +1,46 @@
 ## Mål
+Bygg om kursdetaljsidan (`src/routes/_authenticated/courses.$courseId.tsx`) så att den matchar din spec: breadcrumbs, kompakt info-header, studiepass, uppgifter uppdelat i uppgifter/examinationer, anteckningar, vecko-statistik, samt redigera/ta bort.
 
-Koppla Google Calendar-events till rätt kurs via `[KURSKOD]` i eventtiteln, och låt dig välja i Inställningar vilka Google-kalendrar som ska synkas + vilka som räknas som studietid.
+## Ändringar
 
-Bra nyhet: `courses.code` finns redan i databasen, så ingen migration behövs för kurskoden.
+### 1. Breadcrumbs
+Ersätt nuvarande "← Alla kurser"-länk med en `Breadcrumb`-komponent (finns redan i `components/ui/breadcrumb.tsx`):
+`Kurser / [Kursnamn]`. Fungerar identiskt på mobil och dator.
 
----
+### 2. Header (kompakt info-kort)
+Behåll nuvarande glasmorf-header, men se till att **alla** dessa fält visas som chips/rader: ikon, kursnamn, kurskod, HP, årskurs, period, universitet, veckomål (h/v). Redigera- och ta-bort-knappar ligger kvar högst upp till höger (redan implementerat via `EditCourseDialog` + `remove`-mutation).
 
-## 1. Kurskod-parser
+### 3. Statistikpanel (ny)
+Under headern: 4 små kort i en responsiv grid:
+- **Denna vecka** — timmar + progressbar mot veckomål (finns redan, återanvänds).
+- **Snitt/vecka** — medelvärde h/v över alla veckor kursen haft tidsposter.
+- **Max vecka** — högsta veckans timmar + datumintervall.
+- **Min vecka** — lägsta veckans timmar (bland veckor med aktivitet) + datumintervall.
 
-Regex: `/\[([A-ZÅÄÖ0-9]{2,10})\]/i` — plockar första hakparentesen i titeln.
+Beräkning: gruppera `time_entries` för kursen per ISO-vecka (måndag-söndag, `startOfWeek weekStartsOn:1`), summera `duration_seconds`, ta `avg / max / min`.
 
-Matcha träffen (case-insensitive) mot `courses.code` för inloggad användare. Träff → sätt `calendar_events.course_id`. Ingen träff → importera ändå med `course_id = null` (visas som "okopplad" i UI, som redan finns).
+### 4. Studiepass kopplade till kursen (ny sektion)
+Ny query: `study_sessions` där `course_id = courseId`, sorterat på `planned_start desc`, visa senaste 10 i ett kompakt kort (datum, tid, ✔ om `completed`). Länk "Se alla" till `/time`.
 
-Kurskod-taggen behålls i titeln så du ser den i alla vyer.
+### 5. Uppgifter uppdelade (ny layout)
+Ersätt nuvarande generella "Uppgifter"-kort med **två kort sida-vid-sida**:
+- **Uppgifter** — `tasks` där `course_id = courseId` AND `task_kind IS DISTINCT FROM 'exam'` (dvs. `assignment` eller null).
+- **Examinationer** — `tasks` där `task_kind = 'exam'`.
 
----
+Varje rad: titel, förfallodatum, status-prick. Klick öppnar `/tasks` (befintlig sida hanterar redigering).
 
-## 2. Valbara kalendrar (ny tabell)
+### 6. Anteckningar (ny sektion)
+Ny query mot `pages` där `course_id = courseId AND archived = false`. Visa som lista med ikon + titel; klick går till `/notes/$noteId`. Knapp "+ Ny anteckning" som skapar en `pages`-rad med `course_id` satt och navigerar dit.
 
-```text
-public.google_calendar_prefs
-├─ user_id (fk auth.users, unique per calendar)
-├─ google_calendar_id (text)
-├─ name, background_color (cache från Google)
-├─ sync_enabled (bool, default false)
-├─ counts_as_study (bool, default false)
-└─ timestamps
-```
+### 7. Behåll / rensa
+- Behåll `EditCourseDialog`, `FilesCard`, kurslitteratur och lärare/kontakt (litet kort längre ned).
+- Ta bort de tre KPI-korten som redan finns i headern (Denna vecka / Total / Öppna uppgifter) — ersätts av nya statistikpanelen.
 
-RLS: endast egen data. GRANT för `authenticated` + `service_role`.
+### 8. Klickbarhet från kurslistan
+Verifiera att kortet i `/courses` redan navigerar till `/courses/$courseId` (route finns). Om inte, wrappa kortet i `<Link to="/courses/$courseId" params={{ courseId: c.id }} />`.
 
----
-
-## 3. Utökad sync-logik (`src/lib/google-calendar.functions.ts`)
-
-Två nya server-funktioner + uppdaterad sync:
-
-- **`listGoogleCalendars`** — hämtar `/users/me/calendarList`, upsertar rader i `google_calendar_prefs` (utan att röra `sync_enabled`/`counts_as_study` om de redan finns), returnerar listan så UI kan visa dem.
-- **`updateCalendarPref`** — togglar `sync_enabled` / `counts_as_study` per kalender.
-- **`syncGoogleCalendar`** (befintlig, utökas):
-  1. Läs alla `google_calendar_prefs` där `sync_enabled = true`.
-  2. Loopa och hämta events per kalender-id (inte bara `primary`).
-  3. För varje event: parsa kurskoden, slå upp `course_id` (cacha kod→id map för användaren).
-  4. Sätt `counts_as_study` från kalenderns pref (istället för hårdkodat `false`).
-  5. Behåll `[Studiepass]`-detektionen som skapar `study_sessions`.
-  6. Retur: `{ imported, sessions, mapped, unmapped, calendars: N }`.
-
-Fortsatt idempotent via `external_id` unique upsert.
-
----
-
-## 4. UI i Inställningar (`settings.tsx` → `GoogleCard`)
-
-Utöka det befintliga kortet:
-
-- Knapp **"Hämta kalendrar"** → kör `listGoogleCalendars`.
-- Lista alla kalendrar med två toggles per rad: **Synka** och **Räknas som studietid**.
-- Visa liten färgprick från Googles `background_color`.
-- Info-ruta: *"Skriv `[KURSKOD]` i eventtiteln (t.ex. `[SG1140] Föreläsning`) för att koppla till en kurs. Kurskoderna hämtas från kortet 'Kurskod' på respektive kurs."*
-- Länk/knapp till kurssidan för att sätta koder som saknas.
-- Efter första `Synka nu`: visa `mapped / unmapped`-räknare så du ser vilka events som saknar kod.
-
----
-
-## 5. Okopplade events i kalender-/tid-vyn
-
-Ingen ny logik krävs — okopplade events (`course_id = null`) syns redan i kalender-vyn. Vi lägger bara till en subtil "okopplad"-badge så det är lätt att hitta events där du glömt kurskoden.
-
----
-
-## Filändringar
-
-- `supabase/migrations/…` — ny `google_calendar_prefs`-tabell + RLS + GRANT.
-- `src/lib/google-calendar.functions.ts` — parser, tre server-fns, multi-calendar loop.
-- `src/routes/_authenticated/settings.tsx` — utökad `GoogleCard` med kalenderlista.
-- `src/routes/_authenticated/calendar.tsx` — liten "okopplad"-badge (valfri finputs).
-
-Inget behövs för `courses` — kolumnen finns redan. Ingen ny secret. Ingen ny connector.
+## Teknisk sammanfattning
+- Endast frontend-ändringar i `src/routes/_authenticated/courses.$courseId.tsx` (+ eventuellt `courses.tsx` för länken).
+- Nya queries: `study_sessions`-per-kurs, `pages`-per-kurs. Befintliga: `courses`, `tasks`, `time_entries`, `course_files`.
+- Ingen migration, ingen ny secret, ingen backend-ändring.
+- Använder befintliga UI-komponenter (`Breadcrumb`, `Card`, `Button`, `Dialog`).
