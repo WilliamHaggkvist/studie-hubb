@@ -43,6 +43,7 @@ type Session = {
   notes: string | null;
   completed: boolean;
   source: string;
+  needs_review: boolean;
 };
 type SessionTask = { session_id: string; task_id: string };
 
@@ -94,6 +95,7 @@ function TimePage() {
       const { data } = await supabase
         .from("study_sessions")
         .select("id,course_id,planned_start,planned_end,actual_start,actual_end,completed")
+        .eq("needs_review", false)
         .order("planned_start", { ascending: false })
         .limit(500);
       return (data ?? []) as SessionAgg[];
@@ -314,9 +316,9 @@ function SessionsPanel({ courses, allTasks }: { courses: Course[]; allTasks: Tas
     queryFn: async () => {
       const { data } = await supabase
         .from("study_sessions")
-        .select("id,course_id,planned_start,planned_end,actual_start,actual_end,notes,completed,source")
+        .select("id,course_id,planned_start,planned_end,actual_start,actual_end,notes,completed,source,needs_review")
         .order("planned_start", { ascending: false })
-        .limit(50);
+        .limit(200);
       return (data ?? []) as Session[];
     },
   });
@@ -341,6 +343,7 @@ function SessionsPanel({ courses, allTasks }: { courses: Course[]; allTasks: Tas
         notes: [e.title, e.location].filter(Boolean).join(" · ") || null,
         completed: new Date(e.ends_at).getTime() < now,
         source: "calendar",
+        needs_review: false,
       }));
     },
   });
@@ -407,7 +410,35 @@ function SessionsPanel({ courses, allTasks }: { courses: Course[]; allTasks: Tas
     onSuccess: () => qc.invalidateQueries({ queryKey: ["study_sessions"] }),
   });
 
-  const merged = [...sessions, ...calSessions].sort(
+  const confirmInbox = useMutation({
+    mutationFn: async ({ sessionId, courseId, taskIds }: { sessionId: string; courseId: string | null; taskIds: string[] }) => {
+      const { data: u } = await supabase.auth.getUser();
+      if (!u.user) throw new Error("no user");
+      const { error: eUpd } = await supabase
+        .from("study_sessions")
+        .update({ needs_review: false, course_id: courseId })
+        .eq("id", sessionId);
+      if (eUpd) throw eUpd;
+      await supabase.from("study_session_tasks").delete().eq("session_id", sessionId);
+      if (taskIds.length > 0) {
+        const rows = taskIds.map((task_id) => ({ session_id: sessionId, task_id, user_id: u.user!.id }));
+        const { error } = await supabase.from("study_session_tasks").insert(rows);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["study_sessions"] });
+      qc.invalidateQueries({ queryKey: ["study_session_tasks"] });
+      qc.invalidateQueries({ queryKey: ["study_sessions", "agg"] });
+      qc.invalidateQueries({ queryKey: ["time_entries"] });
+      toast.success("Studiepass bekräftat");
+    },
+    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Fel"),
+  });
+
+  const inbox = sessions.filter((s) => s.needs_review);
+  const reviewed = sessions.filter((s) => !s.needs_review);
+  const merged = [...reviewed, ...calSessions].sort(
     (a, b) => new Date(b.planned_start).getTime() - new Date(a.planned_start).getTime(),
   );
   const planned = merged.filter((s) => !s.completed);
@@ -419,12 +450,36 @@ function SessionsPanel({ courses, allTasks }: { courses: Course[]; allTasks: Tas
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="text-sm text-muted-foreground">
+          {inbox.length > 0 && <span className="mr-2 text-sunset-amber">{inbox.length} i inkorg · </span>}
           {planned.length} planerade · {completed.length} genomförda
         </div>
         <div className="text-xs text-muted-foreground">Studiepass schemaläggs i Google Kalender</div>
       </div>
 
-      {merged.length === 0 && (
+      {inbox.length > 0 && (
+        <div>
+          <div className="mb-2 font-display text-sm font-semibold text-sunset-amber">
+            Inkorg – koppla till uppgifter
+          </div>
+          <p className="mb-3 text-xs text-muted-foreground">
+            Nya studiepass från Google Kalender räknas som studietid först när du valt kurs och uppgifter.
+          </p>
+          <div className="space-y-2">
+            {inbox.map((s) => (
+              <InboxRow
+                key={s.id}
+                s={s}
+                courses={courses}
+                allTasks={allTasks}
+                onConfirm={(courseId, taskIds) => confirmInbox.mutate({ sessionId: s.id, courseId, taskIds })}
+                onDelete={() => remove.mutate(s.id)}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {merged.length === 0 && inbox.length === 0 && (
         <EmptyState icon={<CalendarPlus className="h-8 w-8" />} title="Inga studiepass än" text="Lägg in ett pass i Google Kalender så synkas det hit." />
 
       )}
@@ -458,6 +513,92 @@ function SessionsPanel({ courses, allTasks }: { courses: Course[]; allTasks: Tas
         </div>
       )}
 
+    </div>
+  );
+}
+
+function InboxRow({
+  s, courses, allTasks, onConfirm, onDelete,
+}: {
+  s: Session;
+  courses: Course[];
+  allTasks: Task[];
+  onConfirm: (courseId: string | null, taskIds: string[]) => void;
+  onDelete: () => void;
+}) {
+  const [courseId, setCourseId] = useState<string>(s.course_id ?? "none");
+  const [taskIds, setTaskIds] = useState<string[]>([]);
+  const start = parseISO(s.planned_start);
+  const end = parseISO(s.planned_end);
+  const dur = Math.max(0, Math.floor((end.getTime() - start.getTime()) / 1000));
+  const availableTasks = courseId === "none" ? [] : allTasks.filter((t) => t.course_id === courseId && t.status !== "done");
+  const c = courses.find((cc) => cc.id === (courseId === "none" ? "" : courseId));
+
+  return (
+    <div className="rounded-xl border border-sunset-amber/40 bg-sunset-amber/5 p-3">
+      <div className="mb-3 flex flex-wrap items-baseline gap-2">
+        <span className="rounded bg-sunset-amber/20 px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-sunset-amber">Ny</span>
+        <div className="font-medium">{s.notes || "Studiepass"}</div>
+        <div className="text-xs text-muted-foreground">
+          {format(start, "EEE d MMM · HH:mm", { locale: sv })}–{format(end, "HH:mm")} ({formatHoursCompact(dur)})
+        </div>
+      </div>
+      <div className="grid gap-3 md:grid-cols-2">
+        <div className="space-y-1.5">
+          <Label>Kurs</Label>
+          <Select value={courseId} onValueChange={(v) => { setCourseId(v); setTaskIds([]); }}>
+            <SelectTrigger>
+              <SelectValue>
+                {c ? (
+                  <span className="inline-flex items-center gap-2">
+                    <span className="inline-block h-2 w-2 rounded-full" style={{ background: c.color }} />
+                    {c.name}
+                  </span>
+                ) : "Ingen kurs"}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">Ingen kurs</SelectItem>
+              {courses.map((cc) => <SelectItem key={cc.id} value={cc.id}>{cc.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1.5">
+          <Label>Uppgifter</Label>
+          {courseId === "none" ? (
+            <div className="rounded-md border border-dashed border-border/60 p-2 text-xs text-muted-foreground">Välj kurs först</div>
+          ) : availableTasks.length === 0 ? (
+            <div className="rounded-md border border-dashed border-border/60 p-2 text-xs text-muted-foreground">Inga öppna uppgifter i kursen</div>
+          ) : (
+            <div className="max-h-32 space-y-1 overflow-y-auto rounded-md border border-border/60 p-2">
+              {availableTasks.map((t) => {
+                const checked = taskIds.includes(t.id);
+                return (
+                  <label key={t.id} className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 text-sm hover:bg-accent">
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={(e) =>
+                        setTaskIds((prev) => (e.target.checked ? [...prev, t.id] : prev.filter((id) => id !== t.id)))
+                      }
+                    />
+                    <span className="truncate">{t.title}</span>
+                  </label>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+      <div className="mt-3 flex items-center justify-end gap-2">
+        <Button variant="ghost" size="sm" onClick={onDelete} className="text-muted-foreground hover:text-destructive">
+          <Trash2 className="h-3.5 w-3.5" />
+        </Button>
+        <Button size="sm" className="gap-1 gradient-sunset text-white hover:opacity-90"
+          onClick={() => onConfirm(courseId === "none" ? null : courseId, taskIds)}>
+          <CheckCircle2 className="h-3.5 w-3.5" /> Bekräfta
+        </Button>
+      </div>
     </div>
   );
 }

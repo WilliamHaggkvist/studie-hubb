@@ -353,6 +353,7 @@ export type Database = {
           created_at: string
           google_event_id: string | null
           id: string
+          needs_review: boolean
           notes: string | null
           planned_end: string
           planned_start: string
@@ -368,6 +369,7 @@ export type Database = {
           created_at?: string
           google_event_id?: string | null
           id?: string
+          needs_review?: boolean
           notes?: string | null
           planned_end: string
           planned_start: string
@@ -383,6 +385,7 @@ export type Database = {
           created_at?: string
           google_event_id?: string | null
           id?: string
+          needs_review?: boolean
           notes?: string | null
           planned_end?: string
           planned_start?: string

@@ -88,6 +88,7 @@ function CalendarPage() {
       const { data } = await supabase
         .from("study_sessions")
         .select("id,planned_start,planned_end,actual_start,actual_end,completed,course_id,notes")
+        .eq("needs_review", false)
         .gte("planned_start", rangeStart)
         .lte("planned_start", rangeEnd)
         .order("planned_start");

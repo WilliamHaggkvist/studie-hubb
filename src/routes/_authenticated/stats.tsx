@@ -88,6 +88,7 @@ function StatsPage() {
       const { data } = await supabase
         .from("study_sessions")
         .select("id,course_id,planned_start,planned_end,actual_start,actual_end,completed")
+        .eq("needs_review", false)
         .gte("planned_start", range.start.toISOString())
         .lte("planned_start", range.end.toISOString());
       return (data ?? []) as { id: string; course_id: string | null; planned_start: string; planned_end: string; actual_start: string | null; actual_end: string | null; completed: boolean }[];
@@ -128,6 +129,7 @@ function StatsPage() {
       const { count } = await supabase
         .from("study_sessions")
         .select("id", { count: "exact", head: true })
+        .eq("needs_review", false)
         .gte("planned_start", range.start.toISOString())
         .lte("planned_start", range.end.toISOString());
       return count ?? 0;
