@@ -253,42 +253,35 @@ function TasksPage() {
         </div>
       </div>
 
-      <Tabs value={tab} onValueChange={(v) => setTab(v as TaskKind)}>
-        <TabsList>
-          <TabsTrigger value="task">Uppgifter</TabsTrigger>
-          <TabsTrigger value="exam">Examinationer</TabsTrigger>
-        </TabsList>
+      <div className="space-y-4">
+        <DndContext sensors={sensors} onDragEnd={onDragEnd}>
+          <div className="grid gap-3 md:grid-cols-3">
+            {COLUMNS.map((col) => (
+              <Column key={col.key} col={col} tasks={board.filter((t) => t.status === col.key)} courses={courses} onOpen={setEditing} />
+            ))}
+          </div>
+        </DndContext>
 
-        <TabsContent value={tab} className="mt-4 space-y-4">
-          <DndContext sensors={sensors} onDragEnd={onDragEnd}>
-            <div className="grid gap-3 md:grid-cols-3">
-              {COLUMNS.map((col) => (
-                <Column key={col.key} col={col} tasks={board.filter((t) => t.status === col.key)} courses={courses} onOpen={setEditing} />
+        {pending.length > 0 && (
+          <div className="rounded-2xl border border-border/60 bg-surface/40 p-3">
+            <div className="mb-2 flex items-center gap-2 px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              <Inbox className="h-3.5 w-3.5" /> Väntar på bedömning
+              <span className="ml-auto rounded-full bg-surface-2 px-2 py-0.5 text-[10px]">{pending.length}</span>
+            </div>
+            <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
+              {pending.map((t) => (
+                <Card key={t.id} task={t} courses={courses} onOpen={setEditing} />
               ))}
             </div>
-          </DndContext>
+          </div>
+        )}
 
-          {pending.length > 0 && (
-            <div className="rounded-2xl border border-border/60 bg-surface/40 p-3">
-              <div className="mb-2 flex items-center gap-2 px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                <Inbox className="h-3.5 w-3.5" /> Väntar på bedömning
-                <span className="ml-auto rounded-full bg-surface-2 px-2 py-0.5 text-[10px]">{pending.length}</span>
-              </div>
-              <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
-                {pending.map((t) => (
-                  <Card key={t.id} task={t} courses={courses} onOpen={setEditing} />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {filtered.length === 0 && (
-            <div className="rounded-2xl border border-dashed border-border/60 bg-surface/40 p-10 text-center text-sm text-muted-foreground">
-              Inga {tab === "exam" ? "examinationer" : "uppgifter"} här. Skapa din första!
-            </div>
-          )}
-        </TabsContent>
-      </Tabs>
+        {filtered.length === 0 && (
+          <div className="rounded-2xl border border-dashed border-border/60 bg-surface/40 p-10 text-center text-sm text-muted-foreground">
+            Inga uppgifter här. Skapa din första!
+          </div>
+        )}
+      </div>
 
       <TaskDialog
         open={createOpen}
