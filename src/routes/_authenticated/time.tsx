@@ -330,6 +330,30 @@ function SessionsPanel({ courses, allTasks }: { courses: Course[]; allTasks: Tas
     },
   });
 
+  const { data: calSessions = [] } = useQuery({
+    queryKey: ["calendar_events", "as-sessions"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("calendar_events")
+        .select("id,course_id,title,location,starts_at,ends_at,counts_as_study")
+        .eq("counts_as_study", true)
+        .order("starts_at", { ascending: false })
+        .limit(200);
+      const now = Date.now();
+      return (data ?? []).map((e): Session => ({
+        id: `cal:${e.id}`,
+        course_id: e.course_id,
+        planned_start: e.starts_at,
+        planned_end: e.ends_at,
+        actual_start: null,
+        actual_end: null,
+        notes: [e.title, e.location].filter(Boolean).join(" · ") || null,
+        completed: new Date(e.ends_at).getTime() < now,
+        source: "calendar",
+      }));
+    },
+  });
+
   const { data: sessionTasks = [] } = useQuery({
     queryKey: ["study_session_tasks"],
     queryFn: async () => {
@@ -337,6 +361,7 @@ function SessionsPanel({ courses, allTasks }: { courses: Course[]; allTasks: Tas
       return (data ?? []) as SessionTask[];
     },
   });
+
 
   const availableTasks = courseId === "none" ? [] : allTasks.filter((t) => t.course_id === courseId && t.status !== "done");
 
@@ -423,8 +448,13 @@ function SessionsPanel({ courses, allTasks }: { courses: Course[]; allTasks: Tas
     onSuccess: () => qc.invalidateQueries({ queryKey: ["study_sessions"] }),
   });
 
-  const planned = sessions.filter((s) => !s.completed);
-  const completed = sessions.filter((s) => s.completed);
+  const merged = [...sessions, ...calSessions].sort(
+    (a, b) => new Date(b.planned_start).getTime() - new Date(a.planned_start).getTime(),
+  );
+  const planned = merged.filter((s) => !s.completed);
+  const completed = merged.filter((s) => s.completed);
+  const isReadonly = (s: Session) => s.id.startsWith("cal:");
+
 
   return (
     <div className="space-y-6">
@@ -486,7 +516,7 @@ function SessionsPanel({ courses, allTasks }: { courses: Course[]; allTasks: Tas
         </Dialog>
       </div>
 
-      {sessions.length === 0 && (
+      {merged.length === 0 && (
         <EmptyState icon={<CalendarPlus className="h-8 w-8" />} title="Inga studiepass än" text="Planera ett pass för att komma igång." />
       )}
 
@@ -496,8 +526,9 @@ function SessionsPanel({ courses, allTasks }: { courses: Course[]; allTasks: Tas
           <div className="space-y-2">
             {planned.map((s) => (
               <SessionRow key={s.id} s={s} courses={courses} allTasks={allTasks} sessionTasks={sessionTasks}
-                onComplete={() => complete.mutate(s.id)}
-                onDelete={() => remove.mutate(s.id)}
+                onComplete={isReadonly(s) ? undefined : () => complete.mutate(s.id)}
+                onDelete={isReadonly(s) ? undefined : () => remove.mutate(s.id)}
+                fromCalendar={isReadonly(s)}
               />
             ))}
           </div>
@@ -510,21 +541,23 @@ function SessionsPanel({ courses, allTasks }: { courses: Course[]; allTasks: Tas
           <div className="space-y-2 opacity-80">
             {completed.map((s) => (
               <SessionRow key={s.id} s={s} courses={courses} allTasks={allTasks} sessionTasks={sessionTasks}
-                onDelete={() => remove.mutate(s.id)}
+                onDelete={isReadonly(s) ? undefined : () => remove.mutate(s.id)}
+                fromCalendar={isReadonly(s)}
               />
             ))}
           </div>
         </div>
       )}
+
     </div>
   );
 }
 
 function SessionRow({
-  s, courses, allTasks, sessionTasks, onComplete, onDelete,
+  s, courses, allTasks, sessionTasks, onComplete, onDelete, fromCalendar,
 }: {
   s: Session; courses: Course[]; allTasks: Task[]; sessionTasks: SessionTask[];
-  onComplete?: () => void; onDelete: () => void;
+  onComplete?: () => void; onDelete?: () => void; fromCalendar?: boolean;
 }) {
   const c = courses.find((cc) => cc.id === s.course_id);
   const tids = sessionTasks.filter((st) => st.session_id === s.id).map((st) => st.task_id);
@@ -539,6 +572,9 @@ function SessionRow({
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-baseline gap-2">
           <div className="font-medium">{c?.name ?? "Studiepass"}</div>
+          {fromCalendar && (
+            <span className="rounded bg-surface-2 px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">Kalender</span>
+          )}
           <div className="text-xs text-muted-foreground">
             {format(start, "EEE d MMM · HH:mm", { locale: sv })}–{format(end, "HH:mm")} ({formatHoursCompact(dur)})
           </div>
@@ -554,10 +590,13 @@ function SessionRow({
             <CheckCircle2 className="h-3.5 w-3.5" /> Genomfört
           </Button>
         )}
-        <button onClick={onDelete} className="opacity-0 transition-opacity group-hover:opacity-100">
-          <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
-        </button>
+        {onDelete && (
+          <button onClick={onDelete} className="opacity-0 transition-opacity group-hover:opacity-100">
+            <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
+          </button>
+        )}
       </div>
+
     </div>
   );
 }
