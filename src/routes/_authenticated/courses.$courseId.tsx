@@ -313,25 +313,6 @@ function CourseDetail() {
           </CardContent>
         </Card>
 
-        <Card className="border-border/60 bg-surface/60 backdrop-blur-md rounded-2xl">
-          <CardHeader className="pb-2">
-            <CardTitle className="font-display text-base flex items-center gap-2"><GraduationCap className="h-4 w-4" style={{ color: course.color }} /> Examinationer <span className="ml-auto text-xs text-muted-foreground">{exams.length}</span></CardTitle>
-          </CardHeader>
-          <CardContent>
-            {exams.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-border/60 p-4 text-center text-xs text-muted-foreground">Inga examinationer.</div>
-            ) : (
-              <div className="space-y-1">
-                {exams.slice(0, 8).map((t) => (
-                  <TaskRow key={t.id} title={t.title} due={t.due_at} done={t.status === "done"} />
-                ))}
-              </div>
-            )}
-            <div className="mt-2 text-right">
-              <Link to="/tasks" className="text-[11px] text-muted-foreground hover:text-foreground">Öppna uppgifter →</Link>
-            </div>
-          </CardContent>
-        </Card>
 
         <Card className="border-border/60 bg-surface/60 backdrop-blur-md rounded-2xl">
           <CardHeader className="pb-2">
