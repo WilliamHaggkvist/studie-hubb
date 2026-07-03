@@ -316,9 +316,9 @@ function SessionsPanel({ courses, allTasks }: { courses: Course[]; allTasks: Tas
     queryFn: async () => {
       const { data } = await supabase
         .from("study_sessions")
-        .select("id,course_id,planned_start,planned_end,actual_start,actual_end,notes,completed,source")
+        .select("id,course_id,planned_start,planned_end,actual_start,actual_end,notes,completed,source,needs_review")
         .order("planned_start", { ascending: false })
-        .limit(50);
+        .limit(200);
       return (data ?? []) as Session[];
     },
   });
