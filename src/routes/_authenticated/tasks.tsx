@@ -82,7 +82,16 @@ const TYPES_ALPHA: TaskType[] = [
   "tenta",
   "ovning",
 ];
-const EXAM_TYPES = new Set<TaskType>(["tenta", "kontrollskrivning", "modul", "quiz", "redovisning"]);
+const EXAM_TYPES = new Set<TaskType>([
+  "inlamningsuppgift",
+  "kontrollskrivning",
+  "laboration",
+  "quiz",
+  "redovisning",
+  "seminarie",
+  "tenta",
+  "ovning",
+]);
 
 const COLUMNS: { key: TaskStatus; label: string; accent: string }[] = [
   { key: "todo", label: "Ej startad", accent: "var(--sunset-coral, #f94144)" },
@@ -407,11 +416,7 @@ function TaskDialog({
   const [dueAt, setDueAt] = useState(task?.due_at ? task.due_at.slice(0, 16) : "");
   const [courseId, setCourseId] = useState(task?.course_id ?? "none");
   const [type, setType] = useState<TaskType>(task?.task_type ?? "annat");
-  const [kind, setKind] = useState<TaskKind>(task?.task_kind ?? defaultKind ?? "task");
-  const [status, setStatus] = useState<TaskStatus>(task?.status ?? "todo");
-  const [grade, setGrade] = useState(task?.grade ?? "");
-  const [points, setPoints] = useState(task?.points ?? "");
-  const [pending, setPending] = useState(task?.pending_review ?? false);
+  const kind: TaskKind = EXAM_TYPES.has(type) ? "exam" : "task";
 
   // Reset when task changes
   useEffect(() => {
@@ -420,11 +425,6 @@ function TaskDialog({
     setDueAt(task?.due_at ? task.due_at.slice(0, 16) : "");
     setCourseId(task?.course_id ?? "none");
     setType(task?.task_type ?? "annat");
-    setKind(task?.task_kind ?? defaultKind ?? "task");
-    setStatus(task?.status ?? "todo");
-    setGrade(task?.grade ?? "");
-    setPoints(task?.points ?? "");
-    setPending(task?.pending_review ?? false);
   }, [task, defaultKind]);
 
   const submit = () => {
@@ -435,10 +435,7 @@ function TaskDialog({
       course_id: courseId === "none" ? null : courseId,
       task_type: type,
       task_kind: kind,
-      status,
-      grade: grade.trim() || null,
-      points: points.trim() || null,
-      pending_review: pending,
+      ...(task ? {} : { status: "todo" as TaskStatus, pending_review: false }),
     });
   };
 
@@ -449,28 +446,12 @@ function TaskDialog({
         <div className="space-y-3">
           <div className="space-y-1.5"><Label>Titel</Label><Input value={title} onChange={(e) => setTitle(e.target.value)} autoFocus /></div>
           <div className="space-y-1.5"><Label>Beskrivning</Label><Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} /></div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label>Typ</Label>
-              <Select value={type} onValueChange={(v) => {
-                const t = v as TaskType;
-                setType(t);
-                setKind(EXAM_TYPES.has(t) ? "exam" : "task");
-              }}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>{TYPES_ALPHA.map((t) => <SelectItem key={t} value={t}>{TYPE_LABELS[t]}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Kategori</Label>
-              <Select value={kind} onValueChange={(v) => setKind(v as TaskKind)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="task">Uppgift</SelectItem>
-                  <SelectItem value="exam">Examination</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="space-y-1.5">
+            <Label>Typ</Label>
+            <Select value={type} onValueChange={(v) => setType(v as TaskType)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>{TYPES_ALPHA.map((t) => <SelectItem key={t} value={t}>{TYPE_LABELS[t]}</SelectItem>)}</SelectContent>
+            </Select>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5"><Label>Deadline</Label><Input type="datetime-local" value={dueAt} onChange={(e) => setDueAt(e.target.value)} /></div>
@@ -485,25 +466,6 @@ function TaskDialog({
               </Select>
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-3">
-            <div className="space-y-1.5">
-              <Label>Status</Label>
-              <Select value={status} onValueChange={(v) => setStatus(v as TaskStatus)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todo">Ej startad</SelectItem>
-                  <SelectItem value="doing">Pågår</SelectItem>
-                  <SelectItem value="done">Klar</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5"><Label>Betyg</Label><Input value={grade} onChange={(e) => setGrade(e.target.value)} placeholder="A / 5 / -" /></div>
-            <div className="space-y-1.5"><Label>Poäng</Label><Input value={points} onChange={(e) => setPoints(e.target.value)} placeholder="18/20 / -" /></div>
-          </div>
-          <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={pending} onChange={(e) => setPending(e.target.checked)} className="h-4 w-4" />
-            Väntar på bedömning
-          </label>
         </div>
         <DialogFooter className="gap-2">
           {onDelete && <Button variant="ghost" className="mr-auto text-destructive" onClick={onDelete}><Trash2 className="mr-1 h-4 w-4" /> Ta bort</Button>}
