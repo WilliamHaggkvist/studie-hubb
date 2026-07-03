@@ -198,8 +198,7 @@ function CourseDetail() {
 
   if (!course) return <div className="p-8 text-sm text-muted-foreground">Laddar…</div>;
 
-  const assignments = tasks.filter((t) => t.task_kind !== "exam");
-  const exams = tasks.filter((t) => t.task_kind === "exam");
+  const assignments = tasks;
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-6 lg:px-8">
