@@ -1,0 +1,200 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@import "@fontsource/inter/400.css";
+@import "@fontsource/inter/500.css";
+@import "@fontsource/inter/600.css";
+@import "@fontsource/space-grotesk/500.css";
+@import "@fontsource/space-grotesk/700.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Space Grotesk", "Inter", sans-serif;
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 6px);
+  --radius-2xl: calc(var(--radius) + 12px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-ring-offset-background: var(--background);
+
+  /* New palette — sunset-to-ocean, used with opacity for accents */
+  --color-c-1: var(--c-1);
+  --color-c-2: var(--c-2);
+  --color-c-3: var(--c-3);
+  --color-c-4: var(--c-4);
+  --color-c-5: var(--c-5);
+  --color-c-6: var(--c-6);
+  --color-c-7: var(--c-7);
+  --color-c-8: var(--c-8);
+  --color-c-9: var(--c-9);
+  --color-c-10: var(--c-10);
+
+  /* Legacy aliases kept for existing components; mapped to new palette. */
+  --color-sunset-coral: var(--c-2);
+  --color-sunset-amber: var(--c-5);
+  --color-sunset-rose: var(--c-1);
+  --color-sunset-violet: var(--c-9);
+
+  --color-chart-1: var(--c-1);
+  --color-chart-2: var(--c-3);
+  --color-chart-3: var(--c-6);
+  --color-chart-4: var(--c-7);
+  --color-chart-5: var(--c-10);
+
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+:root {
+  /* Softer, more rounded */
+  --radius: 0.875rem;
+
+  --background: oklch(0.145 0.008 275);      /* near-black */
+  --foreground: oklch(0.96 0.005 250);
+  --surface: oklch(0.185 0.01 275);
+  --surface-2: oklch(0.225 0.012 275);
+  --card: oklch(0.19 0.01 275);
+  --card-foreground: oklch(0.96 0.005 250);
+  --popover: oklch(0.205 0.011 275);
+  --popover-foreground: oklch(0.96 0.005 250);
+
+  /* Primary = warm coral from new palette (#f3722c) */
+  --primary: #f3722c;
+  --primary-foreground: oklch(0.15 0.02 40);
+  --secondary: oklch(0.24 0.012 275);
+  --secondary-foreground: oklch(0.96 0.005 250);
+  --muted: oklch(0.22 0.012 275);
+  --muted-foreground: oklch(0.7 0.02 260);
+  --accent: oklch(0.26 0.018 275);
+  --accent-foreground: oklch(0.96 0.005 250);
+  --destructive: #f94144;
+  --destructive-foreground: oklch(0.98 0.005 250);
+  --border: oklch(0.3 0.014 275 / 55%);
+  --input: oklch(0.3 0.014 275 / 55%);
+  --ring: #f3722c;
+
+  /* Palette (10 stops from red -> teal -> blue) */
+  --c-1:  #f94144;
+  --c-2:  #f3722c;
+  --c-3:  #f8961e;
+  --c-4:  #f9844a;
+  --c-5:  #f9c74f;
+  --c-6:  #90be6d;
+  --c-7:  #43aa8b;
+  --c-8:  #4d908e;
+  --c-9:  #577590;
+  --c-10: #277da1;
+
+  --sidebar: oklch(0.14 0.008 275);
+  --sidebar-foreground: oklch(0.85 0.01 260);
+  --sidebar-primary: #f3722c;
+  --sidebar-primary-foreground: oklch(0.14 0.008 275);
+  --sidebar-accent: oklch(0.21 0.012 275);
+  --sidebar-accent-foreground: oklch(0.96 0.005 250);
+  --sidebar-border: oklch(0.26 0.014 275 / 65%);
+  --sidebar-ring: #f3722c;
+}
+
+.dark {
+  /* Same tokens — the app is dark-only. */
+  --background: oklch(0.145 0.008 275);
+  --foreground: oklch(0.96 0.005 250);
+  --surface: oklch(0.185 0.01 275);
+  --surface-2: oklch(0.225 0.012 275);
+  --card: oklch(0.19 0.01 275);
+  --card-foreground: oklch(0.96 0.005 250);
+  --popover: oklch(0.205 0.011 275);
+  --popover-foreground: oklch(0.96 0.005 250);
+  --primary: #f3722c;
+  --primary-foreground: oklch(0.15 0.02 40);
+  --secondary: oklch(0.24 0.012 275);
+  --secondary-foreground: oklch(0.96 0.005 250);
+  --muted: oklch(0.22 0.012 275);
+  --muted-foreground: oklch(0.7 0.02 260);
+  --accent: oklch(0.26 0.018 275);
+  --accent-foreground: oklch(0.96 0.005 250);
+  --destructive: #f94144;
+  --destructive-foreground: oklch(0.98 0.005 250);
+  --border: oklch(0.3 0.014 275 / 55%);
+  --input: oklch(0.3 0.014 275 / 55%);
+  --ring: #f3722c;
+  --sidebar: oklch(0.14 0.008 275);
+  --sidebar-foreground: oklch(0.85 0.01 260);
+  --sidebar-primary: #f3722c;
+  --sidebar-primary-foreground: oklch(0.14 0.008 275);
+  --sidebar-accent: oklch(0.21 0.012 275);
+  --sidebar-accent-foreground: oklch(0.96 0.005 250);
+  --sidebar-border: oklch(0.26 0.014 275 / 65%);
+  --sidebar-ring: #f3722c;
+}
+
+@layer base {
+  html {
+    color-scheme: dark;
+  }
+  * { border-color: var(--color-border); }
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  h1, h2, h3, .font-display { font-family: var(--font-display); letter-spacing: -0.01em; }
+  ::selection { background: color-mix(in oklab, var(--c-2) 40%, transparent); }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-thumb { background: oklch(0.3 0.014 275 / 60%); border-radius: 999px; }
+  ::-webkit-scrollbar-thumb:hover { background: oklch(0.38 0.014 275 / 75%); }
+  ::-webkit-scrollbar-track { background: transparent; }
+}
+
+/* Frosted glass surface for panels, toolbars, dialogs. */
+@utility glass {
+  background-color: color-mix(in oklab, var(--surface) 55%, transparent);
+  backdrop-filter: blur(18px) saturate(140%);
+  border: 1px solid color-mix(in oklab, var(--border) 80%, transparent);
+}
+
+/* Stronger frosted card (heavier blur). */
+@utility glass-strong {
+  background-color: color-mix(in oklab, var(--surface) 70%, transparent);
+  backdrop-filter: blur(28px) saturate(150%);
+  border: 1px solid color-mix(in oklab, var(--border) 85%, transparent);
+}
+
+/* Legacy no-op replacements so old class names don't break existing components. */
+@utility gradient-sunset {
+  background-color: var(--c-2);
+}
+@utility gradient-text {
+  color: var(--c-2);
+}
