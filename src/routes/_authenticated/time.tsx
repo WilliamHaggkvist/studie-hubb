@@ -149,9 +149,13 @@ function TimePage() {
                     contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }}
                     formatter={(v: number) => [`${v} h`, "Tid"]}
                   />
-                  <Bar dataKey="hours" radius={[0, 4, 4, 0]}>
-                    {byCourse.map((c) => <cell key={c.id} />)}
-                  </Bar>
+                  <Bar dataKey="hours" radius={[0, 4, 4, 0]} fill="url(#sunset-bar)" />
+                  <defs>
+                    <linearGradient id="sunset-bar" x1="0" y1="0" x2="1" y2="0">
+                      <stop offset="0%" stopColor="hsl(var(--sunset-amber))" />
+                      <stop offset="100%" stopColor="hsl(var(--sunset-coral))" />
+                    </linearGradient>
+                  </defs>
                 </BarChart>
               </ResponsiveContainer>
             </div>
