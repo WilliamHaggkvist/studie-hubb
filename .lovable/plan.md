@@ -1,114 +1,87 @@
 
-# StudyOS v2 — Stor omstuvning i 3 etapper
+# Etapp B + C — samlad plan
 
-Bygger om appen enligt din feedback. Delas upp i tre etapper så du kan testa löpande. Först en gemensam **designuppdatering** som gäller allt — sen etapp för etapp.
-
----
-
-## Design (görs i Etapp A, gäller hela appen)
-
-- **Inga gradienter.** All `gradient-sunset` / `gradient-text` tas bort. Accenter = solida färger eller översatt till glas/blur.
-- **Ny accentpalett:** `#f94144, #f3722c, #f8961e, #f9844a, #f9c74f, #90be6d, #43aa8b, #4d908e, #577590, #277da1` (röd → orange → gul → grön → teal → blå). Färgerna används med varierande opacity för accenter, kurs-tagging, statuschips, grafer.
-- **Mjukt & rundat:** större border-radius (kort `rounded-2xl`, knappar `rounded-xl`, chips `rounded-full`), större luft, mjukare hover.
-- **Translucent:** sidopanel, popovers, dialogs, taskkort och toppbar får `bg-surface/60` + `backdrop-blur-xl` + tunn border. Bakgrund är fortfarande mörk (`#0F0F12`).
-- **Kompakt & mobilvänligt:** tightare typografi, sticky bottom-nav på mobil, all interaktion når med tumme.
+Slår ihop de två etapperna eftersom mycket överlappar (task-typer används av kalendern, studiepass syns i översikt och statistik, anteckningar återanvänder befintlig `pages`-tabell). Levereras i **fyra byggpaket** som var för sig ger något testbart — inte två stora leveranser.
 
 ---
 
-## Etapp A — Design + Inställningar + Kurser
+## Paket 1 — Datamodell + task-omdesign
 
-**Global inställningssida** (`/settings`) i sidomenyn:
-- Profil (visningsnamn).
-- **Aktuell årskurs** (1–6) — styr "Aktiva kurser" på översikten.
-- **Universitet** — lista med grundvärden (KTH, Mittuniversitetet, Örebro, Linné, Stockholms). Går att lägga till, redigera, ta bort. Sparas per användare.
-- **Terminsdatum per år** — höst/vår/sommar med start- och slutdatum. Används av statistiken.
-- **Utseende** — kompakt/normal densitet, translucent på/av.
-- **Google Calendar** — koppla/koppla bort konto (aktiveras i Etapp C).
+**Migration (allt i en fil):**
+- `tasks`: lägg till `task_type` (enum: annat, inlämningsuppgift, kontrollskrivning, laboration, modul, quiz, redovisning, seminarie, tenta, övning), `task_kind` ('task' | 'exam'), `grade text`, `points text`, `pending_review boolean`. Ändra `status`-enum: `todo` → 'not_started', 'in_progress', 'done'. Behåll `priority`-kolumnen tills vidare (döljs bara i UI — undviker datamigrering och risk).
+- Nya tabeller: `study_sessions` (user_id, course_id, planned_start, planned_end, actual_start, actual_end, notes, google_event_id, source 'local'|'google') och `study_session_tasks` (session_id, task_id). Full GRANT + RLS + updated_at-triggers.
+- `calendar_events`: inget nytt fält — `source` finns redan.
 
-**Kurser — utökade fält vid skapande & redigering:**
-- Namn, kod, ikon, färg (från nya paletten).
-- **Högskolepoäng** (siffra), **Period** (P1–P5), **Årskurs** (1–6), **Universitet** (dropdown från inställningarnas lista).
-- **Veckomål studietid** (timmar/vecka).
-- **Kurslitteratur** (fri text/lista).
-- **Lärare + kontaktväg** (namn, e-post, telefon/annat).
-- **Kursfiler** — uppladdning av kurs-PM, schema m.m. (lagras i Cloud Storage).
-- **Avklarad** — checkbox som öppnar popup för **slutbetyg**.
-
-**Kurssidan** görs om till en samlad översikt:
-- Header med kurs-metadata (period, årskurs, universitet, HP, betyg om avklarad).
-- **Veckomål-widget:** progress-ring "X / Y h denna vecka" med färg från paletten (röd → gul → grön beroende på uppfyllnad).
-- Studietidsstatistik för kursen (mini-graf).
-- Uppgifter kopplade till kursen.
-- Kalenderhändelser kopplade till kursen (kommande).
-- Anteckningar (kopplade till kursen — se Etapp C).
-- Litteratur, lärare, filer.
+**UI — `/tasks` byggs om:**
+- Två toppflikar: **Uppgifter** (`task_kind='task'`) / **Examinationer** (`task_kind='exam'`).
+- Kanban med tre kolumner + separat "Väntar på bedömning"-inkorg (som en fjärde panel/sektion under kanban på desktop, egen tab på mobil).
+- Task-kort: kurs-prick, typ-chip, titel, "3 dagar / Imorgon / Försenad 2 d". Prioritet borttagen från UI.
+- Klick → Dialog med alla fält (titel, beskrivning, kurs, typ, deadline, status, betyg, poäng, väntar på bedömning). Ingen `/tasks/$id`-route.
+- Skapa → samma Dialog. Typ styr `task_kind` automatiskt (tenta/kontrollskrivning/modul/quiz/redovisning = exam), men går att växla manuellt.
+- Markera klar → mini-popup: betyg + poäng, eller knappen "Väntar på bedömning" (sätter `pending_review=true`, status kvar). När båda fält ifyllda → `status='done'` automatiskt.
+- Filter: kurs, typ, deadline (idag/vecka/månad/försenad).
+- dnd-kit för drag mellan kolumner.
 
 ---
 
-## Etapp B — Uppgifter + Studietid
+## Paket 2 — Studietid
 
-**Uppgifter — omdesign:**
-- **Två separata flikar** överst: `Uppgifter` och `Examinationer`.
-- **Kategori/typ** vid skapande (alfabetisk dropdown): annat, inlämningsuppgift, kontrollskrivning, laboration, modul, quiz, redovisning, seminarie, tenta, övning. "tenta", "kontrollskrivning", "modul", "quiz", "redovisning" räknas som examinationer; övriga som uppgifter (redigerbart).
-- **Kanban med status:** `Ej startad` / `Pågång` / `Klar` + separat inkorg **`Väntar på bedömning`**.
-- **Prioritet tas bort.**
-- **Uppgiftskort** visar titel, kurs (färgprick), typ-chip, deadline, **dagar kvar** (ex "3 dagar", "Imorgon", "Försenad 2 d").
-- **Klick på uppgift → modal (popup)** med all info: titel, beskrivning, kurs, typ, deadline, status-selector, betyg, poäng. Ingen full-page-vy.
-- **Markera som klar → popup:** fält för betyg + poäng. Knapp "Väntar på bedömning" flyttar uppgiften till inkorgen. När båda fälten är ifyllda (siffra, bokstav eller `-`) blir uppgiften helt klar automatiskt.
-- Filter: per kurs, per typ, deadline-intervall.
+**UI — `/time` byter titel till "Studietid":**
+- Tre tabs: **Studiepass** (planerade + genomförda), **Timer**, **Manuellt**.
+- **Studiepass:** lista + "Nytt pass"-dialog (kurs, uppgifter från kursen (multi), start, slut, anteckning). Sparas i `study_sessions`. Markera "Genomfört" → skapar `time_entry` per vald uppgift med hela passets duration (matchar din spec).
+- **Timer:** befintlig timer utökas — välj kurs + valfria uppgifter (multi). Vid stopp: en `time_entry` per uppgift med samma duration. Om inga uppgifter: en post utan `task_id`.
+- **Manuellt:** kurs + uppgifter (multi) + minuter + datum. Skapar entries som ovan.
+- **Sammanställning:** överst i sidan — tid/kurs (bar) och tid/uppgift (topplista) för valbar period.
 
-**Studietid** (sidan får nytt namn "Studietid"):
-- Tre lägen: **Studiepass**, **Manuellt (Studiepass, manuellt)**, **Timer**.
-- **Studiepass:** planera pass — välj kurs + 1+ uppgifter från kursen + tid. Visas på egen lista och synkas med Google Calendar i Etapp C (i Etapp B finns UI + lokal lagring).
-- **Timer:** starta timer, välj kurs + valfria uppgifter att jobba med. Vid stopp fördelas tiden **lika** mellan valda uppgifter.
-- **Manuellt:** logga tid retroaktivt (kurs + uppgifter + minuter).
-- **Sammanställning per kurs och per uppgift.** Ett pass med flera uppgifter → varje uppgift får hela passets tid inräknad (enligt din spec).
+Timer-store i `src/lib/timer-store.ts` utökas med `taskIds: string[]`.
 
 ---
 
-## Etapp C — Kalender + Översikt + Statistik + Anteckningar + Google-synk
+## Paket 3 — Kalender, Översikt, Statistik, Anteckningar
 
-**Kalender:**
-- Endast **läsvy**. Ingen "Skapa händelse"-knapp.
-- Visar (a) importerade Google-händelser (b) uppgifter/examinationer på sin deadline.
-- Uppgifter visar **klockslag + typ-chip**.
-- **Vecko-** och **månadsvy** (toggle).
+**Kalender (`/calendar`):**
+- Read-only. "Skapa"-knappen bort. FullCalendar behålls.
+- Källor: `calendar_events` + `tasks` med `due_at` (visas som markörer, klockslag + typ-chip) + `study_sessions` (planerade).
+- Toggle vecko/månad.
 
-**Översikt** (görs om från grunden):
-- "Vad ska vi jobba med idag?" **borttaget**.
-- Först: **Aktiva kurser** — filtrerade på inställningarnas aktuella årskurs + pågående period. Rutnät av kompakta kurskort med veckomål-ring.
-- Sedan: **Idag** — dagens deadlines + planerade studiepass (kompakt lista).
-- Sedan: **Denna vecka** — mini-heatmap av studietid + antal uppgifter kvar.
-- Sedan: **Väntar på bedömning** — snabb inkorg (om ej tom).
-- Allt kompakt, en kolumn på mobil, två på desktop.
+**Översikt (`/dashboard`) — byggs om:**
+- Sektion 1: **Aktiva kurser** — kort filtrerade på `user_settings.current_year` + kurser vars `period` matchar dagens period (härleds från `term_dates`). Progress-ring för veckomål.
+- Sektion 2: **Idag** — deadlines + dagens studiepass.
+- Sektion 3: **Denna vecka** — mini-heatmap studietid (7 dagar) + antal uppgifter kvar.
+- Sektion 4: **Väntar på bedömning** — bara om ej tom.
+- 1 kolumn mobil, 2 desktop.
 
-**Statistik:**
-- "Sessioner" → **Studiepass** överallt.
-- **Perioder:** Denna vecka, Senaste 30 dagar, Terminer (Höst/Vår/Sommar per år från inställningarna).
-- **Tid per kurs**, **tid per uppgift**, **snittid per kurs** (per vecka).
-- Grafer i palettens färger.
+**Statistik (`/stats`):**
+- Byt "Sessioner" → "Studiepass" överallt.
+- Periodväljare: Denna vecka / Senaste 30 dagar / Termin (auto från `term_dates`, listar alla terminer där data finns).
+- Grafer (Recharts, palettfärger): tid/kurs (bar), tid/uppgift (topplista), snittid/vecka/kurs (line).
 
 **Anteckningar:**
-- **Sidor tas bort** som eget koncept ur menyn.
-- Ny meny-post **Anteckningar** — en lista med alla anteckningar (fristående + kursbundna), filtrerbar per kurs. Blockeditorn återanvänds. Databasmässigt: `pages`-tabellen behålls men presenteras som anteckningar.
-
-**Google Calendar-synk (enkel lösning):**
-- Använder Lovables **inbyggda Google Calendar-connector** — inget eget OAuth-projekt behövs.
-- Vid koppling i Inställningar: importerar händelser till `calendar_events` (märkta `source='google'`).
-- Manuell "Synka nu"-knapp + periodisk synk via server-funktion.
-- **Studiepass planerade i Google Calendar** identifieras via prefix/tagg i händelsetitel (t.ex. `[Studiepass]` eller taggning per kurs-emoji). Alternativt: händelser i en dedikerad Google-kalender kallad "StudyOS". Slutgiltig regel bestäms när kopplingen är på plats — enklaste vägen väljs.
+- Menypost `Sidor` → `Anteckningar`. Route `/pages` byter till `/notes` (`/pages.$pageId` → `/notes.$noteId`). Ingen datamigrering — samma `pages`-tabell.
+- Ny lista med filter per kurs. Blockeditorn återanvänds oförändrad.
 
 ---
 
-## Teknisk sammanfattning (för mig, inte kritiskt för dig)
+## Paket 4 — Google Calendar-synk
 
-- **DB-migration:** utökar `courses` (hp, period, arskurs, universitet_id, weekly_goal_hours, literature, teacher_name, teacher_contact, completed, final_grade); ny `universities`; ny `settings` (per user: current_year, density, translucent); ny `term_dates`; utökar `tasks` (task_type, task_kind='task'|'exam', grade, points, pending_review); ny `study_sessions` + `study_session_tasks` (för planerade pass); Storage-bucket `course-files`.
-- **Google Calendar** via befintlig Lovable-connector, ingen ny OAuth-app krävs.
-- **UI-bibliotek:** shadcn Dialog för uppgifts-popup, dnd-kit för kanban, Recharts för grafer, FullCalendar behålls för kalendervyn (read-only).
-- **Design tokens:** paletten läggs som CSS-variabler `--c-1` … `--c-10`; gradient-utilities tas bort.
+- Använd Lovables Google Calendar-connector. Länka i Inställningar (redan UI-plats reserverad).
+- Server function `syncGoogleCalendar` (auth-required): hämtar events senaste 30 d + kommande 90 d, upsert i `calendar_events` med `source='google'`, `external_id=<google event id>`.
+- "Synka nu"-knapp i Inställningar + `pg_cron` var 30:e minut → publikt endpoint `/api/public/hooks/sync-calendars` som iterar användare med aktiv koppling.
+- **Studiepass i Google:** enklaste vägen väljs när connectorn är kopplad. Startvärde: prefix `[Studiepass]` i titeln → skapar/matchar rad i `study_sessions`. Kursmatch via emoji eller kod i titeln (om ingen match → session utan kurs).
+- Studiepass skapade lokalt kan senare pushas till Google (Paket 4b, valfritt — inte i denna plan).
 
 ---
 
-## Vad jag startar med om du godkänner
+## Ordning & testpunkter
 
-**Etapp A** direkt: designtokens + translucent-look, inställningssida, utökade kurser, ny kurssida med veckomål och filuppladdning. Etapp B och C följer efter din feedback.
+1. Paket 1 → du kan testa nya tasks/examinationer + kanban.
+2. Paket 2 → du kan planera pass och logga timer/manuellt mot uppgifter.
+3. Paket 3 → översikt, kalender, statistik, anteckningar hänger ihop.
+4. Paket 4 → Google-synk på plats.
+
+Om du vill: säg "kör alla fyra" så levererar jag i följd utan att stanna, annars börjar jag med Paket 1 och pausar för feedback.
+
+## Öppna frågor
+
+1. Ska `priority`-kolumnen droppas helt (kräver att jag samtidigt tar bort ev. sortering på den) eller bara döljas i UI nu och droppas senare? Föreslår dölja nu.
+2. Vill du att jag byter route `/pages` → `/notes` (renare URL) eller behåller `/pages` och bara byter etikett i menyn? Föreslår byte till `/notes`.

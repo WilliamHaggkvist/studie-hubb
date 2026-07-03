@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,48 +9,106 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Trash2, Calendar as CalIcon, Flag } from "lucide-react";
-import { format, isPast, isToday, parseISO } from "date-fns";
+import { Plus, Trash2, Calendar as CalIcon, Inbox } from "lucide-react";
+import { format, parseISO, differenceInCalendarDays } from "date-fns";
 import { sv } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import {
+  DndContext,
+  type DragEndEvent,
+  PointerSensor,
+  useDraggable,
+  useDroppable,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
 
 export const Route = createFileRoute("/_authenticated/tasks")({
   component: TasksPage,
 });
 
+type TaskType =
+  | "annat"
+  | "inlamningsuppgift"
+  | "kontrollskrivning"
+  | "laboration"
+  | "modul"
+  | "quiz"
+  | "redovisning"
+  | "seminarie"
+  | "tenta"
+  | "ovning";
+
+type TaskStatus = "todo" | "doing" | "done";
+type TaskKind = "task" | "exam";
+
 type Task = {
   id: string;
   title: string;
   description: string | null;
-  status: "todo" | "doing" | "done";
-  priority: "low" | "medium" | "high";
+  status: TaskStatus;
   due_at: string | null;
   course_id: string | null;
+  task_type: TaskType;
+  task_kind: TaskKind;
+  grade: string | null;
+  points: string | null;
+  pending_review: boolean;
 };
 type Course = { id: string; name: string; color: string };
 
-const COLUMNS: { key: Task["status"]; label: string; accent: string }[] = [
-  { key: "todo", label: "Att göra", accent: "var(--sunset-coral)" },
-  { key: "doing", label: "Pågår", accent: "var(--sunset-amber)" },
-  { key: "done", label: "Klar", accent: "var(--sunset-violet)" },
+const TYPE_LABELS: Record<TaskType, string> = {
+  annat: "Annat",
+  inlamningsuppgift: "Inlämning",
+  kontrollskrivning: "Kontrollskrivning",
+  laboration: "Laboration",
+  modul: "Modul",
+  quiz: "Quiz",
+  redovisning: "Redovisning",
+  seminarie: "Seminarie",
+  tenta: "Tenta",
+  ovning: "Övning",
+};
+const TYPES_ALPHA: TaskType[] = [
+  "annat",
+  "inlamningsuppgift",
+  "kontrollskrivning",
+  "laboration",
+  "modul",
+  "quiz",
+  "redovisning",
+  "seminarie",
+  "tenta",
+  "ovning",
+];
+const EXAM_TYPES = new Set<TaskType>(["tenta", "kontrollskrivning", "modul", "quiz", "redovisning"]);
+
+const COLUMNS: { key: TaskStatus; label: string; accent: string }[] = [
+  { key: "todo", label: "Ej startad", accent: "var(--sunset-coral, #f94144)" },
+  { key: "doing", label: "Pågår", accent: "var(--sunset-amber, #f8961e)" },
+  { key: "done", label: "Klar", accent: "var(--sunset-violet, #43aa8b)" },
 ];
 
-const PRIORITY_COLOR: Record<Task["priority"], string> = {
-  low: "var(--muted-foreground)",
-  medium: "var(--sunset-amber)",
-  high: "var(--sunset-rose)",
-};
+function daysLeftLabel(due: string): string {
+  const d = differenceInCalendarDays(parseISO(due), new Date());
+  if (d === 0) return "Idag";
+  if (d === 1) return "Imorgon";
+  if (d === -1) return "Försenad 1 d";
+  if (d < 0) return `Försenad ${-d} d`;
+  return `${d} dagar`;
+}
 
 function TasksPage() {
   const qc = useQueryClient();
-  const [open, setOpen] = useState(false);
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [priority, setPriority] = useState<Task["priority"]>("medium");
-  const [dueAt, setDueAt] = useState("");
-  const [courseId, setCourseId] = useState<string>("none");
+  const [tab, setTab] = useState<TaskKind>("task");
   const [filterCourse, setFilterCourse] = useState<string>("all");
+  const [filterType, setFilterType] = useState<string>("all");
+  const [filterDue, setFilterDue] = useState<string>("all");
+
+  const [createOpen, setCreateOpen] = useState(false);
+  const [editing, setEditing] = useState<Task | null>(null);
+  const [completeFor, setCompleteFor] = useState<Task | null>(null);
 
   const { data: courses = [] } = useQuery({
     queryKey: ["courses"],
@@ -60,49 +118,65 @@ function TasksPage() {
     },
   });
 
-  const { data: tasks = [] } = useQuery({
-    queryKey: ["tasks", filterCourse],
+  const { data: allTasks = [] } = useQuery({
+    queryKey: ["tasks"],
     queryFn: async () => {
-      let q = supabase.from("tasks").select("id,title,description,status,priority,due_at,course_id").order("due_at", { ascending: true, nullsFirst: false });
-      if (filterCourse !== "all") q = q.eq("course_id", filterCourse);
-      const { data, error } = await q;
+      const { data, error } = await supabase
+        .from("tasks")
+        .select("id,title,description,status,due_at,course_id,task_type,task_kind,grade,points,pending_review")
+        .order("due_at", { ascending: true, nullsFirst: false });
       if (error) throw error;
       return (data ?? []) as Task[];
     },
   });
 
-  const create = useMutation({
-    mutationFn: async () => {
-      const { data: u } = await supabase.auth.getUser();
-      if (!u.user) throw new Error("no user");
-      const { error } = await supabase.from("tasks").insert({
-        user_id: u.user.id,
-        title: title.trim(),
-        description: description.trim() || null,
-        priority,
-        due_at: dueAt ? new Date(dueAt).toISOString() : null,
-        course_id: courseId === "none" ? null : courseId,
-      });
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["tasks"] });
-      setOpen(false);
-      setTitle(""); setDescription(""); setDueAt(""); setPriority("medium"); setCourseId("none");
-      toast.success("Uppgift skapad");
-    },
-    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Fel"),
-  });
+  const filtered = useMemo(() => {
+    const now = Date.now();
+    const day = 24 * 3600 * 1000;
+    return allTasks.filter((t) => {
+      if (t.task_kind !== tab) return false;
+      if (filterCourse !== "all" && t.course_id !== filterCourse) return false;
+      if (filterType !== "all" && t.task_type !== filterType) return false;
+      if (filterDue !== "all" && t.due_at) {
+        const diff = parseISO(t.due_at).getTime() - now;
+        if (filterDue === "overdue" && diff >= 0) return false;
+        if (filterDue === "today" && (diff < 0 || diff > day)) return false;
+        if (filterDue === "week" && (diff < 0 || diff > 7 * day)) return false;
+        if (filterDue === "month" && (diff < 0 || diff > 30 * day)) return false;
+      } else if (filterDue !== "all" && !t.due_at) {
+        return false;
+      }
+      return true;
+    });
+  }, [allTasks, tab, filterCourse, filterType, filterDue]);
 
-  const update = useMutation({
-    mutationFn: async (v: { id: string; patch: Partial<Task> & { completed_at?: string | null } }) => {
-      const patch = { ...v.patch };
-      if (v.patch.status === "done") patch.completed_at = new Date().toISOString();
-      if (v.patch.status && v.patch.status !== "done") patch.completed_at = null;
-      const { error } = await supabase.from("tasks").update(patch).eq("id", v.id);
-      if (error) throw error;
+  const pending = filtered.filter((t) => t.pending_review && t.status !== "done");
+  const board = filtered.filter((t) => !t.pending_review);
+
+  const upsert = useMutation({
+    mutationFn: async (patch: Partial<Task> & { id?: string }) => {
+      if (patch.id) {
+        const { id, ...rest } = patch;
+        const { error } = await supabase.from("tasks").update(rest).eq("id", id);
+        if (error) throw error;
+      } else {
+        const { data: u } = await supabase.auth.getUser();
+        if (!u.user) throw new Error("no user");
+        const { error } = await supabase.from("tasks").insert({
+          user_id: u.user.id,
+          title: patch.title ?? "",
+          description: patch.description ?? null,
+          due_at: patch.due_at ?? null,
+          course_id: patch.course_id ?? null,
+          task_type: patch.task_type ?? "annat",
+          task_kind: patch.task_kind ?? "task",
+          status: patch.status ?? "todo",
+        });
+        if (error) throw error;
+      }
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["tasks"] }),
+    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Fel"),
   });
 
   const remove = useMutation({
@@ -113,147 +187,361 @@ function TasksPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["tasks"] }),
   });
 
+  const setStatus = (t: Task, s: TaskStatus) => {
+    if (s === "done") {
+      setCompleteFor(t);
+      return;
+    }
+    const patch: Partial<Task> & { id: string; completed_at?: string | null } = {
+      id: t.id,
+      status: s,
+    };
+    (patch as { completed_at?: string | null }).completed_at = null;
+    upsert.mutate(patch);
+  };
+
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
+  const onDragEnd = (e: DragEndEvent) => {
+    const t = board.find((x) => x.id === e.active.id);
+    const target = e.over?.id as TaskStatus | undefined;
+    if (!t || !target || t.status === target) return;
+    setStatus(t, target);
+  };
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 lg:px-8">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="font-display text-3xl font-bold tracking-tight">Uppgifter</h1>
-          <p className="text-sm text-muted-foreground">Ordna dina att-göra i lista eller kanban.</p>
+          <p className="text-sm text-muted-foreground">Uppgifter och examinationer i separata vyer.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Select value={filterCourse} onValueChange={setFilterCourse}>
-            <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Alla kurser</SelectItem>
               {courses.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
             </SelectContent>
           </Select>
-          <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-              <Button className="gap-1 gradient-sunset text-white hover:opacity-90"><Plus className="h-4 w-4" /> Ny uppgift</Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader><DialogTitle className="font-display">Ny uppgift</DialogTitle></DialogHeader>
-              <div className="space-y-4">
-                <div className="space-y-2"><Label>Titel</Label><Input value={title} onChange={(e) => setTitle(e.target.value)} autoFocus /></div>
-                <div className="space-y-2"><Label>Beskrivning</Label><Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} /></div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Deadline</Label>
-                    <Input type="datetime-local" value={dueAt} onChange={(e) => setDueAt(e.target.value)} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Prioritet</Label>
-                    <Select value={priority} onValueChange={(v) => setPriority(v as Task["priority"])}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="low">Låg</SelectItem>
-                        <SelectItem value="medium">Medel</SelectItem>
-                        <SelectItem value="high">Hög</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label>Kurs</Label>
-                  <Select value={courseId} onValueChange={setCourseId}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">Ingen kurs</SelectItem>
-                      {courses.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <DialogFooter>
-                <Button variant="ghost" onClick={() => setOpen(false)}>Avbryt</Button>
-                <Button disabled={!title.trim() || create.isPending} onClick={() => create.mutate()} className="gradient-sunset text-white hover:opacity-90">Skapa</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+          <Select value={filterType} onValueChange={setFilterType}>
+            <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Alla typer</SelectItem>
+              {TYPES_ALPHA.map((t) => <SelectItem key={t} value={t}>{TYPE_LABELS[t]}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={filterDue} onValueChange={setFilterDue}>
+            <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Alla deadlines</SelectItem>
+              <SelectItem value="overdue">Försenade</SelectItem>
+              <SelectItem value="today">Idag</SelectItem>
+              <SelectItem value="week">Denna vecka</SelectItem>
+              <SelectItem value="month">Denna månad</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button onClick={() => setCreateOpen(true)} className="gap-1 gradient-sunset text-white hover:opacity-90">
+            <Plus className="h-4 w-4" /> Ny
+          </Button>
         </div>
       </div>
 
-      <Tabs defaultValue="list">
+      <Tabs value={tab} onValueChange={(v) => setTab(v as TaskKind)}>
         <TabsList>
-          <TabsTrigger value="list">Lista</TabsTrigger>
-          <TabsTrigger value="board">Kanban</TabsTrigger>
+          <TabsTrigger value="task">Uppgifter</TabsTrigger>
+          <TabsTrigger value="exam">Examinationer</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="list" className="mt-4">
-          <div className="space-y-1 rounded-xl border border-border/60 bg-surface/40 p-2">
-            {tasks.length === 0 && <div className="p-8 text-center text-sm text-muted-foreground">Inga uppgifter. Skapa din första!</div>}
-            {tasks.map((t) => {
-              const c = courses.find((c) => c.id === t.course_id);
-              const overdue = t.due_at && isPast(parseISO(t.due_at)) && t.status !== "done" && !isToday(parseISO(t.due_at));
-              return (
-                <div key={t.id} className="group flex items-center gap-3 rounded-md px-3 py-2 hover:bg-surface">
-                  <input
-                    type="checkbox"
-                    checked={t.status === "done"}
-                    onChange={(e) => update.mutate({ id: t.id, patch: { status: e.target.checked ? "done" : "todo" } })}
-                    className="h-4 w-4 accent-sunset-coral"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <div className={cn("truncate text-sm", t.status === "done" && "line-through text-muted-foreground")}>{t.title}</div>
-                    {t.description && <div className="truncate text-xs text-muted-foreground">{t.description}</div>}
-                  </div>
-                  {c && <span className="inline-flex items-center gap-1 rounded-full border border-border/60 px-2 py-0.5 text-[10px]"><span className="inline-block h-1.5 w-1.5 rounded-full" style={{ background: c.color }} />{c.name}</span>}
-                  <Flag className="h-3 w-3" style={{ color: PRIORITY_COLOR[t.priority] }} />
-                  {t.due_at && (
-                    <span className={cn("inline-flex items-center gap-1 text-xs", overdue ? "text-sunset-rose" : "text-muted-foreground")}>
-                      <CalIcon className="h-3 w-3" /> {format(parseISO(t.due_at), "d MMM", { locale: sv })}
-                    </span>
-                  )}
-                  <button onClick={() => remove.mutate(t.id)} className="opacity-0 group-hover:opacity-100"><Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" /></button>
-                </div>
-              );
-            })}
-          </div>
-        </TabsContent>
+        <TabsContent value={tab} className="mt-4 space-y-4">
+          <DndContext sensors={sensors} onDragEnd={onDragEnd}>
+            <div className="grid gap-3 md:grid-cols-3">
+              {COLUMNS.map((col) => (
+                <Column key={col.key} col={col} tasks={board.filter((t) => t.status === col.key)} courses={courses} onOpen={setEditing} />
+              ))}
+            </div>
+          </DndContext>
 
-        <TabsContent value="board" className="mt-4">
-          <div className="grid gap-3 md:grid-cols-3">
-            {COLUMNS.map((col) => (
-              <div key={col.key} className="rounded-xl border border-border/60 bg-surface/40 p-2">
-                <div className="mb-2 flex items-center gap-2 px-2 py-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  <span className="inline-block h-2 w-2 rounded-full" style={{ background: col.accent }} />
-                  {col.label}
-                  <span className="ml-auto rounded-full bg-surface-2 px-2 py-0.5 text-[10px] text-muted-foreground">
-                    {tasks.filter((t) => t.status === col.key).length}
-                  </span>
-                </div>
-                <div className="space-y-2">
-                  {tasks.filter((t) => t.status === col.key).map((t) => {
-                    const c = courses.find((c) => c.id === t.course_id);
-                    return (
-                      <div key={t.id} className="group rounded-lg border border-border/60 bg-surface p-3 shadow-sm">
-                        <div className="mb-1 flex items-start justify-between gap-2">
-                          <div className={cn("text-sm font-medium", t.status === "done" && "line-through text-muted-foreground")}>{t.title}</div>
-                          <Flag className="h-3 w-3 shrink-0" style={{ color: PRIORITY_COLOR[t.priority] }} />
-                        </div>
-                        {t.description && <div className="mb-2 line-clamp-2 text-xs text-muted-foreground">{t.description}</div>}
-                        <div className="flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground">
-                          {c && <span className="inline-flex items-center gap-1"><span className="inline-block h-1.5 w-1.5 rounded-full" style={{ background: c.color }} />{c.name}</span>}
-                          {t.due_at && <span className="inline-flex items-center gap-1"><CalIcon className="h-2.5 w-2.5" /> {format(parseISO(t.due_at), "d MMM", { locale: sv })}</span>}
-                        </div>
-                        <div className="mt-2 flex gap-1 opacity-0 group-hover:opacity-100">
-                          {COLUMNS.filter((cc) => cc.key !== col.key).map((cc) => (
-                            <button key={cc.key} onClick={() => update.mutate({ id: t.id, patch: { status: cc.key } })} className="rounded border border-border/60 px-2 py-0.5 text-[10px] hover:bg-accent">
-                              → {cc.label}
-                            </button>
-                          ))}
-                          <button onClick={() => remove.mutate(t.id)} className="ml-auto text-muted-foreground hover:text-destructive"><Trash2 className="h-3 w-3" /></button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+          {pending.length > 0 && (
+            <div className="rounded-2xl border border-border/60 bg-surface/40 p-3">
+              <div className="mb-2 flex items-center gap-2 px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                <Inbox className="h-3.5 w-3.5" /> Väntar på bedömning
+                <span className="ml-auto rounded-full bg-surface-2 px-2 py-0.5 text-[10px]">{pending.length}</span>
               </div>
-            ))}
-          </div>
+              <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
+                {pending.map((t) => (
+                  <Card key={t.id} task={t} courses={courses} onOpen={setEditing} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {filtered.length === 0 && (
+            <div className="rounded-2xl border border-dashed border-border/60 bg-surface/40 p-10 text-center text-sm text-muted-foreground">
+              Inga {tab === "exam" ? "examinationer" : "uppgifter"} här. Skapa din första!
+            </div>
+          )}
         </TabsContent>
       </Tabs>
+
+      <TaskDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        courses={courses}
+        defaultKind={tab}
+        onSave={(v) => {
+          upsert.mutate(v, {
+            onSuccess: () => {
+              setCreateOpen(false);
+              toast.success("Skapad");
+            },
+          });
+        }}
+      />
+      <TaskDialog
+        open={!!editing}
+        onOpenChange={(o) => !o && setEditing(null)}
+        courses={courses}
+        task={editing ?? undefined}
+        onDelete={editing ? () => { remove.mutate(editing.id); setEditing(null); } : undefined}
+        onSave={(v) => {
+          upsert.mutate({ ...v, id: editing!.id }, {
+            onSuccess: () => { setEditing(null); toast.success("Sparat"); },
+          });
+        }}
+      />
+      <CompleteDialog
+        task={completeFor}
+        onClose={() => setCompleteFor(null)}
+        onPending={(t) => {
+          upsert.mutate({ id: t.id, pending_review: true }, { onSuccess: () => setCompleteFor(null) });
+        }}
+        onDone={(t, grade, points) => {
+          const patch: Record<string, unknown> = { id: t.id, grade, points, pending_review: false };
+          if (grade.trim() && points.trim()) {
+            patch.status = "done";
+            patch.completed_at = new Date().toISOString();
+          }
+          upsert.mutate(patch as Partial<Task> & { id: string }, { onSuccess: () => setCompleteFor(null) });
+        }}
+      />
     </div>
+  );
+}
+
+function Column({
+  col, tasks, courses, onOpen,
+}: {
+  col: { key: TaskStatus; label: string; accent: string };
+  tasks: Task[];
+  courses: Course[];
+  onOpen: (t: Task) => void;
+}) {
+  const { setNodeRef, isOver } = useDroppable({ id: col.key });
+  return (
+    <div ref={setNodeRef} className={cn("rounded-2xl border border-border/60 bg-surface/40 p-2 transition", isOver && "ring-2 ring-primary/50")}>
+      <div className="mb-2 flex items-center gap-2 px-2 py-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        <span className="inline-block h-2 w-2 rounded-full" style={{ background: col.accent }} />
+        {col.label}
+        <span className="ml-auto rounded-full bg-surface-2 px-2 py-0.5 text-[10px]">{tasks.length}</span>
+      </div>
+      <div className="space-y-2 min-h-[80px]">
+        {tasks.map((t) => <DraggableCard key={t.id} task={t} courses={courses} onOpen={onOpen} />)}
+      </div>
+    </div>
+  );
+}
+
+function DraggableCard({ task, courses, onOpen }: { task: Task; courses: Course[]; onOpen: (t: Task) => void }) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: task.id });
+  const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` } : undefined;
+  return (
+    <div ref={setNodeRef} style={style} {...listeners} {...attributes} className={cn("touch-none", isDragging && "opacity-50")}>
+      <Card task={task} courses={courses} onOpen={onOpen} />
+    </div>
+  );
+}
+
+function Card({ task, courses, onOpen }: { task: Task; courses: Course[]; onOpen: (t: Task) => void }) {
+  const c = courses.find((x) => x.id === task.course_id);
+  const overdue = task.due_at && parseISO(task.due_at).getTime() < Date.now() && task.status !== "done";
+  return (
+    <button
+      onClick={() => onOpen(task)}
+      className="w-full rounded-xl border border-border/60 bg-surface p-3 text-left shadow-sm hover:border-primary/40"
+    >
+      <div className={cn("mb-1 text-sm font-medium", task.status === "done" && "line-through text-muted-foreground")}>
+        {task.title}
+      </div>
+      <div className="flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground">
+        {c && (
+          <span className="inline-flex items-center gap-1">
+            <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ background: c.color }} />
+            {c.name}
+          </span>
+        )}
+        <span className="rounded-full border border-border/60 px-1.5 py-0.5">{TYPE_LABELS[task.task_type]}</span>
+        {task.due_at && (
+          <span className={cn("inline-flex items-center gap-1", overdue && "text-sunset-rose")}>
+            <CalIcon className="h-2.5 w-2.5" /> {format(parseISO(task.due_at), "d MMM", { locale: sv })} · {daysLeftLabel(task.due_at)}
+          </span>
+        )}
+        {task.grade && <span className="rounded-full bg-surface-2 px-1.5 py-0.5">Betyg: {task.grade}</span>}
+      </div>
+    </button>
+  );
+}
+
+function TaskDialog({
+  open, onOpenChange, courses, task, defaultKind, onSave, onDelete,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  courses: Course[];
+  task?: Task;
+  defaultKind?: TaskKind;
+  onSave: (v: Partial<Task>) => void;
+  onDelete?: () => void;
+}) {
+  const [title, setTitle] = useState(task?.title ?? "");
+  const [description, setDescription] = useState(task?.description ?? "");
+  const [dueAt, setDueAt] = useState(task?.due_at ? task.due_at.slice(0, 16) : "");
+  const [courseId, setCourseId] = useState(task?.course_id ?? "none");
+  const [type, setType] = useState<TaskType>(task?.task_type ?? "annat");
+  const [kind, setKind] = useState<TaskKind>(task?.task_kind ?? defaultKind ?? "task");
+  const [status, setStatus] = useState<TaskStatus>(task?.status ?? "todo");
+  const [grade, setGrade] = useState(task?.grade ?? "");
+  const [points, setPoints] = useState(task?.points ?? "");
+  const [pending, setPending] = useState(task?.pending_review ?? false);
+
+  // Reset when task changes
+  useEffect(() => {
+    setTitle(task?.title ?? "");
+    setDescription(task?.description ?? "");
+    setDueAt(task?.due_at ? task.due_at.slice(0, 16) : "");
+    setCourseId(task?.course_id ?? "none");
+    setType(task?.task_type ?? "annat");
+    setKind(task?.task_kind ?? defaultKind ?? "task");
+    setStatus(task?.status ?? "todo");
+    setGrade(task?.grade ?? "");
+    setPoints(task?.points ?? "");
+    setPending(task?.pending_review ?? false);
+  }, [task, defaultKind]);
+
+  const submit = () => {
+    onSave({
+      title: title.trim(),
+      description: description.trim() || null,
+      due_at: dueAt ? new Date(dueAt).toISOString() : null,
+      course_id: courseId === "none" ? null : courseId,
+      task_type: type,
+      task_kind: kind,
+      status,
+      grade: grade.trim() || null,
+      points: points.trim() || null,
+      pending_review: pending,
+    });
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader><DialogTitle className="font-display">{task ? "Redigera" : "Ny"} {kind === "exam" ? "examination" : "uppgift"}</DialogTitle></DialogHeader>
+        <div className="space-y-3">
+          <div className="space-y-1.5"><Label>Titel</Label><Input value={title} onChange={(e) => setTitle(e.target.value)} autoFocus /></div>
+          <div className="space-y-1.5"><Label>Beskrivning</Label><Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} /></div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>Typ</Label>
+              <Select value={type} onValueChange={(v) => {
+                const t = v as TaskType;
+                setType(t);
+                setKind(EXAM_TYPES.has(t) ? "exam" : "task");
+              }}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>{TYPES_ALPHA.map((t) => <SelectItem key={t} value={t}>{TYPE_LABELS[t]}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Kategori</Label>
+              <Select value={kind} onValueChange={(v) => setKind(v as TaskKind)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="task">Uppgift</SelectItem>
+                  <SelectItem value="exam">Examination</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5"><Label>Deadline</Label><Input type="datetime-local" value={dueAt} onChange={(e) => setDueAt(e.target.value)} /></div>
+            <div className="space-y-1.5">
+              <Label>Kurs</Label>
+              <Select value={courseId} onValueChange={setCourseId}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Ingen kurs</SelectItem>
+                  {courses.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <div className="space-y-1.5">
+              <Label>Status</Label>
+              <Select value={status} onValueChange={(v) => setStatus(v as TaskStatus)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todo">Ej startad</SelectItem>
+                  <SelectItem value="doing">Pågår</SelectItem>
+                  <SelectItem value="done">Klar</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5"><Label>Betyg</Label><Input value={grade} onChange={(e) => setGrade(e.target.value)} placeholder="A / 5 / -" /></div>
+            <div className="space-y-1.5"><Label>Poäng</Label><Input value={points} onChange={(e) => setPoints(e.target.value)} placeholder="18/20 / -" /></div>
+          </div>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={pending} onChange={(e) => setPending(e.target.checked)} className="h-4 w-4" />
+            Väntar på bedömning
+          </label>
+        </div>
+        <DialogFooter className="gap-2">
+          {onDelete && <Button variant="ghost" className="mr-auto text-destructive" onClick={onDelete}><Trash2 className="mr-1 h-4 w-4" /> Ta bort</Button>}
+          <Button variant="ghost" onClick={() => onOpenChange(false)}>Avbryt</Button>
+          <Button disabled={!title.trim()} onClick={submit} className="gradient-sunset text-white hover:opacity-90">Spara</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function CompleteDialog({
+  task, onClose, onPending, onDone,
+}: {
+  task: Task | null;
+  onClose: () => void;
+  onPending: (t: Task) => void;
+  onDone: (t: Task, grade: string, points: string) => void;
+}) {
+  const [grade, setGrade] = useState("");
+  const [points, setPoints] = useState("");
+  useEffect(() => { setGrade(task?.grade ?? ""); setPoints(task?.points ?? ""); }, [task]);
+  if (!task) return null;
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader><DialogTitle className="font-display">Markera som klar</DialogTitle></DialogHeader>
+        <p className="text-sm text-muted-foreground">Fyll i betyg och poäng. Använd <code>-</code> om det inte gäller. När båda är ifyllda markeras uppgiften som klar.</p>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5"><Label>Betyg</Label><Input autoFocus value={grade} onChange={(e) => setGrade(e.target.value)} placeholder="A / 5 / -" /></div>
+          <div className="space-y-1.5"><Label>Poäng</Label><Input value={points} onChange={(e) => setPoints(e.target.value)} placeholder="18/20 / -" /></div>
+        </div>
+        <DialogFooter className="gap-2">
+          <Button variant="ghost" onClick={onClose}>Avbryt</Button>
+          <Button variant="outline" onClick={() => onPending(task)}>Väntar på bedömning</Button>
+          <Button onClick={() => onDone(task, grade, points)} className="gradient-sunset text-white hover:opacity-90">Spara</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

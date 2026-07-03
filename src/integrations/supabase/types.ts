@@ -272,6 +272,98 @@ export type Database = {
         }
         Relationships: []
       }
+      study_session_tasks: {
+        Row: {
+          created_at: string
+          session_id: string
+          task_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          session_id: string
+          task_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          session_id?: string
+          task_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "study_session_tasks_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "study_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "study_session_tasks_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      study_sessions: {
+        Row: {
+          actual_end: string | null
+          actual_start: string | null
+          completed: boolean
+          course_id: string | null
+          created_at: string
+          google_event_id: string | null
+          id: string
+          notes: string | null
+          planned_end: string
+          planned_start: string
+          source: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          actual_end?: string | null
+          actual_start?: string | null
+          completed?: boolean
+          course_id?: string | null
+          created_at?: string
+          google_event_id?: string | null
+          id?: string
+          notes?: string | null
+          planned_end: string
+          planned_start: string
+          source?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          actual_end?: string | null
+          actual_start?: string | null
+          completed?: boolean
+          course_id?: string | null
+          created_at?: string
+          google_event_id?: string | null
+          id?: string
+          notes?: string | null
+          planned_end?: string
+          planned_start?: string
+          source?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "study_sessions_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tasks: {
         Row: {
           completed_at: string | null
@@ -279,10 +371,15 @@ export type Database = {
           created_at: string
           description: string | null
           due_at: string | null
+          grade: string | null
           id: string
+          pending_review: boolean
+          points: string | null
           priority: Database["public"]["Enums"]["task_priority"]
           sort_order: number
           status: Database["public"]["Enums"]["task_status"]
+          task_kind: string
+          task_type: Database["public"]["Enums"]["task_type"]
           title: string
           updated_at: string
           user_id: string
@@ -293,10 +390,15 @@ export type Database = {
           created_at?: string
           description?: string | null
           due_at?: string | null
+          grade?: string | null
           id?: string
+          pending_review?: boolean
+          points?: string | null
           priority?: Database["public"]["Enums"]["task_priority"]
           sort_order?: number
           status?: Database["public"]["Enums"]["task_status"]
+          task_kind?: string
+          task_type?: Database["public"]["Enums"]["task_type"]
           title: string
           updated_at?: string
           user_id: string
@@ -307,10 +409,15 @@ export type Database = {
           created_at?: string
           description?: string | null
           due_at?: string | null
+          grade?: string | null
           id?: string
+          pending_review?: boolean
+          points?: string | null
           priority?: Database["public"]["Enums"]["task_priority"]
           sort_order?: number
           status?: Database["public"]["Enums"]["task_status"]
+          task_kind?: string
+          task_type?: Database["public"]["Enums"]["task_type"]
           title?: string
           updated_at?: string
           user_id?: string
@@ -486,6 +593,17 @@ export type Database = {
       course_period: "P1" | "P2" | "P3" | "P4" | "P5"
       task_priority: "low" | "medium" | "high"
       task_status: "todo" | "doing" | "done"
+      task_type:
+        | "annat"
+        | "inlamningsuppgift"
+        | "kontrollskrivning"
+        | "laboration"
+        | "modul"
+        | "quiz"
+        | "redovisning"
+        | "seminarie"
+        | "tenta"
+        | "ovning"
       term_kind: "host" | "var" | "sommar"
     }
     CompositeTypes: {
@@ -617,6 +735,18 @@ export const Constants = {
       course_period: ["P1", "P2", "P3", "P4", "P5"],
       task_priority: ["low", "medium", "high"],
       task_status: ["todo", "doing", "done"],
+      task_type: [
+        "annat",
+        "inlamningsuppgift",
+        "kontrollskrivning",
+        "laboration",
+        "modul",
+        "quiz",
+        "redovisning",
+        "seminarie",
+        "tenta",
+        "ovning",
+      ],
       term_kind: ["host", "var", "sommar"],
     },
   },
