@@ -572,6 +572,9 @@ function SessionRow({
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-baseline gap-2">
           <div className="font-medium">{c?.name ?? "Studiepass"}</div>
+          {fromCalendar && (
+            <span className="rounded bg-surface-2 px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">Kalender</span>
+          )}
           <div className="text-xs text-muted-foreground">
             {format(start, "EEE d MMM · HH:mm", { locale: sv })}–{format(end, "HH:mm")} ({formatHoursCompact(dur)})
           </div>
@@ -587,10 +590,13 @@ function SessionRow({
             <CheckCircle2 className="h-3.5 w-3.5" /> Genomfört
           </Button>
         )}
-        <button onClick={onDelete} className="opacity-0 transition-opacity group-hover:opacity-100">
-          <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
-        </button>
+        {onDelete && (
+          <button onClick={onDelete} className="opacity-0 transition-opacity group-hover:opacity-100">
+            <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
+          </button>
+        )}
       </div>
+
     </div>
   );
 }
