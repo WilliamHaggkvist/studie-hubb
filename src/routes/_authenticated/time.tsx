@@ -330,6 +330,30 @@ function SessionsPanel({ courses, allTasks }: { courses: Course[]; allTasks: Tas
     },
   });
 
+  const { data: calSessions = [] } = useQuery({
+    queryKey: ["calendar_events", "as-sessions"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("calendar_events")
+        .select("id,course_id,title,location,starts_at,ends_at,counts_as_study")
+        .eq("counts_as_study", true)
+        .order("starts_at", { ascending: false })
+        .limit(200);
+      const now = Date.now();
+      return (data ?? []).map((e): Session => ({
+        id: `cal:${e.id}`,
+        course_id: e.course_id,
+        planned_start: e.starts_at,
+        planned_end: e.ends_at,
+        actual_start: null,
+        actual_end: null,
+        notes: [e.title, e.location].filter(Boolean).join(" · ") || null,
+        completed: new Date(e.ends_at).getTime() < now,
+        source: "calendar",
+      }));
+    },
+  });
+
   const { data: sessionTasks = [] } = useQuery({
     queryKey: ["study_session_tasks"],
     queryFn: async () => {
@@ -337,6 +361,7 @@ function SessionsPanel({ courses, allTasks }: { courses: Course[]; allTasks: Tas
       return (data ?? []) as SessionTask[];
     },
   });
+
 
   const availableTasks = courseId === "none" ? [] : allTasks.filter((t) => t.course_id === courseId && t.status !== "done");
 
