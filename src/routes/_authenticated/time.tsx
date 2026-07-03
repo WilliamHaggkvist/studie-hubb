@@ -358,39 +358,7 @@ function SessionsPanel({ courses, allTasks }: { courses: Course[]; allTasks: Tas
   });
 
 
-  const availableTasks = courseId === "none" ? [] : allTasks.filter((t) => t.course_id === courseId && t.status !== "done");
 
-  const create = useMutation({
-    mutationFn: async () => {
-      const { data: u } = await supabase.auth.getUser();
-      if (!u.user) throw new Error("no user");
-      const { data: s, error } = await supabase
-        .from("study_sessions")
-        .insert({
-          user_id: u.user.id,
-          course_id: courseId === "none" ? null : courseId,
-          planned_start: new Date(plannedStart).toISOString(),
-          planned_end: new Date(plannedEnd).toISOString(),
-          notes: notes.trim() || null,
-          source: "local",
-        })
-        .select("id")
-        .single();
-      if (error) throw error;
-      if (taskIds.length > 0 && s) {
-        const rows = taskIds.map((task_id) => ({ user_id: u.user!.id, session_id: s.id, task_id }));
-        const { error: e2 } = await supabase.from("study_session_tasks").insert(rows);
-        if (e2) throw e2;
-      }
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["study_sessions"] });
-      qc.invalidateQueries({ queryKey: ["study_session_tasks"] });
-      setOpen(false); setCourseId("none"); setTaskIds([]); setPlannedStart(""); setPlannedEnd(""); setNotes("");
-      toast.success("Studiepass skapat");
-    },
-    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Fel"),
-  });
 
   const complete = useMutation({
     mutationFn: async (sessionId: string) => {
