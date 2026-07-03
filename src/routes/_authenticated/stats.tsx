@@ -69,6 +69,51 @@ function StatsPage() {
     },
   });
 
+  const { data: calEvents = [] } = useQuery({
+    queryKey: ["stats", "cal", range.start.toISOString(), range.end.toISOString()],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("calendar_events")
+        .select("id,starts_at,ends_at,course_id,counts_as_study")
+        .eq("counts_as_study", true)
+        .gte("starts_at", range.start.toISOString())
+        .lte("starts_at", range.end.toISOString());
+      return (data ?? []) as { id: string; starts_at: string; ends_at: string; course_id: string | null; counts_as_study: boolean }[];
+    },
+  });
+
+  const { data: sessionRows = [] } = useQuery({
+    queryKey: ["stats", "sessions-rows", range.start.toISOString(), range.end.toISOString()],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("study_sessions")
+        .select("id,course_id,planned_start,planned_end,actual_start,actual_end,completed")
+        .gte("planned_start", range.start.toISOString())
+        .lte("planned_start", range.end.toISOString());
+      return (data ?? []) as { id: string; course_id: string | null; planned_start: string; planned_end: string; actual_start: string | null; actual_end: string | null; completed: boolean }[];
+    },
+  });
+
+  // Synthesize pseudo-entries from calendar events (counts_as_study) and uncompleted study sessions,
+  // so all planned/imported study time is reflected in the charts alongside logged time.
+  const derivedEntries: Entry[] = useMemo(() => {
+    const out: Entry[] = [];
+    for (const e of calEvents) {
+      const dur = Math.max(0, Math.floor((new Date(e.ends_at).getTime() - new Date(e.starts_at).getTime()) / 1000));
+      out.push({ id: `cal:${e.id}`, started_at: e.starts_at, duration_seconds: dur, course_id: e.course_id, task_id: null });
+    }
+    for (const s of sessionRows) {
+      if (s.completed) continue; // completed sessions already produced a time_entries row
+      const start = s.actual_start ?? s.planned_start;
+      const end = s.actual_end ?? s.planned_end;
+      const dur = Math.max(0, Math.floor((new Date(end).getTime() - new Date(start).getTime()) / 1000));
+      out.push({ id: `sess:${s.id}`, started_at: start, duration_seconds: dur, course_id: s.course_id, task_id: null });
+    }
+    return out;
+  }, [calEvents, sessionRows]);
+
+  const combined = useMemo(() => [...entries, ...derivedEntries], [entries, derivedEntries]);
+
   const { data: tasks = [] } = useQuery({
     queryKey: ["stats", "tasks"],
     queryFn: async () => {
@@ -95,7 +140,7 @@ function StatsPage() {
     const row: Record<string, number | string> = { day: format(d, "d/M", { locale: sv }) };
     let total = 0;
     for (const c of courses) {
-      const h = entries.filter((e) => e.course_id === c.id && e.started_at >= startOfDay(d).toISOString() && e.started_at <= endOfDay(d).toISOString())
+      const h = combined.filter((e) => e.course_id === c.id && e.started_at >= startOfDay(d).toISOString() && e.started_at <= endOfDay(d).toISOString())
         .reduce((s, e) => s + (e.duration_seconds ?? 0), 0) / 3600;
       row[c.id] = +h.toFixed(2);
       total += h;
@@ -107,9 +152,9 @@ function StatsPage() {
   const perCourse = courses.map((c) => ({
     name: c.name,
     color: c.color,
-    value: +(entries.filter((e) => e.course_id === c.id).reduce((s, e) => s + (e.duration_seconds ?? 0), 0) / 3600).toFixed(2),
+    value: +(combined.filter((e) => e.course_id === c.id).reduce((s, e) => s + (e.duration_seconds ?? 0), 0) / 3600).toFixed(2),
   })).filter((r) => r.value > 0);
-  const noCourseHours = +(entries.filter((e) => !e.course_id).reduce((s, e) => s + (e.duration_seconds ?? 0), 0) / 3600).toFixed(2);
+  const noCourseHours = +(combined.filter((e) => !e.course_id).reduce((s, e) => s + (e.duration_seconds ?? 0), 0) / 3600).toFixed(2);
   if (noCourseHours > 0) perCourse.push({ name: "Övrigt", color: "#94A3B8", value: noCourseHours });
 
   const perTask = (() => {
@@ -128,8 +173,9 @@ function StatsPage() {
       .slice(0, 10);
   })();
 
-  const totalSec = entries.reduce((s, e) => s + (e.duration_seconds ?? 0), 0);
+  const totalSec = combined.reduce((s, e) => s + (e.duration_seconds ?? 0), 0);
   const avgPerDay = totalSec / totalDays;
+
 
   const statusCounts = {
     not_started: tasks.filter((t) => t.status === "not_started").length,
