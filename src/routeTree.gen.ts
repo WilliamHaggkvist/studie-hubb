@@ -22,6 +22,7 @@ import { Route as AuthenticatedCoursesRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedCalendarRouteImport } from './routes/_authenticated/calendar'
 import { Route as AuthenticatedNotesNoteIdRouteImport } from './routes/_authenticated/notes.$noteId'
 import { Route as AuthenticatedCoursesCourseIdRouteImport } from './routes/_authenticated/courses.$courseId'
+import { Route as ApiPublicHooksSyncGoogleCalendarRouteImport } from './routes/api/public/hooks/sync-google-calendar'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -89,6 +90,12 @@ const AuthenticatedCoursesCourseIdRoute =
     path: '/$courseId',
     getParentRoute: () => AuthenticatedCoursesRoute,
   } as any)
+const ApiPublicHooksSyncGoogleCalendarRoute =
+  ApiPublicHooksSyncGoogleCalendarRouteImport.update({
+    id: '/api/public/hooks/sync-google-calendar',
+    path: '/api/public/hooks/sync-google-calendar',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -103,6 +110,7 @@ export interface FileRoutesByFullPath {
   '/time': typeof AuthenticatedTimeRoute
   '/courses/$courseId': typeof AuthenticatedCoursesCourseIdRoute
   '/notes/$noteId': typeof AuthenticatedNotesNoteIdRoute
+  '/api/public/hooks/sync-google-calendar': typeof ApiPublicHooksSyncGoogleCalendarRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -117,6 +125,7 @@ export interface FileRoutesByTo {
   '/time': typeof AuthenticatedTimeRoute
   '/courses/$courseId': typeof AuthenticatedCoursesCourseIdRoute
   '/notes/$noteId': typeof AuthenticatedNotesNoteIdRoute
+  '/api/public/hooks/sync-google-calendar': typeof ApiPublicHooksSyncGoogleCalendarRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -133,6 +142,7 @@ export interface FileRoutesById {
   '/_authenticated/time': typeof AuthenticatedTimeRoute
   '/_authenticated/courses/$courseId': typeof AuthenticatedCoursesCourseIdRoute
   '/_authenticated/notes/$noteId': typeof AuthenticatedNotesNoteIdRoute
+  '/api/public/hooks/sync-google-calendar': typeof ApiPublicHooksSyncGoogleCalendarRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -149,6 +159,7 @@ export interface FileRouteTypes {
     | '/time'
     | '/courses/$courseId'
     | '/notes/$noteId'
+    | '/api/public/hooks/sync-google-calendar'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -163,6 +174,7 @@ export interface FileRouteTypes {
     | '/time'
     | '/courses/$courseId'
     | '/notes/$noteId'
+    | '/api/public/hooks/sync-google-calendar'
   id:
     | '__root__'
     | '/'
@@ -178,12 +190,14 @@ export interface FileRouteTypes {
     | '/_authenticated/time'
     | '/_authenticated/courses/$courseId'
     | '/_authenticated/notes/$noteId'
+    | '/api/public/hooks/sync-google-calendar'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  ApiPublicHooksSyncGoogleCalendarRoute: typeof ApiPublicHooksSyncGoogleCalendarRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -279,6 +293,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCoursesCourseIdRouteImport
       parentRoute: typeof AuthenticatedCoursesRoute
     }
+    '/api/public/hooks/sync-google-calendar': {
+      id: '/api/public/hooks/sync-google-calendar'
+      path: '/api/public/hooks/sync-google-calendar'
+      fullPath: '/api/public/hooks/sync-google-calendar'
+      preLoaderRoute: typeof ApiPublicHooksSyncGoogleCalendarRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -333,6 +354,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  ApiPublicHooksSyncGoogleCalendarRoute: ApiPublicHooksSyncGoogleCalendarRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
