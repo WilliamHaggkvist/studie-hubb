@@ -3,17 +3,16 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatHoursCompact } from "@/lib/timer-store";
-import { Clock, ListTodo, BookOpen, Calendar as CalendarIcon, GraduationCap, AlertCircle } from "lucide-react";
+import { Clock, ListTodo, Calendar as CalendarIcon, GraduationCap, AlertCircle } from "lucide-react";
 import { format, startOfWeek, endOfWeek, startOfDay, endOfDay, addDays, isSameDay, differenceInCalendarDays, parseISO } from "date-fns";
 import { sv } from "date-fns/locale";
 import { useUserSettings } from "@/lib/settings";
+import { coursesQuery, tasksQuery, termsQuery, type TermRow } from "@/lib/queries";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   component: Dashboard,
 });
 
-type Course = { id: string; name: string; color: string; icon: string | null; arskurs: number | null; period: string | null; weekly_goal_hours: number | null };
-type TaskLite = { id: string; title: string; due_at: string | null; status: string; course_id: string | null; task_kind: string; pending_review: boolean };
 type TimeEntry = { id: string; started_at: string; duration_seconds: number | null; course_id: string | null };
 type Session = { id: string; planned_start: string; planned_end: string; completed: boolean; course_id: string | null };
 type TermRow = { year: number; term: "host" | "var" | "sommar"; start_date: string; end_date: string };
