@@ -14,6 +14,7 @@ import { PALETTE, DEFAULT_COURSE_ICONS, COURSE_PERIODS, ARSKURS_OPTIONS } from "
 import { useUniversities } from "@/lib/settings";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { coursesQuery } from "@/lib/queries";
 
 export const Route = createFileRoute("/_authenticated/courses/")({
   component: CoursesPage,
