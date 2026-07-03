@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useState } from "react";
@@ -255,9 +255,11 @@ function CoursesPage() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {active.map((c) => (
           <div key={c.id} className="group relative">
-            <button
-              onClick={() => navigate({ to: "/courses/$courseId", params: { courseId: c.id } })}
-              className="relative w-full overflow-hidden rounded-2xl border border-border/60 bg-surface/60 backdrop-blur-md p-5 text-left transition-all hover:border-transparent hover:shadow-lg hover:shadow-black/40"
+            <Link
+              to="/courses/$courseId"
+              params={{ courseId: c.id }}
+              aria-label={`Öppna ${c.name}`}
+              className="relative block w-full overflow-hidden rounded-2xl border border-border/60 bg-surface/60 backdrop-blur-md p-5 text-left transition-all hover:border-transparent hover:shadow-lg hover:shadow-black/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <div className="absolute inset-x-0 top-0 h-1" style={{ background: c.color }} />
               <div className="mb-2 flex items-center justify-between">
@@ -274,7 +276,7 @@ function CoursesPage() {
                 {c.period && <span>• {c.period}</span>}
                 {c.arskurs != null && <span>• Åk {c.arskurs}</span>}
               </div>
-            </button>
+            </Link>
             <div className="absolute right-2 top-2 flex gap-1 opacity-100 sm:opacity-0 transition-opacity sm:group-hover:opacity-100 focus-within:opacity-100">
               <button
                 type="button"
