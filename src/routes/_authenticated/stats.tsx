@@ -162,13 +162,13 @@ function StatsPage() {
 
 
   const statusCounts = {
-    not_started: tasks.filter((t) => t.status === "not_started").length,
-    in_progress: tasks.filter((t) => t.status === "in_progress").length,
+    todo: tasks.filter((t) => t.status === "todo").length,
+    doing: tasks.filter((t) => t.status === "doing").length,
     done: tasks.filter((t) => t.status === "done").length,
   };
   const statusData = [
-    { name: "Ej startad", value: statusCounts.not_started, color: "#FF7A59" },
-    { name: "Pågår", value: statusCounts.in_progress, color: "#FFB84D" },
+    { name: "Ej startad", value: statusCounts.todo, color: "#FF7A59" },
+    { name: "Pågår", value: statusCounts.doing, color: "#FFB84D" },
     { name: "Klar", value: statusCounts.done, color: "#8B5CF6" },
   ];
 
