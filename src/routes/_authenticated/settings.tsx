@@ -233,9 +233,71 @@ function TermsCard() {
   );
 }
 
+type CalPref = {
+  id: string;
+  google_calendar_id: string;
+  name: string;
+  background_color: string | null;
+  sync_enabled: boolean;
+  counts_as_study: boolean;
+};
+
 function GoogleCard() {
   const qc = useQueryClient();
-  const [status, setStatus] = useState<{ imported: number; sessions: number; total: number } | null>(null);
+  const [status, setStatus] = useState<{
+    imported: number;
+    sessions: number;
+    mapped: number;
+    unmapped: number;
+    calendars: number;
+    total: number;
+  } | null>(null);
+  const [calendars, setCalendars] = useState<CalPref[] | null>(null);
+
+  // Ladda befintliga prefs direkt (utan att röra Google)
+  useEffect(() => {
+    (async () => {
+      const { data: u } = await supabase.auth.getUser();
+      if (!u.user) return;
+      const { data } = await supabase
+        .from("google_calendar_prefs")
+        .select("id, google_calendar_id, name, background_color, sync_enabled, counts_as_study")
+        .eq("user_id", u.user.id)
+        .order("name");
+      if (data) setCalendars(data as CalPref[]);
+    })();
+  }, []);
+
+  const fetchCalendars = useMutation({
+    mutationFn: async () => {
+      const { listGoogleCalendars } = await import("@/lib/google-calendar.functions");
+      return await listGoogleCalendars();
+    },
+    onSuccess: (r) => {
+      setCalendars(r.calendars as CalPref[]);
+      toast.success(`Hittade ${r.calendars.length} kalendrar`);
+    },
+    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Fel"),
+  });
+
+  const togglePref = useMutation({
+    mutationFn: async (input: {
+      id: string;
+      sync_enabled?: boolean;
+      counts_as_study?: boolean;
+    }) => {
+      const { updateCalendarPref } = await import("@/lib/google-calendar.functions");
+      return await updateCalendarPref({ data: input });
+    },
+    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Fel"),
+  });
+
+  function updateLocal(id: string, patch: Partial<CalPref>) {
+    setCalendars((prev) =>
+      prev ? prev.map((c) => (c.id === id ? { ...c, ...patch } : c)) : prev,
+    );
+  }
+
   const sync = useMutation({
     mutationFn: async () => {
       const { syncGoogleCalendar } = await import("@/lib/google-calendar.functions");
@@ -245,30 +307,110 @@ function GoogleCard() {
       setStatus(r);
       qc.invalidateQueries({ queryKey: ["events"] });
       qc.invalidateQueries({ queryKey: ["sessions"] });
-      toast.success(`Synkat: ${r.imported} händelser, ${r.sessions} studiepass`);
+      toast.success(
+        `Synkat ${r.calendars} kalender(-rar): ${r.imported} händelser, ${r.sessions} studiepass`,
+      );
     },
     onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Synkfel"),
   });
+
   return (
     <Card className="border-border/60 bg-surface/60 backdrop-blur-md rounded-2xl">
-      <CardHeader><CardTitle className="font-display text-base flex items-center gap-2"><CalIcon className="h-4 w-4" /> Google Calendar</CardTitle></CardHeader>
-      <CardContent className="space-y-3">
-        <p className="text-sm text-muted-foreground">
-          Koppla Google Calendar via Lovables inbyggda connector för att importera dina föreläsningar, tentor och studiepass. Händelser med prefix <code className="rounded bg-surface px-1 text-xs">[Studiepass]</code> importeras som studiepass.
-        </p>
-        <div className="flex flex-wrap gap-2">
-          <Button size="sm" onClick={() => sync.mutate()} disabled={sync.isPending} className="gap-1 rounded-xl gradient-sunset text-white hover:opacity-90">
+      <CardHeader>
+        <CardTitle className="font-display text-base flex items-center gap-2">
+          <CalIcon className="h-4 w-4" /> Google Calendar
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="rounded-xl border border-border/60 bg-background/40 px-3 py-2.5 text-xs text-muted-foreground space-y-1">
+          <p>
+            Skriv <code className="rounded bg-surface px-1">[KURSKOD]</code> i eventtiteln
+            (t.ex. <code className="rounded bg-surface px-1">[SG1140] Föreläsning kap 3</code>)
+            så kopplas eventet automatiskt till rätt kurs.
+          </p>
+          <p>
+            Kurskoderna hämtas från fältet <em>Kurskod</em> på respektive kurs. Prefix
+            <code className="rounded bg-surface px-1">[Studiepass]</code> skapar ett studiepass
+            istället för ett event.
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+              Kalendrar
+            </Label>
+            <Button
+              size="sm"
+              variant="outline"
+              className="rounded-xl"
+              onClick={() => fetchCalendars.mutate()}
+              disabled={fetchCalendars.isPending}
+            >
+              {fetchCalendars.isPending ? "Hämtar…" : calendars ? "Uppdatera lista" : "Hämta kalendrar"}
+            </Button>
+          </div>
+          {calendars && calendars.length === 0 && (
+            <div className="text-xs text-muted-foreground">Inga kalendrar hittades.</div>
+          )}
+          {calendars && calendars.length > 0 && (
+            <div className="rounded-xl border border-border/60 divide-y divide-border/60 overflow-hidden">
+              <div className="grid grid-cols-[1fr_auto_auto] items-center gap-3 px-3 py-2 text-[11px] uppercase tracking-wide text-muted-foreground bg-background/30">
+                <span>Namn</span>
+                <span className="text-center w-16">Synka</span>
+                <span className="text-center w-16">Studietid</span>
+              </div>
+              {calendars.map((c) => (
+                <div
+                  key={c.id}
+                  className="grid grid-cols-[1fr_auto_auto] items-center gap-3 px-3 py-2 text-sm"
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span
+                      className="h-3 w-3 rounded-full border border-border/60 shrink-0"
+                      style={{ background: c.background_color ?? "#94a3b8" }}
+                    />
+                    <span className="truncate">{c.name}</span>
+                  </div>
+                  <div className="w-16 flex justify-center">
+                    <Switch
+                      checked={c.sync_enabled}
+                      onCheckedChange={(v) => {
+                        updateLocal(c.id, { sync_enabled: v });
+                        togglePref.mutate({ id: c.id, sync_enabled: v });
+                      }}
+                    />
+                  </div>
+                  <div className="w-16 flex justify-center">
+                    <Switch
+                      checked={c.counts_as_study}
+                      onCheckedChange={(v) => {
+                        updateLocal(c.id, { counts_as_study: v });
+                        togglePref.mutate({ id: c.id, counts_as_study: v });
+                      }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-border/60">
+          <Button
+            size="sm"
+            onClick={() => sync.mutate()}
+            disabled={sync.isPending}
+            className="gap-1 rounded-xl gradient-sunset text-white hover:opacity-90"
+          >
             {sync.isPending ? "Synkar…" : "Synka nu"}
           </Button>
+          {status && (
+            <div className="text-xs text-muted-foreground">
+              {status.imported} händelser · {status.mapped} kopplade · {status.unmapped} okopplade · {status.sessions} studiepass · {status.calendars} kalender(-rar)
+            </div>
+          )}
         </div>
-        {status && (
-          <div className="rounded-md border border-border/60 bg-surface/60 px-3 py-2 text-xs text-muted-foreground">
-            Senaste synk: {status.imported} händelser · {status.sessions} studiepass · {status.total} rader hämtade
-          </div>
-        )}
-        <p className="text-xs text-muted-foreground">
-          Kopplas via Lovables connector-inställningar. Är kopplingen inte gjord får du ett felmeddelande här — säg till så länkar vi.
-        </p>
       </CardContent>
     </Card>
   );
