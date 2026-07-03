@@ -106,9 +106,13 @@ export async function syncGoogleCalendarForUser(
       if (!startsRaw || !endsRaw) continue;
       const allDay = !ev.start?.dateTime;
       const title = ev.summary ?? "(utan titel)";
-      const isSession = title.startsWith("[Studiepass]");
+      const isTaggedSession = title.startsWith("[Studiepass]");
+      // Ett event blir studiepass om det taggats så eller om kalendern räknas som studietid
+      const isSession = isTaggedSession || !!t.counts_as_study;
 
       if (isSession) {
+        const code = parseCourseCode(title);
+        const courseId = code ? codeMap.get(code) ?? null : null;
         const { data: existing } = await supabase
           .from("study_sessions")
           .select("id")
@@ -118,12 +122,14 @@ export async function syncGoogleCalendarForUser(
           user_id: userId,
           planned_start: new Date(startsRaw).toISOString(),
           planned_end: new Date(endsRaw).toISOString(),
-          notes: title.replace("[Studiepass]", "").trim() || null,
+          notes: isTaggedSession
+            ? title.replace("[Studiepass]", "").trim() || null
+            : title,
           source: "google",
           google_event_id: ev.id,
         };
         if (existing) {
-          // Uppdatera tider/text men rör inte needs_review eller kopplade uppgifter
+          // Uppdatera tider/text men rör inte needs_review, course_id eller kopplade uppgifter
           const { error } = await supabase
             .from("study_sessions")
             .update(base)
@@ -132,7 +138,7 @@ export async function syncGoogleCalendarForUser(
         } else {
           const { error } = await supabase
             .from("study_sessions")
-            .insert({ ...base, needs_review: true });
+            .insert({ ...base, course_id: courseId, needs_review: true });
           if (!error) sessions++;
         }
         continue;
@@ -152,7 +158,7 @@ export async function syncGoogleCalendarForUser(
         all_day: allDay,
         source: "google",
         external_id: ev.id,
-        counts_as_study: !!t.counts_as_study,
+        counts_as_study: false,
         course_id: courseId,
       });
     }
