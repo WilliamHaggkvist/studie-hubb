@@ -462,16 +462,20 @@ function TimerWidget() {
     }
     const { data: u } = await supabase.auth.getUser();
     if (!u.user) return;
-    const { error } = await supabase.from("time_entries").insert({
+    const base = {
       user_id: u.user.id,
       course_id: prev.courseId,
-      task_id: prev.taskId,
       description: prev.description || null,
       started_at: startedAt.toISOString(),
       ended_at: endedAt.toISOString(),
       duration_seconds: duration,
       source: "timer",
-    });
+    };
+    const rows =
+      prev.taskIds.length > 0
+        ? prev.taskIds.map((task_id) => ({ ...base, task_id }))
+        : [{ ...base, task_id: null }];
+    const { error } = await supabase.from("time_entries").insert(rows);
     if (error) {
       toast.error(error.message);
     } else {
