@@ -1,96 +1,79 @@
+## Mål
 
-# Etapp B + C — samlad plan
+Koppla Google Calendar-events till rätt kurs via `[KURSKOD]` i eventtiteln, och låt dig välja i Inställningar vilka Google-kalendrar som ska synkas + vilka som räknas som studietid.
 
-Slår ihop de två etapperna eftersom mycket överlappar (task-typer används av kalendern, studiepass syns i översikt och statistik, anteckningar återanvänder befintlig `pages`-tabell). Levereras i **fyra byggpaket** som var för sig ger något testbart — inte två stora leveranser.
-
----
-
-## Paket 1 — Datamodell + task-omdesign
-
-**Migration (allt i en fil):**
-- `tasks`: lägg till `task_type` (enum: annat, inlämningsuppgift, kontrollskrivning, laboration, modul, quiz, redovisning, seminarie, tenta, övning), `task_kind` ('task' | 'exam'), `grade text`, `points text`, `pending_review boolean`. Ändra `status`-enum: `todo` → 'not_started', 'in_progress', 'done'. Behåll `priority`-kolumnen tills vidare (döljs bara i UI — undviker datamigrering och risk).
-- Nya tabeller: `study_sessions` (user_id, course_id, planned_start, planned_end, actual_start, actual_end, notes, google_event_id, source 'local'|'google') och `study_session_tasks` (session_id, task_id). Full GRANT + RLS + updated_at-triggers.
-- `calendar_events`: inget nytt fält — `source` finns redan.
-
-**UI — `/tasks` byggs om:**
-- Två toppflikar: **Uppgifter** (`task_kind='task'`) / **Examinationer** (`task_kind='exam'`).
-- Kanban med tre kolumner + separat "Väntar på bedömning"-inkorg (som en fjärde panel/sektion under kanban på desktop, egen tab på mobil).
-- Task-kort: kurs-prick, typ-chip, titel, "3 dagar / Imorgon / Försenad 2 d". Prioritet borttagen från UI.
-- Klick → Dialog med alla fält (titel, beskrivning, kurs, typ, deadline, status, betyg, poäng, väntar på bedömning). Ingen `/tasks/$id`-route.
-- Skapa → samma Dialog. Typ styr `task_kind` automatiskt (tenta/kontrollskrivning/modul/quiz/redovisning = exam), men går att växla manuellt.
-- Markera klar → mini-popup: betyg + poäng, eller knappen "Väntar på bedömning" (sätter `pending_review=true`, status kvar). När båda fält ifyllda → `status='done'` automatiskt.
-- Filter: kurs, typ, deadline (idag/vecka/månad/försenad).
-- dnd-kit för drag mellan kolumner.
+Bra nyhet: `courses.code` finns redan i databasen, så ingen migration behövs för kurskoden.
 
 ---
 
-## Paket 2 — Studietid
+## 1. Kurskod-parser
 
-**UI — `/time` byter titel till "Studietid":**
-- Tre tabs: **Studiepass** (planerade + genomförda), **Timer**, **Manuellt**.
-- **Studiepass:** lista + "Nytt pass"-dialog (kurs, uppgifter från kursen (multi), start, slut, anteckning). Sparas i `study_sessions`. Markera "Genomfört" → skapar `time_entry` per vald uppgift med hela passets duration (matchar din spec).
-- **Timer:** befintlig timer utökas — välj kurs + valfria uppgifter (multi). Vid stopp: en `time_entry` per uppgift med samma duration. Om inga uppgifter: en post utan `task_id`.
-- **Manuellt:** kurs + uppgifter (multi) + minuter + datum. Skapar entries som ovan.
-- **Sammanställning:** överst i sidan — tid/kurs (bar) och tid/uppgift (topplista) för valbar period.
+Regex: `/\[([A-ZÅÄÖ0-9]{2,10})\]/i` — plockar första hakparentesen i titeln.
 
-Timer-store i `src/lib/timer-store.ts` utökas med `taskIds: string[]`.
+Matcha träffen (case-insensitive) mot `courses.code` för inloggad användare. Träff → sätt `calendar_events.course_id`. Ingen träff → importera ändå med `course_id = null` (visas som "okopplad" i UI, som redan finns).
+
+Kurskod-taggen behålls i titeln så du ser den i alla vyer.
 
 ---
 
-## Paket 3 — Kalender, Översikt, Statistik, Anteckningar
+## 2. Valbara kalendrar (ny tabell)
 
-**Kalender (`/calendar`):**
-- Read-only. "Skapa"-knappen bort. FullCalendar behålls.
-- Källor: `calendar_events` + `tasks` med `due_at` (visas som markörer, klockslag + typ-chip) + `study_sessions` (planerade).
-- Toggle vecko/månad.
+```text
+public.google_calendar_prefs
+├─ user_id (fk auth.users, unique per calendar)
+├─ google_calendar_id (text)
+├─ name, background_color (cache från Google)
+├─ sync_enabled (bool, default false)
+├─ counts_as_study (bool, default false)
+└─ timestamps
+```
 
-**Översikt (`/dashboard`) — byggs om:**
-- Sektion 1: **Aktiva kurser** — kort filtrerade på `user_settings.current_year` + kurser vars `period` matchar dagens period (härleds från `term_dates`). Progress-ring för veckomål.
-- Sektion 2: **Idag** — deadlines + dagens studiepass.
-- Sektion 3: **Denna vecka** — mini-heatmap studietid (7 dagar) + antal uppgifter kvar.
-- Sektion 4: **Väntar på bedömning** — bara om ej tom.
-- 1 kolumn mobil, 2 desktop.
-
-**Statistik (`/stats`):**
-- Byt "Sessioner" → "Studiepass" överallt.
-- Periodväljare: Denna vecka / Senaste 30 dagar / Termin (auto från `term_dates`, listar alla terminer där data finns).
-- Grafer (Recharts, palettfärger): tid/kurs (bar), tid/uppgift (topplista), snittid/vecka/kurs (line).
-
-**Anteckningar:**
-- Menypost `Sidor` → `Anteckningar`. Route `/pages` byter till `/notes` (`/pages.$pageId` → `/notes.$noteId`). Ingen datamigrering — samma `pages`-tabell.
-- Ny lista med filter per kurs. Blockeditorn återanvänds oförändrad.
+RLS: endast egen data. GRANT för `authenticated` + `service_role`.
 
 ---
 
-## Paket 4 — Google Calendar-synk
+## 3. Utökad sync-logik (`src/lib/google-calendar.functions.ts`)
 
-- Använd Lovables Google Calendar-connector. Länka i Inställningar (redan UI-plats reserverad).
-- Server function `syncGoogleCalendar` (auth-required): hämtar events senaste 30 d + kommande 90 d, upsert i `calendar_events` med `source='google'`, `external_id=<google event id>`.
-- "Synka nu"-knapp i Inställningar + `pg_cron` var 30:e minut → publikt endpoint `/api/public/hooks/sync-calendars` som iterar användare med aktiv koppling.
-- **Studiepass i Google:** enklaste vägen väljs när connectorn är kopplad. Startvärde: prefix `[Studiepass]` i titeln → skapar/matchar rad i `study_sessions`. Kursmatch via emoji eller kod i titeln (om ingen match → session utan kurs).
-- Studiepass skapade lokalt kan senare pushas till Google (Paket 4b, valfritt — inte i denna plan).
+Två nya server-funktioner + uppdaterad sync:
 
----
+- **`listGoogleCalendars`** — hämtar `/users/me/calendarList`, upsertar rader i `google_calendar_prefs` (utan att röra `sync_enabled`/`counts_as_study` om de redan finns), returnerar listan så UI kan visa dem.
+- **`updateCalendarPref`** — togglar `sync_enabled` / `counts_as_study` per kalender.
+- **`syncGoogleCalendar`** (befintlig, utökas):
+  1. Läs alla `google_calendar_prefs` där `sync_enabled = true`.
+  2. Loopa och hämta events per kalender-id (inte bara `primary`).
+  3. För varje event: parsa kurskoden, slå upp `course_id` (cacha kod→id map för användaren).
+  4. Sätt `counts_as_study` från kalenderns pref (istället för hårdkodat `false`).
+  5. Behåll `[Studiepass]`-detektionen som skapar `study_sessions`.
+  6. Retur: `{ imported, sessions, mapped, unmapped, calendars: N }`.
 
-## Ordning & testpunkter
-
-1. Paket 1 → du kan testa nya tasks/examinationer + kanban.
-2. Paket 2 → du kan planera pass och logga timer/manuellt mot uppgifter.
-3. Paket 3 → översikt, kalender, statistik, anteckningar hänger ihop.
-4. Paket 4 → Google-synk på plats.
-
-Om du vill: säg "kör alla fyra" så levererar jag i följd utan att stanna, annars börjar jag med Paket 1 och pausar för feedback.
-
-## Öppna frågor
-
-1. Ska `priority`-kolumnen droppas helt (kräver att jag samtidigt tar bort ev. sortering på den) eller bara döljas i UI nu och droppas senare? Föreslår dölja nu.
-2. Vill du att jag byter route `/pages` → `/notes` (renare URL) eller behåller `/pages` och bara byter etikett i menyn? Föreslår byte till `/notes`.
+Fortsatt idempotent via `external_id` unique upsert.
 
 ---
 
-## Status
+## 4. UI i Inställningar (`settings.tsx` → `GoogleCard`)
 
-- Paket 1 ✅ klar
-- Paket 2 ✅ klar
-- Paket 3 ✅ klar — kalender read-only + studiepass, dashboard 4 sektioner, statistik med period+termin, /notes-lista + rename av route
-- Paket 4 🟡 kod klar (server fn + Synka nu-knapp i Inställningar). **Kräver att du länkar Google Calendar-connectorn** — säg till så länkar vi. Cron körs manuellt via knappen tills koppling finns.
+Utöka det befintliga kortet:
+
+- Knapp **"Hämta kalendrar"** → kör `listGoogleCalendars`.
+- Lista alla kalendrar med två toggles per rad: **Synka** och **Räknas som studietid**.
+- Visa liten färgprick från Googles `background_color`.
+- Info-ruta: *"Skriv `[KURSKOD]` i eventtiteln (t.ex. `[SG1140] Föreläsning`) för att koppla till en kurs. Kurskoderna hämtas från kortet 'Kurskod' på respektive kurs."*
+- Länk/knapp till kurssidan för att sätta koder som saknas.
+- Efter första `Synka nu`: visa `mapped / unmapped`-räknare så du ser vilka events som saknar kod.
+
+---
+
+## 5. Okopplade events i kalender-/tid-vyn
+
+Ingen ny logik krävs — okopplade events (`course_id = null`) syns redan i kalender-vyn. Vi lägger bara till en subtil "okopplad"-badge så det är lätt att hitta events där du glömt kurskoden.
+
+---
+
+## Filändringar
+
+- `supabase/migrations/…` — ny `google_calendar_prefs`-tabell + RLS + GRANT.
+- `src/lib/google-calendar.functions.ts` — parser, tre server-fns, multi-calendar loop.
+- `src/routes/_authenticated/settings.tsx` — utökad `GoogleCard` med kalenderlista.
+- `src/routes/_authenticated/calendar.tsx` — liten "okopplad"-badge (valfri finputs).
+
+Inget behövs för `courses` — kolumnen finns redan. Ingen ny secret. Ingen ny connector.
