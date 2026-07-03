@@ -220,7 +220,7 @@ function TasksPage() {
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="font-display text-3xl font-bold tracking-tight">Uppgifter</h1>
-          <p className="text-sm text-muted-foreground">Uppgifter och examinationer i separata vyer.</p>
+          <p className="text-sm text-muted-foreground">Håll koll på allt du ska göra.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Select value={filterCourse} onValueChange={setFilterCourse}>
