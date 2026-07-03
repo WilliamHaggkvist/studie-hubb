@@ -46,8 +46,18 @@ type Session = {
 };
 type SessionTask = { session_id: string; task_id: string };
 
+type SessionAgg = {
+  id: string;
+  course_id: string | null;
+  planned_start: string;
+  planned_end: string;
+  actual_start: string | null;
+  actual_end: string | null;
+  completed: boolean;
+};
+
 function TimePage() {
-  const [period, setPeriod] = useState<"7" | "30">("7");
+  const [period, setPeriod] = useState<"week" | "30">("week");
 
   const { data: courses = [] } = useQuery({
     queryKey: ["courses"],
@@ -78,10 +88,41 @@ function TimePage() {
     },
   });
 
-  // Summary aggregations
-  const cutoff = Date.now() - Number(period) * 24 * 3600 * 1000;
-  const inPeriod = entries.filter((e) => new Date(e.started_at).getTime() > cutoff);
-  const totalPeriod = inPeriod.reduce((s, e) => s + (e.duration_seconds ?? 0), 0);
+  const { data: allSessions = [] } = useQuery({
+    queryKey: ["study_sessions", "agg"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("study_sessions")
+        .select("id,course_id,planned_start,planned_end,actual_start,actual_end,completed")
+        .order("planned_start", { ascending: false })
+        .limit(500);
+      return (data ?? []) as SessionAgg[];
+    },
+  });
+
+  // Date range for period
+  const cutoffDate = useMemo(() => {
+    if (period === "week") return startOfWeek(new Date(), { weekStartsOn: 1 });
+    return subDays(new Date(), 30);
+  }, [period]);
+  const cutoff = cutoffDate.getTime();
+
+  const inPeriod = entries.filter((e) => new Date(e.started_at).getTime() >= cutoff);
+  const sessionsInPeriod = allSessions.filter(
+    (s) => new Date(s.planned_start).getTime() >= cutoff,
+  );
+
+  const sessionSeconds = (s: SessionAgg): number => {
+    const start = s.actual_start ? new Date(s.actual_start) : new Date(s.planned_start);
+    const end = s.actual_end ? new Date(s.actual_end) : new Date(s.planned_end);
+    return Math.max(0, Math.floor((end.getTime() - start.getTime()) / 1000));
+  };
+
+  const entrySeconds = inPeriod.reduce((s, e) => s + (e.duration_seconds ?? 0), 0);
+  // Avoid double-count: completed sessions insert time_entries with source="session".
+  const sessionsOnly = sessionsInPeriod.filter((s) => !s.completed);
+  const sessionSecs = sessionsOnly.reduce((s, x) => s + sessionSeconds(x), 0);
+  const totalPeriod = entrySeconds + sessionSecs;
 
   const byCourse = useMemo(() => {
     const m = new Map<string, number>();
@@ -89,13 +130,18 @@ function TimePage() {
       const key = e.course_id ?? "__none__";
       m.set(key, (m.get(key) ?? 0) + (e.duration_seconds ?? 0));
     }
+    for (const s of sessionsOnly) {
+      const key = s.course_id ?? "__none__";
+      m.set(key, (m.get(key) ?? 0) + sessionSeconds(s));
+    }
     return Array.from(m.entries())
       .map(([id, secs]) => {
         const c = courses.find((cc) => cc.id === id);
-        return { id, name: c?.name ?? "Ingen kurs", color: c?.color ?? "#64748b", hours: +(secs / 3600).toFixed(2) };
+        return { id, name: c?.name ?? "Ingen kurs", color: c?.color ?? "#64748b", hours: +(secs / 3600).toFixed(2), seconds: secs };
       })
       .sort((a, b) => b.hours - a.hours);
-  }, [inPeriod, courses]);
+  }, [inPeriod, sessionsOnly, courses]);
+
 
   const byTask = useMemo(() => {
     const m = new Map<string, number>();
