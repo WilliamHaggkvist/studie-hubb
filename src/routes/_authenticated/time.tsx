@@ -342,13 +342,6 @@ function SessionsPanel({ courses, allTasks }: { courses: Course[]; allTasks: Tas
     onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Fel"),
   });
 
-  const remove = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from("study_sessions").delete().eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["study_sessions"] }),
-  });
 
   const confirmInbox = useMutation({
     mutationFn: async ({ sessionId, courseId, taskIds }: { sessionId: string; courseId: string | null; taskIds: string[] }) => {
