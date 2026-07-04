@@ -456,7 +456,6 @@ function InboxRow({
   courses: Course[];
   allTasks: Task[];
   onConfirm: (courseId: string | null, taskIds: string[]) => void;
-  onDelete: () => void;
 }) {
   const [courseId, setCourseId] = useState<string>(s.course_id ?? "none");
   const [taskIds, setTaskIds] = useState<string[]>([]);
