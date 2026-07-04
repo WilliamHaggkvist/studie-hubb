@@ -20,6 +20,7 @@ import { Route as AuthenticatedNotesRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedCoursesRouteImport } from './routes/_authenticated/courses'
 import { Route as AuthenticatedCalendarRouteImport } from './routes/_authenticated/calendar'
+import { Route as AuthenticatedNotesIndexRouteImport } from './routes/_authenticated/notes.index'
 import { Route as AuthenticatedCoursesIndexRouteImport } from './routes/_authenticated/courses.index'
 import { Route as AuthenticatedNotesNoteIdRouteImport } from './routes/_authenticated/notes.$noteId'
 import { Route as AuthenticatedCoursesCourseIdRouteImport } from './routes/_authenticated/courses.$courseId'
@@ -79,6 +80,11 @@ const AuthenticatedCalendarRoute = AuthenticatedCalendarRouteImport.update({
   path: '/calendar',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedNotesIndexRoute = AuthenticatedNotesIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AuthenticatedNotesRoute,
+} as any)
 const AuthenticatedCoursesIndexRoute =
   AuthenticatedCoursesIndexRouteImport.update({
     id: '/',
@@ -118,6 +124,7 @@ export interface FileRoutesByFullPath {
   '/courses/$courseId': typeof AuthenticatedCoursesCourseIdRoute
   '/notes/$noteId': typeof AuthenticatedNotesNoteIdRoute
   '/courses/': typeof AuthenticatedCoursesIndexRoute
+  '/notes/': typeof AuthenticatedNotesIndexRoute
   '/api/public/hooks/sync-google-calendar': typeof ApiPublicHooksSyncGoogleCalendarRoute
 }
 export interface FileRoutesByTo {
@@ -125,7 +132,6 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/calendar': typeof AuthenticatedCalendarRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
-  '/notes': typeof AuthenticatedNotesRouteWithChildren
   '/settings': typeof AuthenticatedSettingsRoute
   '/stats': typeof AuthenticatedStatsRoute
   '/tasks': typeof AuthenticatedTasksRoute
@@ -133,6 +139,7 @@ export interface FileRoutesByTo {
   '/courses/$courseId': typeof AuthenticatedCoursesCourseIdRoute
   '/notes/$noteId': typeof AuthenticatedNotesNoteIdRoute
   '/courses': typeof AuthenticatedCoursesIndexRoute
+  '/notes': typeof AuthenticatedNotesIndexRoute
   '/api/public/hooks/sync-google-calendar': typeof ApiPublicHooksSyncGoogleCalendarRoute
 }
 export interface FileRoutesById {
@@ -151,6 +158,7 @@ export interface FileRoutesById {
   '/_authenticated/courses/$courseId': typeof AuthenticatedCoursesCourseIdRoute
   '/_authenticated/notes/$noteId': typeof AuthenticatedNotesNoteIdRoute
   '/_authenticated/courses/': typeof AuthenticatedCoursesIndexRoute
+  '/_authenticated/notes/': typeof AuthenticatedNotesIndexRoute
   '/api/public/hooks/sync-google-calendar': typeof ApiPublicHooksSyncGoogleCalendarRoute
 }
 export interface FileRouteTypes {
@@ -169,6 +177,7 @@ export interface FileRouteTypes {
     | '/courses/$courseId'
     | '/notes/$noteId'
     | '/courses/'
+    | '/notes/'
     | '/api/public/hooks/sync-google-calendar'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -176,7 +185,6 @@ export interface FileRouteTypes {
     | '/auth'
     | '/calendar'
     | '/dashboard'
-    | '/notes'
     | '/settings'
     | '/stats'
     | '/tasks'
@@ -184,6 +192,7 @@ export interface FileRouteTypes {
     | '/courses/$courseId'
     | '/notes/$noteId'
     | '/courses'
+    | '/notes'
     | '/api/public/hooks/sync-google-calendar'
   id:
     | '__root__'
@@ -201,6 +210,7 @@ export interface FileRouteTypes {
     | '/_authenticated/courses/$courseId'
     | '/_authenticated/notes/$noteId'
     | '/_authenticated/courses/'
+    | '/_authenticated/notes/'
     | '/api/public/hooks/sync-google-calendar'
   fileRoutesById: FileRoutesById
 }
@@ -290,6 +300,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCalendarRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/notes/': {
+      id: '/_authenticated/notes/'
+      path: '/'
+      fullPath: '/notes/'
+      preLoaderRoute: typeof AuthenticatedNotesIndexRouteImport
+      parentRoute: typeof AuthenticatedNotesRoute
+    }
     '/_authenticated/courses/': {
       id: '/_authenticated/courses/'
       path: '/'
@@ -336,10 +353,12 @@ const AuthenticatedCoursesRouteWithChildren =
 
 interface AuthenticatedNotesRouteChildren {
   AuthenticatedNotesNoteIdRoute: typeof AuthenticatedNotesNoteIdRoute
+  AuthenticatedNotesIndexRoute: typeof AuthenticatedNotesIndexRoute
 }
 
 const AuthenticatedNotesRouteChildren: AuthenticatedNotesRouteChildren = {
   AuthenticatedNotesNoteIdRoute: AuthenticatedNotesNoteIdRoute,
+  AuthenticatedNotesIndexRoute: AuthenticatedNotesIndexRoute,
 }
 
 const AuthenticatedNotesRouteWithChildren =
