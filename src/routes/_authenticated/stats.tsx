@@ -14,7 +14,7 @@ export const Route = createFileRoute("/_authenticated/stats")({
   component: StatsPage,
 });
 
-type Entry = { id: string; started_at: string; duration_seconds: number | null; course_id: string | null; task_id: string | null };
+type Entry = { id: string; started_at: string; duration_seconds: number | null; course_id: string | null; task_id: string | null; source?: string };
 
 function termLabel(t: TermRow) {
   const term = t.term === "host" ? "Hösttermin" : t.term === "var" ? "Vårtermin" : "Sommar";
