@@ -522,9 +522,6 @@ function InboxRow({
         </div>
       </div>
       <div className="mt-3 flex items-center justify-end gap-2">
-        <Button variant="ghost" size="sm" onClick={onDelete} className="text-muted-foreground hover:text-destructive">
-          <Trash2 className="h-3.5 w-3.5" />
-        </Button>
         <Button size="sm" className="gap-1 gradient-sunset text-white hover:opacity-90"
           onClick={() => onConfirm(courseId === "none" ? null : courseId, taskIds)}>
           <CheckCircle2 className="h-3.5 w-3.5" /> Bekräfta
