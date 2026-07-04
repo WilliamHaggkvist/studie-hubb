@@ -49,7 +49,8 @@ function StatsPage() {
     queryFn: async () => {
       const { data } = await supabase
         .from("time_entries")
-        .select("id,started_at,duration_seconds,course_id,task_id")
+        .select("id,started_at,duration_seconds,course_id,task_id,source")
+        .neq("source", "session")
         .gte("started_at", range.start.toISOString())
         .lte("started_at", range.end.toISOString());
       return (data ?? []) as Entry[];
@@ -69,19 +70,36 @@ function StatsPage() {
     },
   });
 
-  // Ej genomförda bekräftade pass räknas som planerad studietid.
-  // Genomförda pass skapar redan time_entries (source="session") så undvik dubbelräkning.
+  const { data: sessionTaskRows = [] } = useQuery({
+    queryKey: ["stats", "session-tasks"],
+    queryFn: async () => {
+      const { data } = await supabase.from("study_session_tasks").select("session_id,task_id");
+      return (data ?? []) as { session_id: string; task_id: string }[];
+    },
+  });
+
+  // Studiepass (bekräftade) räknas som studietid, oavsett completed-status.
+  // Timer-poster (time_entries) räknas separat men vi filtrerar bort source="session"
+  // för att undvika dubbelräkning av äldre historik.
   const derivedEntries: Entry[] = useMemo(() => {
     const out: Entry[] = [];
     for (const s of sessionRows) {
-      if (s.completed) continue;
       const start = s.actual_start ?? s.planned_start;
       const end = s.actual_end ?? s.planned_end;
       const dur = Math.max(0, Math.floor((new Date(end).getTime() - new Date(start).getTime()) / 1000));
-      out.push({ id: `sess:${s.id}`, started_at: start, duration_seconds: dur, course_id: s.course_id, task_id: null });
+      const tids = sessionTaskRows.filter((st) => st.session_id === s.id).map((st) => st.task_id);
+      if (tids.length === 0) {
+        out.push({ id: `sess:${s.id}`, started_at: start, duration_seconds: dur, course_id: s.course_id, task_id: null });
+      } else {
+        // Fördela passets tid jämnt mellan kopplade uppgifter så byTask får rätt tal.
+        const per = Math.floor(dur / tids.length);
+        tids.forEach((task_id, i) => {
+          out.push({ id: `sess:${s.id}:${i}`, started_at: start, duration_seconds: per, course_id: s.course_id, task_id });
+        });
+      }
     }
     return out;
-  }, [sessionRows]);
+  }, [sessionRows, sessionTaskRows]);
 
   const combined = useMemo(() => [...entries, ...derivedEntries], [entries, derivedEntries]);
 
