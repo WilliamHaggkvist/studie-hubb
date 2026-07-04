@@ -428,10 +428,7 @@ function SessionsPanel({ courses, allTasks }: { courses: Course[]; allTasks: Tas
           <div className="mb-2 font-display text-sm font-semibold">Planerade</div>
           <div className="space-y-2">
             {planned.map((s) => (
-              <SessionRow key={s.id} s={s} courses={courses} allTasks={allTasks} sessionTasks={sessionTasks}
-                onComplete={() => complete.mutate(s.id)}
-                onDelete={() => remove.mutate(s.id)}
-              />
+              <SessionRow key={s.id} s={s} courses={courses} allTasks={allTasks} sessionTasks={sessionTasks} />
             ))}
           </div>
         </div>
@@ -442,9 +439,7 @@ function SessionsPanel({ courses, allTasks }: { courses: Course[]; allTasks: Tas
           <div className="mb-2 font-display text-sm font-semibold text-muted-foreground">Genomförda</div>
           <div className="space-y-2 opacity-80">
             {completed.map((s) => (
-              <SessionRow key={s.id} s={s} courses={courses} allTasks={allTasks} sessionTasks={sessionTasks}
-                onDelete={() => remove.mutate(s.id)}
-              />
+              <SessionRow key={s.id} s={s} courses={courses} allTasks={allTasks} sessionTasks={sessionTasks} />
             ))}
           </div>
         </div>
