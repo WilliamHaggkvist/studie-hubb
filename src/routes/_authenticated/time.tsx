@@ -449,7 +449,7 @@ function SessionsPanel({ courses, allTasks }: { courses: Course[]; allTasks: Tas
 }
 
 function InboxRow({
-  s, courses, allTasks, onConfirm, onDelete,
+  s, courses, allTasks, onConfirm,
 }: {
   s: Session;
   courses: Course[];
