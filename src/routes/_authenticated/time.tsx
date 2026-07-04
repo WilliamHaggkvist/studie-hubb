@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { timerStore, formatDuration, formatHoursCompact } from "@/lib/timer-store";
 import { format, parseISO, subDays, startOfWeek } from "date-fns";
 import { sv } from "date-fns/locale";
-import { Trash2, Play, Square, CheckCircle2, CalendarPlus } from "lucide-react";
+import { Play, Square, CheckCircle2, CalendarPlus } from "lucide-react";
 import { toast } from "sonner";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { coursesQuery, tasksQuery, durationSeconds, type Course, type Task } from "@/lib/queries";
