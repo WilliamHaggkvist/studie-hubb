@@ -5,7 +5,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Star, Search } from "lucide-react";
+import { Plus, Star, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { sv } from "date-fns/locale";
@@ -74,6 +74,19 @@ function NotesList() {
     onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Fel"),
   });
 
+  const deleteNote = useMutation({
+    mutationFn: async (noteId: string) => {
+      const { error } = await supabase.from("pages").delete().eq("id", noteId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["pages"] });
+      qc.invalidateQueries({ queryKey: ["notes-list"] });
+      toast.success("Anteckning borttagen");
+    },
+    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Fel vid borttagning"),
+  });
+
   const filtered = notes.filter((n) => {
     if (courseFilter === "all") {
     } else if (courseFilter === "none") {
@@ -120,16 +133,32 @@ function NotesList() {
         {filtered.map((n) => {
           const c = courses.find((c) => c.id === n.course_id);
           return (
+            <div key={n.id} className="group rounded-xl border border-border/60 bg-surface/60 p-4 transition-colors hover:border-sunset-coral/40 hover:bg-surface">
+            <div className="mb-2 flex items-start justify-between gap-2">
+              <Link
+                to="/notes/$noteId"
+                params={{ noteId: n.id }}
+                className="flex-1 text-left text-inherit"
+              >
+                <div className="text-2xl">{n.icon || "📄"}</div>
+              </Link>
+              {n.is_favorite && <Star className="h-3.5 w-3.5 fill-sunset-amber text-sunset-amber" />}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-destructive"
+                onClick={() => {
+                  if (confirm("Ta bort anteckningen?")) deleteNote.mutate(n.id);
+                }}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
             <Link
-              key={n.id}
               to="/notes/$noteId"
               params={{ noteId: n.id }}
-              className="group rounded-xl border border-border/60 bg-surface/60 p-4 transition-colors hover:border-sunset-coral/40 hover:bg-surface"
+              className="block text-left"
             >
-              <div className="mb-2 flex items-start justify-between">
-                <div className="text-2xl">{n.icon || "📄"}</div>
-                {n.is_favorite && <Star className="h-3.5 w-3.5 fill-sunset-amber text-sunset-amber" />}
-              </div>
               <div className="line-clamp-2 font-display text-base font-semibold">{n.title || "Utan titel"}</div>
               <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
                 {c ? (
@@ -138,6 +167,7 @@ function NotesList() {
                 <span>{format(new Date(n.updated_at), "d MMM", { locale: sv })}</span>
               </div>
             </Link>
+          </div>
           );
         })}
       </div>

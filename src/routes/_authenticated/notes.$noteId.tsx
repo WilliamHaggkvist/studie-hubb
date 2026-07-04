@@ -25,17 +25,17 @@ type PageFull = {
 };
 
 function PageDetail() {
-  const { pageId } = Route.useParams();
+  const { noteId } = Route.useParams();
   const qc = useQueryClient();
   const navigate = useNavigate();
 
   const { data: page, isLoading } = useQuery({
-    queryKey: ["page", pageId],
+    queryKey: ["page", noteId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("pages")
         .select("id,title,icon,parent_id,content,is_favorite,updated_at")
-        .eq("id", pageId)
+        .eq("id", noteId)
         .maybeSingle();
       if (error) throw error;
       return data as PageFull | null;
@@ -93,13 +93,13 @@ function PageDetail() {
 
   const deletePage = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from("pages").delete().eq("id", pageId);
+      const { error } = await supabase.from("pages").delete().eq("id", noteId);
       if (error) throw error;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["pages"] });
-      toast.success("Sida borttagen");
-      navigate({ to: "/dashboard" });
+      toast.success("Anteckning borttagen");
+      navigate({ to: "/notes" });
     },
   });
 
