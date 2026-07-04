@@ -541,10 +541,9 @@ function InboxRow({
 }
 
 function SessionRow({
-  s, courses, allTasks, sessionTasks, onComplete, onDelete,
+  s, courses, allTasks, sessionTasks,
 }: {
   s: Session; courses: Course[]; allTasks: Task[]; sessionTasks: SessionTask[];
-  onComplete?: () => void; onDelete?: () => void;
 }) {
   const c = courses.find((cc) => cc.id === s.course_id);
   const tids = sessionTasks.filter((st) => st.session_id === s.id).map((st) => st.task_id);
@@ -554,7 +553,7 @@ function SessionRow({
   const dur = Math.max(0, Math.floor((end.getTime() - start.getTime()) / 1000));
 
   return (
-    <div className="group flex items-start gap-3 rounded-xl border border-border/60 bg-surface/40 p-3">
+    <div className="flex items-start gap-3 rounded-xl border border-border/60 bg-surface/40 p-3">
       <span className="mt-1.5 inline-block h-2 w-2 shrink-0 rounded-full" style={{ background: c?.color ?? "var(--muted-foreground)" }} />
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-baseline gap-2">
@@ -568,19 +567,6 @@ function SessionRow({
         )}
         {s.notes && <div className="mt-1 text-sm">{s.notes}</div>}
       </div>
-      <div className="flex items-center gap-1">
-        {onComplete && (
-          <Button size="sm" variant="outline" className="gap-1" onClick={onComplete}>
-            <CheckCircle2 className="h-3.5 w-3.5" /> Genomfört
-          </Button>
-        )}
-        {onDelete && (
-          <button onClick={onDelete} className="opacity-0 transition-opacity group-hover:opacity-100">
-            <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
-          </button>
-        )}
-      </div>
-
     </div>
   );
 }
