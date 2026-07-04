@@ -408,7 +408,6 @@ function SessionsPanel({ courses, allTasks }: { courses: Course[]; allTasks: Tas
                 courses={courses}
                 allTasks={allTasks}
                 onConfirm={(courseId, taskIds) => confirmInbox.mutate({ sessionId: s.id, courseId, taskIds })}
-                onDelete={() => remove.mutate(s.id)}
               />
             ))}
           </div>
