@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { timerStore, formatDuration, formatHoursCompact } from "@/lib/timer-store";
 import { format, parseISO, subDays, startOfWeek } from "date-fns";
 import { sv } from "date-fns/locale";
-import { Trash2, Play, Square, CheckCircle2, CalendarPlus } from "lucide-react";
+import { Play, Square, CheckCircle2, CalendarPlus } from "lucide-react";
 import { toast } from "sonner";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { coursesQuery, tasksQuery, durationSeconds, type Course, type Task } from "@/lib/queries";
@@ -342,13 +342,6 @@ function SessionsPanel({ courses, allTasks }: { courses: Course[]; allTasks: Tas
     onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Fel"),
   });
 
-  const remove = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from("study_sessions").delete().eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["study_sessions"] }),
-  });
 
   const confirmInbox = useMutation({
     mutationFn: async ({ sessionId, courseId, taskIds }: { sessionId: string; courseId: string | null; taskIds: string[] }) => {
@@ -381,6 +374,26 @@ function SessionsPanel({ courses, allTasks }: { courses: Course[]; allTasks: Tas
   const planned = reviewed.filter((s) => !s.completed);
   const completed = reviewed.filter((s) => s.completed);
 
+  // Auto-markera pass som genomförda när sluttiden passerats
+  const autoCompleted = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    const tick = () => {
+      const now = Date.now();
+      for (const s of planned) {
+        if (autoCompleted.current.has(s.id)) continue;
+        if (new Date(s.planned_end).getTime() <= now) {
+          autoCompleted.current.add(s.id);
+          complete.mutate(s.id);
+        }
+      }
+    };
+    tick();
+    const t = setInterval(tick, 60_000);
+    return () => clearInterval(t);
+  }, [planned, complete]);
+
+
+
 
   return (
     <div className="space-y-6">
@@ -408,7 +421,6 @@ function SessionsPanel({ courses, allTasks }: { courses: Course[]; allTasks: Tas
                 courses={courses}
                 allTasks={allTasks}
                 onConfirm={(courseId, taskIds) => confirmInbox.mutate({ sessionId: s.id, courseId, taskIds })}
-                onDelete={() => remove.mutate(s.id)}
               />
             ))}
           </div>
@@ -428,10 +440,7 @@ function SessionsPanel({ courses, allTasks }: { courses: Course[]; allTasks: Tas
           <div className="mb-2 font-display text-sm font-semibold">Planerade</div>
           <div className="space-y-2">
             {planned.map((s) => (
-              <SessionRow key={s.id} s={s} courses={courses} allTasks={allTasks} sessionTasks={sessionTasks}
-                onComplete={() => complete.mutate(s.id)}
-                onDelete={() => remove.mutate(s.id)}
-              />
+              <SessionRow key={s.id} s={s} courses={courses} allTasks={allTasks} sessionTasks={sessionTasks} />
             ))}
           </div>
         </div>
@@ -442,9 +451,7 @@ function SessionsPanel({ courses, allTasks }: { courses: Course[]; allTasks: Tas
           <div className="mb-2 font-display text-sm font-semibold text-muted-foreground">Genomförda</div>
           <div className="space-y-2 opacity-80">
             {completed.map((s) => (
-              <SessionRow key={s.id} s={s} courses={courses} allTasks={allTasks} sessionTasks={sessionTasks}
-                onDelete={() => remove.mutate(s.id)}
-              />
+              <SessionRow key={s.id} s={s} courses={courses} allTasks={allTasks} sessionTasks={sessionTasks} />
             ))}
           </div>
         </div>
@@ -455,13 +462,12 @@ function SessionsPanel({ courses, allTasks }: { courses: Course[]; allTasks: Tas
 }
 
 function InboxRow({
-  s, courses, allTasks, onConfirm, onDelete,
+  s, courses, allTasks, onConfirm,
 }: {
   s: Session;
   courses: Course[];
   allTasks: Task[];
   onConfirm: (courseId: string | null, taskIds: string[]) => void;
-  onDelete: () => void;
 }) {
   const [courseId, setCourseId] = useState<string>(s.course_id ?? "none");
   const [taskIds, setTaskIds] = useState<string[]>([]);
@@ -528,9 +534,6 @@ function InboxRow({
         </div>
       </div>
       <div className="mt-3 flex items-center justify-end gap-2">
-        <Button variant="ghost" size="sm" onClick={onDelete} className="text-muted-foreground hover:text-destructive">
-          <Trash2 className="h-3.5 w-3.5" />
-        </Button>
         <Button size="sm" className="gap-1 gradient-sunset text-white hover:opacity-90"
           onClick={() => onConfirm(courseId === "none" ? null : courseId, taskIds)}>
           <CheckCircle2 className="h-3.5 w-3.5" /> Bekräfta
@@ -541,10 +544,9 @@ function InboxRow({
 }
 
 function SessionRow({
-  s, courses, allTasks, sessionTasks, onComplete, onDelete,
+  s, courses, allTasks, sessionTasks,
 }: {
   s: Session; courses: Course[]; allTasks: Task[]; sessionTasks: SessionTask[];
-  onComplete?: () => void; onDelete?: () => void;
 }) {
   const c = courses.find((cc) => cc.id === s.course_id);
   const tids = sessionTasks.filter((st) => st.session_id === s.id).map((st) => st.task_id);
@@ -554,7 +556,7 @@ function SessionRow({
   const dur = Math.max(0, Math.floor((end.getTime() - start.getTime()) / 1000));
 
   return (
-    <div className="group flex items-start gap-3 rounded-xl border border-border/60 bg-surface/40 p-3">
+    <div className="flex items-start gap-3 rounded-xl border border-border/60 bg-surface/40 p-3">
       <span className="mt-1.5 inline-block h-2 w-2 shrink-0 rounded-full" style={{ background: c?.color ?? "var(--muted-foreground)" }} />
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-baseline gap-2">
@@ -568,19 +570,6 @@ function SessionRow({
         )}
         {s.notes && <div className="mt-1 text-sm">{s.notes}</div>}
       </div>
-      <div className="flex items-center gap-1">
-        {onComplete && (
-          <Button size="sm" variant="outline" className="gap-1" onClick={onComplete}>
-            <CheckCircle2 className="h-3.5 w-3.5" /> Genomfört
-          </Button>
-        )}
-        {onDelete && (
-          <button onClick={onDelete} className="opacity-0 transition-opacity group-hover:opacity-100">
-            <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
-          </button>
-        )}
-      </div>
-
     </div>
   );
 }
