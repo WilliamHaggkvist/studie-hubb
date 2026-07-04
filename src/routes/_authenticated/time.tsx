@@ -87,6 +87,14 @@ function TimePage() {
     },
   });
 
+  const { data: aggSessionTasks = [] } = useQuery({
+    queryKey: ["study_session_tasks", "agg"],
+    queryFn: async () => {
+      const { data } = await supabase.from("study_session_tasks").select("session_id,task_id");
+      return (data ?? []) as { session_id: string; task_id: string }[];
+    },
+  });
+
   // Date range for period
   const cutoffDate = useMemo(() => {
     if (period === "week") return startOfWeek(new Date(), { weekStartsOn: 1 });
@@ -94,7 +102,9 @@ function TimePage() {
   }, [period]);
   const cutoff = cutoffDate.getTime();
 
-  const inPeriod = entries.filter((e) => new Date(e.started_at).getTime() >= cutoff);
+  const inPeriod = entries.filter(
+    (e) => new Date(e.started_at).getTime() >= cutoff && e.source !== "session",
+  );
   const sessionsInPeriod = allSessions.filter(
     (s) => new Date(s.planned_start).getTime() >= cutoff,
   );
@@ -106,9 +116,7 @@ function TimePage() {
   };
 
   const entrySeconds = inPeriod.reduce((s, e) => s + (e.duration_seconds ?? 0), 0);
-  // Undvik dubbelräkning: genomförda pass skapar time_entries med source="session".
-  const sessionsOnly = sessionsInPeriod.filter((s) => !s.completed);
-  const sessionSecs = sessionsOnly.reduce((s, x) => s + sessionSeconds(x), 0);
+  const sessionSecs = sessionsInPeriod.reduce((s, x) => s + sessionSeconds(x), 0);
   const totalPeriod = entrySeconds + sessionSecs;
 
   const byCourse = useMemo(() => {
@@ -117,7 +125,7 @@ function TimePage() {
       const key = e.course_id ?? "__none__";
       m.set(key, (m.get(key) ?? 0) + (e.duration_seconds ?? 0));
     }
-    for (const s of sessionsOnly) {
+    for (const s of sessionsInPeriod) {
       const key = s.course_id ?? "__none__";
       m.set(key, (m.get(key) ?? 0) + sessionSeconds(s));
     }
@@ -127,15 +135,20 @@ function TimePage() {
         return { id, name: c?.name ?? "Ingen kurs", color: c?.color ?? "#64748b", hours: +(secs / 3600).toFixed(2), seconds: secs };
       })
       .sort((a, b) => b.hours - a.hours);
-  }, [inPeriod, sessionsOnly, courses]);
-
-
+  }, [inPeriod, sessionsInPeriod, courses]);
 
   const byTask = useMemo(() => {
     const m = new Map<string, number>();
     for (const e of inPeriod) {
       if (!e.task_id) continue;
       m.set(e.task_id, (m.get(e.task_id) ?? 0) + (e.duration_seconds ?? 0));
+    }
+    const sessionIds = new Set(sessionsInPeriod.map((s) => s.id));
+    const secsBySession = new Map(sessionsInPeriod.map((s) => [s.id, sessionSeconds(s)]));
+    for (const st of aggSessionTasks) {
+      if (!sessionIds.has(st.session_id)) continue;
+      const secs = secsBySession.get(st.session_id) ?? 0;
+      m.set(st.task_id, (m.get(st.task_id) ?? 0) + secs);
     }
     return Array.from(m.entries())
       .map(([id, secs]) => {
@@ -144,7 +157,8 @@ function TimePage() {
       })
       .sort((a, b) => b.seconds - a.seconds)
       .slice(0, 5);
-  }, [inPeriod, allTasks]);
+  }, [inPeriod, sessionsInPeriod, aggSessionTasks, allTasks]);
+
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 lg:px-8">
