@@ -144,7 +144,7 @@ function StatsPage() {
 
   const perTask = (() => {
     const m = new Map<string, number>();
-    for (const e of entries) {
+    for (const e of combined) {
       if (!e.task_id || !e.duration_seconds) continue;
       m.set(e.task_id, (m.get(e.task_id) ?? 0) + e.duration_seconds);
     }
