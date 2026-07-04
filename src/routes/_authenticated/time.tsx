@@ -303,27 +303,8 @@ function SessionsPanel({ courses, allTasks }: { courses: Course[]; allTasks: Tas
     mutationFn: async (sessionId: string) => {
       const s = sessions.find((x) => x.id === sessionId);
       if (!s) return;
-      const { data: u } = await supabase.auth.getUser();
-      if (!u.user) throw new Error("no user");
       const start = s.actual_start ? new Date(s.actual_start) : new Date(s.planned_start);
       const end = s.actual_end ? new Date(s.actual_end) : new Date(s.planned_end);
-      const duration = Math.max(0, Math.floor((end.getTime() - start.getTime()) / 1000));
-
-      const tids = sessionTasks.filter((st) => st.session_id === s.id).map((st) => st.task_id);
-      const base = {
-        user_id: u.user.id,
-        course_id: s.course_id,
-        description: s.notes,
-        started_at: start.toISOString(),
-        ended_at: end.toISOString(),
-        duration_seconds: duration,
-        source: "session",
-      };
-      const rows: Array<typeof base & { task_id: string | null }> =
-        tids.length > 0 ? tids.map((task_id) => ({ ...base, task_id })) : [{ ...base, task_id: null }];
-      const { error: eIns } = await supabase.from("time_entries").insert(rows);
-      if (eIns) throw eIns;
-
       const { error: eUpd } = await supabase
         .from("study_sessions")
         .update({
@@ -336,11 +317,11 @@ function SessionsPanel({ courses, allTasks }: { courses: Course[]; allTasks: Tas
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["study_sessions"] });
-      qc.invalidateQueries({ queryKey: ["time_entries"] });
-      toast.success("Pass markerat som genomfört");
     },
     onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Fel"),
   });
+
+
 
 
   const confirmInbox = useMutation({
