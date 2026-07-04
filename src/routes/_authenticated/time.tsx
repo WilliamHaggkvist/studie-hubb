@@ -374,6 +374,26 @@ function SessionsPanel({ courses, allTasks }: { courses: Course[]; allTasks: Tas
   const planned = reviewed.filter((s) => !s.completed);
   const completed = reviewed.filter((s) => s.completed);
 
+  // Auto-markera pass som genomförda när sluttiden passerats
+  const autoCompleted = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    const tick = () => {
+      const now = Date.now();
+      for (const s of planned) {
+        if (autoCompleted.current.has(s.id)) continue;
+        if (new Date(s.planned_end).getTime() <= now) {
+          autoCompleted.current.add(s.id);
+          complete.mutate(s.id);
+        }
+      }
+    };
+    tick();
+    const t = setInterval(tick, 60_000);
+    return () => clearInterval(t);
+  }, [planned, complete]);
+
+
+
 
   return (
     <div className="space-y-6">
