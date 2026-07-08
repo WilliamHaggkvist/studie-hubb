@@ -8,6 +8,12 @@ export type UserSettings = {
   translucent: boolean;
   google_connected: boolean;
   google_calendar_id: string | null;
+  email_reminders_enabled: boolean;
+  reminder_offsets: number[];
+  reminder_fallback_hour: number;
+  daily_summary_enabled: boolean;
+  weekly_summary_enabled: boolean;
+  timezone: string;
 };
 
 export type University = {
