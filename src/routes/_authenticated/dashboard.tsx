@@ -47,9 +47,24 @@ function Dashboard() {
 
   const activePeriod = todayPeriod(terms);
   const activeCourses = courses.filter((c) =>
-    (currentYear === null || c.arskurs === null || c.arskurs === currentYear) &&
-    periodMatches(c.period, activePeriod),
+    (currentYear === null || c.arskurs === null || c.arskurs === currentYear)
   );
+
+  const groupedCourses = activeCourses.reduce((acc, c) => {
+    const p = c.period || "Övriga";
+    if (!acc[p]) acc[p] = [];
+    acc[p].push(c);
+    return acc;
+  }, {} as Record<string, typeof courses>);
+
+  const periodOrder = ["P1", "P2", "P3", "P4", "P5", "helar", "Övriga"];
+  const sortedPeriods = Object.keys(groupedCourses).sort((a, b) => {
+    const idxA = periodOrder.indexOf(a);
+    const idxB = periodOrder.indexOf(b);
+    const orderA = idxA !== -1 ? idxA : 999;
+    const orderB = idxB !== -1 ? idxB : 999;
+    return orderA - orderB;
+  });
 
 
   const { data: weekEntries = [] } = useQuery({
@@ -107,40 +122,65 @@ function Dashboard() {
           <h2 className="font-display text-lg font-semibold">Aktiva kurser</h2>
           <Link to="/courses" className="text-xs text-muted-foreground hover:text-foreground">Se alla →</Link>
         </div>
-        {activeCourses.length === 0 && (
+        {activeCourses.length === 0 ? (
           <div className="rounded-xl border border-dashed border-border/60 p-6 text-center text-sm text-muted-foreground">
-            Inga kurser matchar aktuell period/årskurs. <Link to="/courses" className="underline">Lägg till en</Link>.
+            Inga kurser matchar aktuell årskurs. <Link to="/courses" className="underline">Lägg till en</Link>.
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {sortedPeriods.map((periodName) => {
+              const periodCourses = groupedCourses[periodName];
+              if (!periodCourses || periodCourses.length === 0) return null;
+
+              let displayPeriod = periodName;
+              if (periodName.startsWith("P")) {
+                displayPeriod = `Period ${periodName.slice(1)}`;
+              } else if (periodName === "helar") {
+                displayPeriod = "Helår";
+              } else if (periodName === "Övriga") {
+                displayPeriod = "Övriga kurser";
+              }
+
+              return (
+                <div key={periodName} className="space-y-2">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60 flex items-center gap-1.5 pl-1">
+                    <span className="inline-block h-1 w-1 rounded-full bg-primary" />
+                    {displayPeriod}
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    {periodCourses.map((c) => {
+                      const hoursThisWeek = weekEntries.filter((e) => e.course_id === c.id).reduce((s, e) => s + (e.duration_seconds ?? 0), 0) / 3600;
+                      const goal = c.weekly_goal_hours ?? 0;
+                      const pct = goal > 0 ? Math.min(100, (hoursThisWeek / goal) * 100) : 0;
+                      return (
+                        <Link key={c.id} to="/courses/$courseId" params={{ courseId: c.id }} className="group rounded-xl glass border-white/5 p-4 transition-colors hover:border-primary/40 hover:bg-white/5">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xl">{c.icon || "📚"}</span>
+                            <span className="min-w-0 flex-1 truncate font-display font-semibold">{c.name}</span>
+                            <span className="inline-block h-2 w-2 shrink-0 rounded-full" style={{ background: c.color }} />
+                          </div>
+                          {goal > 0 ? (
+                            <>
+                              <div className="mt-3 flex items-center justify-between text-xs">
+                                <span className="text-muted-foreground">Vecka</span>
+                                <span className="tabular-nums">{hoursThisWeek.toFixed(1)} / {goal} h</span>
+                              </div>
+                              <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-surface-2">
+                                <div className="h-full rounded-full" style={{ width: `${pct}%`, background: c.color }} />
+                              </div>
+                            </>
+                          ) : (
+                            <div className="mt-3 text-xs text-muted-foreground">Inget veckomål · {hoursThisWeek.toFixed(1)} h denna vecka</div>
+                          )}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {activeCourses.map((c) => {
-            const hoursThisWeek = weekEntries.filter((e) => e.course_id === c.id).reduce((s, e) => s + (e.duration_seconds ?? 0), 0) / 3600;
-            const goal = c.weekly_goal_hours ?? 0;
-            const pct = goal > 0 ? Math.min(100, (hoursThisWeek / goal) * 100) : 0;
-            return (
-              <Link key={c.id} to="/courses/$courseId" params={{ courseId: c.id }} className="group rounded-xl glass border-white/5 p-4 transition-colors hover:border-primary/40 hover:bg-white/5">
-                <div className="flex items-center gap-2">
-                  <span className="text-xl">{c.icon || "📚"}</span>
-                  <span className="min-w-0 flex-1 truncate font-display font-semibold">{c.name}</span>
-                  <span className="inline-block h-2 w-2 shrink-0 rounded-full" style={{ background: c.color }} />
-                </div>
-                {goal > 0 ? (
-                  <>
-                    <div className="mt-3 flex items-center justify-between text-xs">
-                      <span className="text-muted-foreground">Vecka</span>
-                      <span className="tabular-nums">{hoursThisWeek.toFixed(1)} / {goal} h</span>
-                    </div>
-                    <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-surface-2">
-                      <div className="h-full rounded-full" style={{ width: `${pct}%`, background: c.color }} />
-                    </div>
-                  </>
-                ) : (
-                  <div className="mt-3 text-xs text-muted-foreground">Inget veckomål · {hoursThisWeek.toFixed(1)} h denna vecka</div>
-                )}
-              </Link>
-            );
-          })}
-        </div>
       </section>
 
       <div className="grid gap-4 lg:grid-cols-2">
