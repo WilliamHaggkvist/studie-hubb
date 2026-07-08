@@ -30,6 +30,7 @@ import { Route as LovableEmailTransactionalSendRouteImport } from './routes/lova
 import { Route as LovableEmailTransactionalPreviewRouteImport } from './routes/lovable/email/transactional/preview'
 import { Route as LovableEmailQueueProcessRouteImport } from './routes/lovable/email/queue/process'
 import { Route as ApiPublicHooksSyncGoogleCalendarRouteImport } from './routes/api/public/hooks/sync-google-calendar'
+import { Route as ApiPublicHooksEmailJobsRouteImport } from './routes/api/public/hooks/email-jobs'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -142,6 +143,11 @@ const ApiPublicHooksSyncGoogleCalendarRoute =
     path: '/api/public/hooks/sync-google-calendar',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicHooksEmailJobsRoute = ApiPublicHooksEmailJobsRouteImport.update({
+  id: '/api/public/hooks/email-jobs',
+  path: '/api/public/hooks/email-jobs',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -160,6 +166,7 @@ export interface FileRoutesByFullPath {
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/courses/': typeof AuthenticatedCoursesIndexRoute
   '/notes/': typeof AuthenticatedNotesIndexRoute
+  '/api/public/hooks/email-jobs': typeof ApiPublicHooksEmailJobsRoute
   '/api/public/hooks/sync-google-calendar': typeof ApiPublicHooksSyncGoogleCalendarRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
@@ -180,6 +187,7 @@ export interface FileRoutesByTo {
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/courses': typeof AuthenticatedCoursesIndexRoute
   '/notes': typeof AuthenticatedNotesIndexRoute
+  '/api/public/hooks/email-jobs': typeof ApiPublicHooksEmailJobsRoute
   '/api/public/hooks/sync-google-calendar': typeof ApiPublicHooksSyncGoogleCalendarRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
@@ -204,6 +212,7 @@ export interface FileRoutesById {
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/_authenticated/courses/': typeof AuthenticatedCoursesIndexRoute
   '/_authenticated/notes/': typeof AuthenticatedNotesIndexRoute
+  '/api/public/hooks/email-jobs': typeof ApiPublicHooksEmailJobsRoute
   '/api/public/hooks/sync-google-calendar': typeof ApiPublicHooksSyncGoogleCalendarRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
@@ -228,6 +237,7 @@ export interface FileRouteTypes {
     | '/lovable/email/suppression'
     | '/courses/'
     | '/notes/'
+    | '/api/public/hooks/email-jobs'
     | '/api/public/hooks/sync-google-calendar'
     | '/lovable/email/queue/process'
     | '/lovable/email/transactional/preview'
@@ -248,6 +258,7 @@ export interface FileRouteTypes {
     | '/lovable/email/suppression'
     | '/courses'
     | '/notes'
+    | '/api/public/hooks/email-jobs'
     | '/api/public/hooks/sync-google-calendar'
     | '/lovable/email/queue/process'
     | '/lovable/email/transactional/preview'
@@ -271,6 +282,7 @@ export interface FileRouteTypes {
     | '/lovable/email/suppression'
     | '/_authenticated/courses/'
     | '/_authenticated/notes/'
+    | '/api/public/hooks/email-jobs'
     | '/api/public/hooks/sync-google-calendar'
     | '/lovable/email/queue/process'
     | '/lovable/email/transactional/preview'
@@ -283,6 +295,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   EmailUnsubscribeRoute: typeof EmailUnsubscribeRoute
   LovableEmailSuppressionRoute: typeof LovableEmailSuppressionRoute
+  ApiPublicHooksEmailJobsRoute: typeof ApiPublicHooksEmailJobsRoute
   ApiPublicHooksSyncGoogleCalendarRoute: typeof ApiPublicHooksSyncGoogleCalendarRoute
   LovableEmailQueueProcessRoute: typeof LovableEmailQueueProcessRoute
   LovableEmailTransactionalPreviewRoute: typeof LovableEmailTransactionalPreviewRoute
@@ -438,6 +451,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksSyncGoogleCalendarRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/email-jobs': {
+      id: '/api/public/hooks/email-jobs'
+      path: '/api/public/hooks/email-jobs'
+      fullPath: '/api/public/hooks/email-jobs'
+      preLoaderRoute: typeof ApiPublicHooksEmailJobsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -498,6 +518,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   EmailUnsubscribeRoute: EmailUnsubscribeRoute,
   LovableEmailSuppressionRoute: LovableEmailSuppressionRoute,
+  ApiPublicHooksEmailJobsRoute: ApiPublicHooksEmailJobsRoute,
   ApiPublicHooksSyncGoogleCalendarRoute: ApiPublicHooksSyncGoogleCalendarRoute,
   LovableEmailQueueProcessRoute: LovableEmailQueueProcessRoute,
   LovableEmailTransactionalPreviewRoute: LovableEmailTransactionalPreviewRoute,
