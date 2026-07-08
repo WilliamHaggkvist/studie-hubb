@@ -41,9 +41,9 @@ export function useUserSettings() {
           .insert({ user_id: u.user.id })
           .select("*")
           .single();
-        return created;
+        return (created ?? null) as UserSettings | null;
       }
-      return data;
+      return data as UserSettings;
     },
   });
 }
