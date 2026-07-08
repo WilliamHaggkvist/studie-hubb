@@ -50,7 +50,7 @@ function NotificationsCard() {
     mutationFn: async (patch: Record<string, unknown>) => {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) throw new Error("no user");
-      const { error } = await supabase.from("user_settings").update(patch).eq("user_id", u.user.id);
+      const { error } = await supabase.from("user_settings").update(patch as never).eq("user_id", u.user.id);
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["user_settings"] }),
