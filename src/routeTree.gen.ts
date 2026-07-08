@@ -24,6 +24,7 @@ import { Route as AuthenticatedNotesIndexRouteImport } from './routes/_authentic
 import { Route as AuthenticatedCoursesIndexRouteImport } from './routes/_authenticated/courses.index'
 import { Route as AuthenticatedNotesNoteIdRouteImport } from './routes/_authenticated/notes.$noteId'
 import { Route as AuthenticatedCoursesCourseIdRouteImport } from './routes/_authenticated/courses.$courseId'
+import { Route as LovableEmailQueueProcessRouteImport } from './routes/lovable/email/queue/process'
 import { Route as ApiPublicHooksSyncGoogleCalendarRouteImport } from './routes/api/public/hooks/sync-google-calendar'
 
 const AuthRoute = AuthRouteImport.update({
@@ -103,6 +104,12 @@ const AuthenticatedCoursesCourseIdRoute =
     path: '/$courseId',
     getParentRoute: () => AuthenticatedCoursesRoute,
   } as any)
+const LovableEmailQueueProcessRoute =
+  LovableEmailQueueProcessRouteImport.update({
+    id: '/lovable/email/queue/process',
+    path: '/lovable/email/queue/process',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicHooksSyncGoogleCalendarRoute =
   ApiPublicHooksSyncGoogleCalendarRouteImport.update({
     id: '/api/public/hooks/sync-google-calendar',
@@ -126,6 +133,7 @@ export interface FileRoutesByFullPath {
   '/courses/': typeof AuthenticatedCoursesIndexRoute
   '/notes/': typeof AuthenticatedNotesIndexRoute
   '/api/public/hooks/sync-google-calendar': typeof ApiPublicHooksSyncGoogleCalendarRoute
+  '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -141,6 +149,7 @@ export interface FileRoutesByTo {
   '/courses': typeof AuthenticatedCoursesIndexRoute
   '/notes': typeof AuthenticatedNotesIndexRoute
   '/api/public/hooks/sync-google-calendar': typeof ApiPublicHooksSyncGoogleCalendarRoute
+  '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -160,6 +169,7 @@ export interface FileRoutesById {
   '/_authenticated/courses/': typeof AuthenticatedCoursesIndexRoute
   '/_authenticated/notes/': typeof AuthenticatedNotesIndexRoute
   '/api/public/hooks/sync-google-calendar': typeof ApiPublicHooksSyncGoogleCalendarRoute
+  '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -179,6 +189,7 @@ export interface FileRouteTypes {
     | '/courses/'
     | '/notes/'
     | '/api/public/hooks/sync-google-calendar'
+    | '/lovable/email/queue/process'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -194,6 +205,7 @@ export interface FileRouteTypes {
     | '/courses'
     | '/notes'
     | '/api/public/hooks/sync-google-calendar'
+    | '/lovable/email/queue/process'
   id:
     | '__root__'
     | '/'
@@ -212,6 +224,7 @@ export interface FileRouteTypes {
     | '/_authenticated/courses/'
     | '/_authenticated/notes/'
     | '/api/public/hooks/sync-google-calendar'
+    | '/lovable/email/queue/process'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -219,6 +232,7 @@ export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
   ApiPublicHooksSyncGoogleCalendarRoute: typeof ApiPublicHooksSyncGoogleCalendarRoute
+  LovableEmailQueueProcessRoute: typeof LovableEmailQueueProcessRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -328,6 +342,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCoursesCourseIdRouteImport
       parentRoute: typeof AuthenticatedCoursesRoute
     }
+    '/lovable/email/queue/process': {
+      id: '/lovable/email/queue/process'
+      path: '/lovable/email/queue/process'
+      fullPath: '/lovable/email/queue/process'
+      preLoaderRoute: typeof LovableEmailQueueProcessRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/sync-google-calendar': {
       id: '/api/public/hooks/sync-google-calendar'
       path: '/api/public/hooks/sync-google-calendar'
@@ -394,17 +415,8 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
   ApiPublicHooksSyncGoogleCalendarRoute: ApiPublicHooksSyncGoogleCalendarRoute,
+  LovableEmailQueueProcessRoute: LovableEmailQueueProcessRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
