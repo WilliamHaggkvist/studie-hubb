@@ -28,10 +28,98 @@ function SettingsPage() {
       </div>
       <ProfileCard />
       <StudySettingsCard />
+      <NotificationsCard />
       <UniversitiesCard />
       <TermsCard />
       <GoogleCard />
     </div>
+  );
+}
+
+const REMINDER_CHOICES: { minutes: number; label: string }[] = [
+  { minutes: 10080, label: "1 vecka innan" },
+  { minutes: 4320, label: "3 dagar innan" },
+  { minutes: 1440, label: "1 dag innan" },
+  { minutes: 120, label: "2 timmar innan" },
+];
+
+function NotificationsCard() {
+  const { data: s } = useUserSettings();
+  const qc = useQueryClient();
+  const save = useMutation({
+    mutationFn: async (patch: Record<string, unknown>) => {
+      const { data: u } = await supabase.auth.getUser();
+      if (!u.user) throw new Error("no user");
+      const { error } = await supabase.from("user_settings").update(patch as never).eq("user_id", u.user.id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["user_settings"] }),
+  });
+  const offsets = s?.reminder_offsets ?? [];
+  const toggleOffset = (min: number) => {
+    const next = offsets.includes(min) ? offsets.filter((o) => o !== min) : [...offsets, min].sort((a, b) => b - a);
+    save.mutate({ reminder_offsets: next });
+  };
+  return (
+    <Card className="border-border/60 bg-surface/60 backdrop-blur-md rounded-2xl">
+      <CardHeader><CardTitle className="font-display text-base">Mejlnotiser</CardTitle></CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex items-center justify-between rounded-xl border border-border/60 bg-background/40 px-4 py-3">
+          <div>
+            <div className="text-sm font-medium">Påminnelser inför deadlines</div>
+            <div className="text-[11px] text-muted-foreground">Skickar mejl inför uppgifters deadline enligt intervallen nedan.</div>
+          </div>
+          <Switch checked={!!s?.email_reminders_enabled} onCheckedChange={(v) => save.mutate({ email_reminders_enabled: v })} />
+        </div>
+        {s?.email_reminders_enabled && (
+          <div className="space-y-2">
+            <Label className="text-xs uppercase tracking-wide text-muted-foreground">Standardintervall</Label>
+            <div className="flex flex-wrap gap-2">
+              {REMINDER_CHOICES.map((c) => {
+                const active = offsets.includes(c.minutes);
+                return (
+                  <button
+                    key={c.minutes}
+                    onClick={() => toggleOffset(c.minutes)}
+                    className={`rounded-xl border px-3 py-1.5 text-xs transition ${active ? "gradient-sunset text-white border-transparent" : "border-border/60 bg-background/40 text-muted-foreground hover:text-foreground"}`}
+                  >
+                    {c.label}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="grid grid-cols-2 gap-3 pt-2">
+              <div className="space-y-1">
+                <Label className="text-xs">Tid för dag-baserade påminnelser</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  max={23}
+                  value={s.reminder_fallback_hour}
+                  onChange={(e) => save.mutate({ reminder_fallback_hour: Math.max(0, Math.min(23, Number(e.target.value) || 0)) })}
+                  className="rounded-xl"
+                />
+                <p className="text-[11px] text-muted-foreground">Om uppgiften saknar klockslag skickas påminnelser vid denna tid.</p>
+              </div>
+            </div>
+          </div>
+        )}
+        <div className="flex items-center justify-between rounded-xl border border-border/60 bg-background/40 px-4 py-3">
+          <div>
+            <div className="text-sm font-medium">Daglig sammanfattning</div>
+            <div className="text-[11px] text-muted-foreground">Skickas varje morgon kl 07:00 med dagens uppgifter och studiepass.</div>
+          </div>
+          <Switch checked={!!s?.daily_summary_enabled} onCheckedChange={(v) => save.mutate({ daily_summary_enabled: v })} />
+        </div>
+        <div className="flex items-center justify-between rounded-xl border border-border/60 bg-background/40 px-4 py-3">
+          <div>
+            <div className="text-sm font-medium">Veckosammanfattning</div>
+            <div className="text-[11px] text-muted-foreground">Skickas söndag kl 19:00 med veckans deadlines och studietid.</div>
+          </div>
+          <Switch checked={!!s?.weekly_summary_enabled} onCheckedChange={(v) => save.mutate({ weekly_summary_enabled: v })} />
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 

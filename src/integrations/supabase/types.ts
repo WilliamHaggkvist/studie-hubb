@@ -191,6 +191,128 @@ export type Database = {
           },
         ]
       }
+      email_reminders_sent: {
+        Row: {
+          dedupe_key: string
+          id: string
+          kind: string
+          sent_at: string
+          task_id: string | null
+          user_id: string
+        }
+        Insert: {
+          dedupe_key: string
+          id?: string
+          kind: string
+          sent_at?: string
+          task_id?: string | null
+          user_id: string
+        }
+        Update: {
+          dedupe_key?: string
+          id?: string
+          kind?: string
+          sent_at?: string
+          task_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_reminders_sent_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_send_log: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          id: string
+          message_id: string | null
+          metadata: Json | null
+          recipient_email: string
+          status: string
+          template_name: string
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          message_id?: string | null
+          metadata?: Json | null
+          recipient_email: string
+          status: string
+          template_name: string
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          message_id?: string | null
+          metadata?: Json | null
+          recipient_email?: string
+          status?: string
+          template_name?: string
+        }
+        Relationships: []
+      }
+      email_send_state: {
+        Row: {
+          auth_email_ttl_minutes: number
+          batch_size: number
+          id: number
+          retry_after_until: string | null
+          send_delay_ms: number
+          transactional_email_ttl_minutes: number
+          updated_at: string
+        }
+        Insert: {
+          auth_email_ttl_minutes?: number
+          batch_size?: number
+          id?: number
+          retry_after_until?: string | null
+          send_delay_ms?: number
+          transactional_email_ttl_minutes?: number
+          updated_at?: string
+        }
+        Update: {
+          auth_email_ttl_minutes?: number
+          batch_size?: number
+          id?: number
+          retry_after_until?: string | null
+          send_delay_ms?: number
+          transactional_email_ttl_minutes?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      email_unsubscribe_tokens: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          token: string
+          used_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          token: string
+          used_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          token?: string
+          used_at?: string | null
+        }
+        Relationships: []
+      }
       google_calendar_prefs: {
         Row: {
           background_color: string | null
@@ -403,6 +525,65 @@ export type Database = {
           },
         ]
       }
+      suppressed_emails: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          metadata: Json | null
+          reason: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          metadata?: Json | null
+          reason: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          metadata?: Json | null
+          reason?: string
+        }
+        Relationships: []
+      }
+      task_reminder_overrides: {
+        Row: {
+          created_at: string
+          disabled: boolean
+          offsets: number[] | null
+          task_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          disabled?: boolean
+          offsets?: number[] | null
+          task_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          disabled?: boolean
+          offsets?: number[] | null
+          task_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_reminder_overrides_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: true
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tasks: {
         Row: {
           completed_at: string | null
@@ -592,32 +773,50 @@ export type Database = {
         Row: {
           created_at: string
           current_year: number
+          daily_summary_enabled: boolean
           density: string
+          email_reminders_enabled: boolean
           google_calendar_id: string | null
           google_connected: boolean
+          reminder_fallback_hour: number
+          reminder_offsets: number[]
+          timezone: string
           translucent: boolean
           updated_at: string
           user_id: string
+          weekly_summary_enabled: boolean
         }
         Insert: {
           created_at?: string
           current_year?: number
+          daily_summary_enabled?: boolean
           density?: string
+          email_reminders_enabled?: boolean
           google_calendar_id?: string | null
           google_connected?: boolean
+          reminder_fallback_hour?: number
+          reminder_offsets?: number[]
+          timezone?: string
           translucent?: boolean
           updated_at?: string
           user_id: string
+          weekly_summary_enabled?: boolean
         }
         Update: {
           created_at?: string
           current_year?: number
+          daily_summary_enabled?: boolean
           density?: string
+          email_reminders_enabled?: boolean
           google_calendar_id?: string | null
           google_connected?: boolean
+          reminder_fallback_hour?: number
+          reminder_offsets?: number[]
+          timezone?: string
           translucent?: boolean
           updated_at?: string
           user_id?: string
+          weekly_summary_enabled?: boolean
         }
         Relationships: []
       }
@@ -626,7 +825,32 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      delete_email: {
+        Args: { message_id: number; queue_name: string }
+        Returns: boolean
+      }
+      email_queue_dispatch: { Args: never; Returns: undefined }
+      enqueue_email: {
+        Args: { payload: Json; queue_name: string }
+        Returns: number
+      }
+      move_to_dlq: {
+        Args: {
+          dlq_name: string
+          message_id: number
+          payload: Json
+          source_queue: string
+        }
+        Returns: number
+      }
+      read_email_batch: {
+        Args: { batch_size: number; queue_name: string; vt: number }
+        Returns: {
+          message: Json
+          msg_id: number
+          read_ct: number
+        }[]
+      }
     }
     Enums: {
       course_period: "P1" | "P2" | "P3" | "P4" | "P5"

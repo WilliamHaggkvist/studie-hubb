@@ -8,6 +8,12 @@ export type UserSettings = {
   translucent: boolean;
   google_connected: boolean;
   google_calendar_id: string | null;
+  email_reminders_enabled: boolean;
+  reminder_offsets: number[];
+  reminder_fallback_hour: number;
+  daily_summary_enabled: boolean;
+  weekly_summary_enabled: boolean;
+  timezone: string;
 };
 
 export type University = {
@@ -24,7 +30,7 @@ export function useUserSettings() {
       if (!u.user) return null;
       const { data, error } = await supabase
         .from("user_settings")
-        .select("user_id,current_year,density,translucent,google_connected,google_calendar_id")
+        .select("*")
         .eq("user_id", u.user.id)
         .maybeSingle();
       if (error) throw error;
@@ -33,11 +39,11 @@ export function useUserSettings() {
         const { data: created } = await supabase
           .from("user_settings")
           .insert({ user_id: u.user.id })
-          .select("user_id,current_year,density,translucent,google_connected,google_calendar_id")
+          .select("*")
           .single();
-        return created;
+        return (created ?? null) as UserSettings | null;
       }
-      return data;
+      return data as UserSettings;
     },
   });
 }
