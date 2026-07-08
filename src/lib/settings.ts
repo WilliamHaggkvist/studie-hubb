@@ -30,7 +30,7 @@ export function useUserSettings() {
       if (!u.user) return null;
       const { data, error } = await supabase
         .from("user_settings")
-        .select("user_id,current_year,density,translucent,google_connected,google_calendar_id")
+        .select("*")
         .eq("user_id", u.user.id)
         .maybeSingle();
       if (error) throw error;
@@ -39,7 +39,7 @@ export function useUserSettings() {
         const { data: created } = await supabase
           .from("user_settings")
           .insert({ user_id: u.user.id })
-          .select("user_id,current_year,density,translucent,google_connected,google_calendar_id")
+          .select("*")
           .single();
         return created;
       }
