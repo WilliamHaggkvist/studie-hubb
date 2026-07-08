@@ -68,8 +68,19 @@ function CourseDetail() {
   const { data: allTime = [] } = useQuery({
     queryKey: ["time", "course", courseId, "all"],
     queryFn: async () => {
-      const { data } = await supabase.from("time_entries").select("duration_seconds,started_at").eq("course_id", courseId);
-      return data ?? [];
+      const { data } = await supabase.from("time_entries").select("duration_seconds,started_at,source").eq("course_id", courseId);
+      return (data ?? []) as Array<{ duration_seconds: number | null; started_at: string; source: string }>;
+    },
+  });
+
+  const { data: allSessions = [] } = useQuery({
+    queryKey: ["study_sessions", "course", courseId, "all"],
+    queryFn: async () => {
+      const { data } = await supabase.from("study_sessions")
+        .select("id,planned_start,planned_end,actual_start,actual_end,completed,source")
+        .eq("needs_review", false)
+        .eq("course_id", courseId);
+      return (data ?? []) as Array<{ id: string; planned_start: string; planned_end: string; actual_start: string | null; actual_end: string | null; completed: boolean; source: string }>;
     },
   });
 
@@ -77,12 +88,12 @@ function CourseDetail() {
     queryKey: ["study_sessions", "course", courseId],
     queryFn: async () => {
       const { data } = await supabase.from("study_sessions")
-        .select("id,planned_start,planned_end,actual_start,actual_end,completed")
+        .select("id,planned_start,planned_end,actual_start,actual_end,completed,source")
         .eq("needs_review", false)
         .eq("course_id", courseId)
         .order("planned_start", { ascending: false })
         .limit(10);
-      return (data ?? []) as { id: string; planned_start: string | null; planned_end: string | null; actual_start: string | null; actual_end: string | null; completed: boolean }[];
+      return (data ?? []) as Array<{ id: string; planned_start: string; planned_end: string; actual_start: string | null; actual_end: string | null; completed: boolean; source: string }>;
     },
   });
 
@@ -107,14 +118,35 @@ function CourseDetail() {
     },
   });
 
+  const combinedTime = useMemo(() => {
+    const out: Array<{ started_at: string; duration_seconds: number }> = [];
+    for (const e of allTime) {
+      if (e.source === "session") continue;
+      out.push({
+        started_at: e.started_at,
+        duration_seconds: e.duration_seconds ?? 0,
+      });
+    }
+    for (const s of allSessions) {
+      const start = s.actual_start ?? s.planned_start;
+      const end = s.actual_end ?? s.planned_end;
+      const dur = Math.max(0, Math.floor((new Date(end).getTime() - new Date(start).getTime()) / 1000));
+      out.push({
+        started_at: start,
+        duration_seconds: dur,
+      });
+    }
+    return out;
+  }, [allTime, allSessions]);
+
   const stats = useMemo(() => {
     const ws = startOfWeek(new Date(), { weekStartsOn: 1 });
     const we = endOfWeek(new Date(), { weekStartsOn: 1 });
     let weekSec = 0;
     const byWeek = new Map<string, { start: Date; sec: number }>();
-    for (const e of allTime) {
+    for (const e of combinedTime) {
       const d = new Date(e.started_at);
-      const sec = e.duration_seconds ?? 0;
+      const sec = e.duration_seconds;
       if (d >= ws && d <= we) weekSec += sec;
       const wkStart = startOfWeek(d, { weekStartsOn: 1 });
       const key = wkStart.toISOString();
@@ -123,12 +155,12 @@ function CourseDetail() {
     }
     const weeks = [...byWeek.values()].filter((w) => w.sec > 0);
     const totals = weeks.map((w) => w.sec);
-    const total = allTime.reduce((s, r) => s + (r.duration_seconds ?? 0), 0);
+    const total = combinedTime.reduce((s, r) => s + r.duration_seconds, 0);
     const avgSec = weeks.length ? totals.reduce((a, b) => a + b, 0) / weeks.length : 0;
     const maxW = weeks.length ? weeks.reduce((a, b) => (b.sec > a.sec ? b : a)) : null;
     const minW = weeks.length ? weeks.reduce((a, b) => (b.sec < a.sec ? b : a)) : null;
     return { weekSec, total, avgSec, maxW, minW };
-  }, [allTime]);
+  }, [combinedTime]);
 
   const goalHours = Number(course?.weekly_goal_hours ?? 0);
   const weekHours = stats.weekSec / 3600;
@@ -218,8 +250,8 @@ function CourseDetail() {
         <div className="absolute inset-0 opacity-25 pointer-events-none" style={{ background: `radial-gradient(circle at 15% 15%, ${course.color}, transparent 55%)` }} />
         <div className="relative flex flex-wrap items-start justify-between gap-4">
           <div className="flex items-start gap-4 min-w-0">
-            <div className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl text-3xl" style={{ background: `${course.color}22`, border: `1px solid ${course.color}55` }}>
-              {course.icon}
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-3xl select-none" style={{ background: `${course.color}22`, border: `1px solid ${course.color}55` }}>
+              <span className="leading-none pt-0.5">{course.icon}</span>
             </div>
             <div className="min-w-0">
               {course.code && <div className="text-xs uppercase tracking-widest text-muted-foreground">{course.code}</div>}
@@ -241,28 +273,35 @@ function CourseDetail() {
             <Button size="sm" className="gap-1 rounded-xl" onClick={() => { timerStore.start({ courseId }); toast.success("Timer startad"); }}>
               <Play className="h-3.5 w-3.5" /> Starta timer
             </Button>
+            {course.completed ? (
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1 rounded-xl border-c-7/40 bg-c-7/10 text-c-7 hover:bg-c-7/20 hover:text-c-7"
+                onClick={() => toggleComplete.mutate({ completed: false, final_grade: null })}
+              >
+                <CheckCircle2 className="h-3.5 w-3.5 text-c-7" /> Avklarad
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="gap-1 rounded-xl hover:text-c-7 hover:bg-c-7/10"
+                onClick={() => {
+                  setGradeInput(course.final_grade ?? "");
+                  setCompleteOpen(true);
+                }}
+              >
+                <CheckCircle2 className="h-3.5 w-3.5" /> Markera avklarad
+              </Button>
+            )}
             <Button size="sm" variant="ghost" className="rounded-xl" onClick={() => setEditOpen(true)}>
               <Pencil className="mr-1 h-3.5 w-3.5" /> Redigera
-            </Button>
-            <Button size="sm" variant="ghost" className="rounded-xl" onClick={() => archive.mutate()}>
-              <Archive className="mr-1 h-3.5 w-3.5" /> {course.archived ? "Återställ" : "Arkivera"}
             </Button>
             <Button size="sm" variant="ghost" className="text-destructive rounded-xl" onClick={() => { if (confirm("Ta bort kursen?")) remove.mutate(); }}>
               <Trash2 className="h-3.5 w-3.5" />
             </Button>
           </div>
-        </div>
-
-        {/* Complete toggle */}
-        <div className="relative mt-4 flex items-center gap-2 text-xs text-muted-foreground">
-          <Checkbox
-            checked={course.completed}
-            onCheckedChange={() => {
-              if (!course.completed) { setGradeInput(course.final_grade ?? ""); setCompleteOpen(true); }
-              else toggleComplete.mutate({ completed: false, final_grade: null });
-            }}
-          />
-          <span>Markera kursen som avklarad</span>
         </div>
       </div>
 

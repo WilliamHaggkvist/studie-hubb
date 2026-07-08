@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { timerStore, formatDuration, formatHoursCompact } from "@/lib/timer-store";
 import { format, parseISO, subDays, startOfWeek } from "date-fns";
 import { sv } from "date-fns/locale";
-import { Play, Square, CheckCircle2, CalendarPlus } from "lucide-react";
+import { Play, Square, CheckCircle2, CalendarPlus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { coursesQuery, tasksQuery, durationSeconds, type Course, type Task } from "@/lib/queries";
@@ -364,6 +364,23 @@ function SessionsPanel({ courses, allTasks }: { courses: Course[]; allTasks: Tas
     onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Fel"),
   });
 
+  const deleteSession = useMutation({
+    mutationFn: async (sessionId: string) => {
+      await supabase.from("study_session_tasks").delete().eq("session_id", sessionId);
+      const { error } = await supabase.from("study_sessions").delete().eq("id", sessionId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["study_sessions"] });
+      qc.invalidateQueries({ queryKey: ["study_session_tasks"] });
+      qc.invalidateQueries({ queryKey: ["study_sessions", "agg"] });
+      qc.invalidateQueries({ queryKey: ["time_entries"] });
+      qc.invalidateQueries({ queryKey: ["stats"] });
+      toast.success("Studiepass borttaget");
+    },
+    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Fel"),
+  });
+
   const inbox = sessions.filter((s) => s.needs_review);
   const reviewed = sessions.filter((s) => !s.needs_review);
   const planned = reviewed.filter((s) => !s.completed);
@@ -435,7 +452,7 @@ function SessionsPanel({ courses, allTasks }: { courses: Course[]; allTasks: Tas
           <div className="mb-2 font-display text-sm font-semibold">Planerade</div>
           <div className="space-y-2">
             {planned.map((s) => (
-              <SessionRow key={s.id} s={s} courses={courses} allTasks={allTasks} sessionTasks={sessionTasks} />
+              <SessionRow key={s.id} s={s} courses={courses} allTasks={allTasks} sessionTasks={sessionTasks} onDelete={(id) => deleteSession.mutate(id)} />
             ))}
           </div>
         </div>
@@ -446,7 +463,7 @@ function SessionsPanel({ courses, allTasks }: { courses: Course[]; allTasks: Tas
           <div className="mb-2 font-display text-sm font-semibold text-muted-foreground">Genomförda</div>
           <div className="space-y-2 opacity-80">
             {completed.map((s) => (
-              <SessionRow key={s.id} s={s} courses={courses} allTasks={allTasks} sessionTasks={sessionTasks} />
+              <SessionRow key={s.id} s={s} courses={courses} allTasks={allTasks} sessionTasks={sessionTasks} onDelete={(id) => deleteSession.mutate(id)} />
             ))}
           </div>
         </div>
@@ -497,7 +514,7 @@ function InboxRow({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="none">Ingen kurs</SelectItem>
-              {courses.map((cc) => <SelectItem key={cc.id} value={cc.id}>{cc.name}</SelectItem>)}
+              {courses.filter(cc => !cc.completed).map((cc) => <SelectItem key={cc.id} value={cc.id}>{cc.name}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>
@@ -539,10 +556,11 @@ function InboxRow({
 }
 
 function SessionRow({
-  s, courses, allTasks, sessionTasks,
+  s, courses, allTasks, sessionTasks, onDelete,
 }: {
-  s: Session; courses: Course[]; allTasks: Task[]; sessionTasks: SessionTask[];
+  s: Session; courses: Course[]; allTasks: Task[]; sessionTasks: SessionTask[]; onDelete?: (id: string) => void;
 }) {
+  const [isConfirming, setIsConfirming] = useState(false);
   const c = courses.find((cc) => cc.id === s.course_id);
   const tids = sessionTasks.filter((st) => st.session_id === s.id).map((st) => st.task_id);
   const titles = tids.map((id) => allTasks.find((t) => t.id === id)?.title).filter(Boolean) as string[];
@@ -555,7 +573,14 @@ function SessionRow({
       <span className="mt-1.5 inline-block h-2 w-2 shrink-0 rounded-full" style={{ background: c?.color ?? "var(--muted-foreground)" }} />
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-baseline gap-2">
-          <div className="font-medium">{c?.name ?? "Studiepass"}</div>
+          <div className="font-medium flex flex-wrap items-center gap-2">
+            <span>{c?.name ?? "Studiepass"}</span>
+            {s.source === "local" ? (
+              <span className="rounded-full bg-primary/10 border border-primary/20 px-2 py-0.5 text-[9px] font-semibold text-primary uppercase tracking-wider">Timer</span>
+            ) : (
+              <span className="rounded-full bg-white/5 border border-white/10 px-2 py-0.5 text-[9px] font-semibold text-muted-foreground uppercase tracking-wider">Google</span>
+            )}
+          </div>
           <div className="text-xs text-muted-foreground">
             {format(start, "EEE d MMM · HH:mm", { locale: sv })}–{format(end, "HH:mm")} ({formatHoursCompact(dur)})
           </div>
@@ -565,6 +590,40 @@ function SessionRow({
         )}
         {s.notes && <div className="mt-1 text-sm">{s.notes}</div>}
       </div>
+      {s.source === "local" && onDelete && (
+        <div className="flex items-center gap-1 shrink-0">
+          {isConfirming ? (
+            <>
+              <button
+                type="button"
+                onClick={() => {
+                  onDelete(s.id);
+                  setIsConfirming(false);
+                }}
+                className="rounded-md bg-destructive/10 px-2 py-1 text-xs font-semibold text-destructive hover:bg-destructive/20 transition-colors"
+              >
+                Ja
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsConfirming(false)}
+                className="rounded-md bg-white/5 px-2 py-1 text-xs font-semibold text-muted-foreground hover:bg-white/10 transition-colors"
+              >
+                Nej
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setIsConfirming(true)}
+              className="rounded-lg p-1.5 text-muted-foreground hover:bg-white/5 hover:text-destructive transition-colors relative z-10"
+              title="Ta bort pass"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -601,24 +660,46 @@ function TimerPanel({ courses, allTasks }: { courses: Course[]; allTasks: Task[]
     if (duration < 5) { toast.info("Under 5s – sparades inte"); return; }
     const { data: u } = await supabase.auth.getUser();
     if (!u.user) return;
-    const base = {
-      user_id: u.user.id,
-      course_id: prev.courseId,
-      description: prev.description || null,
-      started_at: startedAt.toISOString(),
-      ended_at: endedAt.toISOString(),
-      duration_seconds: duration,
-      source: "timer",
-    };
-    const rows: Array<typeof base & { task_id: string | null }> =
-      prev.taskIds.length > 0
-        ? prev.taskIds.map((task_id) => ({ ...base, task_id }))
-        : [{ ...base, task_id: null }];
-    const { error } = await supabase.from("time_entries").insert(rows);
-    if (error) toast.error(error.message);
-    else {
+
+    const { data: sessionData, error: sessionError } = await supabase
+      .from("study_sessions")
+      .insert({
+        user_id: u.user.id,
+        course_id: prev.courseId,
+        completed: true,
+        needs_review: false,
+        source: "local",
+        notes: prev.description || null,
+        planned_start: startedAt.toISOString(),
+        planned_end: endedAt.toISOString(),
+        actual_start: startedAt.toISOString(),
+        actual_end: endedAt.toISOString(),
+      })
+      .select("id")
+      .single();
+
+    if (!sessionError && sessionData && prev.taskIds.length > 0) {
+      const taskRows = prev.taskIds.map((task_id) => ({
+        session_id: sessionData.id,
+        task_id,
+        user_id: u.user!.id,
+      }));
+      const { error: tasksError } = await supabase
+        .from("study_session_tasks")
+        .insert(taskRows);
+      if (tasksError) {
+        toast.error(tasksError.message);
+      }
+    }
+
+    if (sessionError) {
+      toast.error(sessionError.message);
+    } else {
       toast.success(`Tid sparad: ${formatDuration(duration)}`);
+      qc.invalidateQueries({ queryKey: ["study_sessions"] });
+      qc.invalidateQueries({ queryKey: ["study_session_tasks"] });
       qc.invalidateQueries({ queryKey: ["time_entries"] });
+      qc.invalidateQueries({ queryKey: ["stats"] });
     }
   }
 
@@ -654,7 +735,7 @@ function TimerPanel({ courses, allTasks }: { courses: Course[]; allTasks: Task[]
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="none">Ingen kurs</SelectItem>
-              {courses.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+              {courses.filter(c => !c.completed).map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>

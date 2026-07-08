@@ -2,6 +2,7 @@ import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useSyncExternalStore, useEffect, useState, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useUserSettings } from "@/lib/settings";
 import { cn } from "@/lib/utils";
 import { timerStore, formatDuration } from "@/lib/timer-store";
 import {
@@ -47,6 +48,10 @@ type CourseRow = {
   name: string;
   color: string;
   icon: string | null;
+  code: string | null;
+  period: string | null;
+  arskurs: number | null;
+  completed: boolean;
 };
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -91,12 +96,15 @@ function SidebarContent() {
   const qc = useQueryClient();
   const navigate = useNavigate();
 
+  const { data: settings } = useUserSettings();
+  const currentYear = settings?.current_year ?? null;
+
   const { data: courses = [] } = useQuery({
     queryKey: ["courses"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("courses")
-        .select("id,name,color,icon")
+        .select("id,name,color,icon,code,period,arskurs,completed")
         .eq("archived", false)
         .order("sort_order", { ascending: true })
         .order("created_at", { ascending: true });
@@ -104,6 +112,17 @@ function SidebarContent() {
       return (data ?? []) as CourseRow[];
     },
   });
+
+  // Filter to active courses for current year, sorted by period
+  const periodOrder = ["P1", "P2", "P3", "P4", "P5"];
+  const sidebarCourses = courses
+    .filter((c) => !c.completed)
+    .filter((c) => currentYear == null || c.arskurs === currentYear)
+    .sort((a, b) => {
+      const ia = a.period ? periodOrder.indexOf(a.period) : 999;
+      const ib = b.period ? periodOrder.indexOf(b.period) : 999;
+      return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
+    });
 
   const { data: pages = [] } = useQuery({
     queryKey: ["pages"],
@@ -174,17 +193,9 @@ function SidebarContent() {
 
         <Section
           label="Kurser"
-          action={
-            <Link
-              to="/courses"
-              className="rounded p-1 text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
-              title="Hantera kurser"
-            >
-              <Plus className="h-3.5 w-3.5" />
-            </Link>
-          }
+          labelLink="/courses"
         >
-          {courses.length === 0 && (
+          {sidebarCourses.length === 0 && (
             <Link
               to="/courses"
               className="mx-2 block rounded-md border border-dashed border-sidebar-border px-3 py-2 text-xs text-muted-foreground hover:text-foreground"
@@ -192,8 +203,8 @@ function SidebarContent() {
               + Lägg till din första kurs
             </Link>
           )}
-          {courses.map((c) => (
-            <CourseNode key={c.id} course={c} pages={pages.filter((p) => p.course_id === c.id)} />
+          {sidebarCourses.map((c) => (
+            <CourseNode key={c.id} course={c} />
           ))}
         </Section>
 
@@ -204,11 +215,17 @@ function SidebarContent() {
   );
 }
 
-function Section({ label, action, children }: { label: string; action?: ReactNode; children: ReactNode }) {
+function Section({ label, action, children, labelLink }: { label: string; action?: ReactNode; children: ReactNode; labelLink?: string }) {
   return (
     <div className="mb-4">
       <div className="mb-1 flex items-center justify-between px-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-        <span>{label}</span>
+        {labelLink ? (
+          <Link to={labelLink} className="hover:text-foreground transition-colors cursor-pointer">
+            {label}
+          </Link>
+        ) : (
+          <span>{label}</span>
+        )}
         {action}
       </div>
       <div className="space-y-0.5">{children}</div>
@@ -240,35 +257,25 @@ function NavItem({ to, icon, label, activeColor }: { to: string; icon: ReactNode
   );
 }
 
-function CourseNode({ course, pages }: { course: CourseRow; pages: PageRow[] }) {
-  const [open, setOpen] = useState(true);
+function CourseNode({ course }: { course: CourseRow }) {
+  const pathname = useRouterState({ select: (r) => r.location.pathname });
+  const active = pathname === `/courses/${course.id}`;
   return (
-    <div>
-      <div className="group flex items-center gap-1 rounded-md px-1 py-1 text-sm hover:bg-sidebar-accent/60">
-        <button onClick={() => setOpen((o) => !o)} className="grid h-5 w-5 shrink-0 place-items-center rounded text-muted-foreground hover:text-foreground">
-          {open ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
-        </button>
-        <Link
-          to="/courses/$courseId"
-          params={{ courseId: course.id }}
-          className="flex min-w-0 flex-1 items-center gap-2"
-        >
-          <span className="inline-block h-2 w-2 shrink-0 rounded-full" style={{ background: course.color }} />
-          <span className="text-sm">{course.icon || "📚"}</span>
-          <span className="truncate">{course.name}</span>
-        </Link>
-      </div>
-      {open && (
-        <div className="ml-5 border-l border-sidebar-border/50 pl-1">
-          {pages.length === 0 && (
-            <div className="px-3 py-1 text-xs text-muted-foreground/70">Inga anteckningar än</div>
-          )}
-          {pages.map((p) => (
-            <PageLink key={p.id} page={p} />
-          ))}
-        </div>
+    <Link
+      to="/courses/$courseId"
+      params={{ courseId: course.id }}
+      className={cn(
+        "flex items-center gap-2 rounded-md px-3 py-1.5 text-sm text-sidebar-foreground transition-colors",
+        active
+          ? "bg-sidebar-accent text-foreground"
+          : "hover:bg-sidebar-accent/60 hover:text-foreground",
       )}
-    </div>
+    >
+      <span className="inline-block h-2 w-2 shrink-0 rounded-full" style={{ background: course.color }} />
+      <span className="text-sm">{course.icon || "📚"}</span>
+      <span className="truncate">{course.name}</span>
+      {course.code && <span className="ml-auto shrink-0 text-[10px] text-muted-foreground">{course.code}</span>}
+    </Link>
   );
 }
 
@@ -472,24 +479,44 @@ function TimerWidget() {
     }
     const { data: u } = await supabase.auth.getUser();
     if (!u.user) return;
-    const base = {
-      user_id: u.user.id,
-      course_id: prev.courseId,
-      description: prev.description || null,
-      started_at: startedAt.toISOString(),
-      ended_at: endedAt.toISOString(),
-      duration_seconds: duration,
-      source: "timer",
-    };
-    const rows: Array<typeof base & { task_id: string | null }> =
-      prev.taskIds.length > 0
-        ? prev.taskIds.map((task_id) => ({ ...base, task_id }))
-        : [{ ...base, task_id: null }];
-    const { error } = await supabase.from("time_entries").insert(rows);
-    if (error) {
-      toast.error(error.message);
+
+    const { data: sessionData, error: sessionError } = await supabase
+      .from("study_sessions")
+      .insert({
+        user_id: u.user.id,
+        course_id: prev.courseId,
+        completed: true,
+        needs_review: false,
+        source: "local",
+        notes: prev.description || null,
+        planned_start: startedAt.toISOString(),
+        planned_end: endedAt.toISOString(),
+        actual_start: startedAt.toISOString(),
+        actual_end: endedAt.toISOString(),
+      })
+      .select("id")
+      .single();
+
+    if (!sessionError && sessionData && prev.taskIds.length > 0) {
+      const taskRows = prev.taskIds.map((task_id) => ({
+        session_id: sessionData.id,
+        task_id,
+        user_id: u.user!.id,
+      }));
+      const { error: tasksError } = await supabase
+        .from("study_session_tasks")
+        .insert(taskRows);
+      if (tasksError) {
+        toast.error(tasksError.message);
+      }
+    }
+
+    if (sessionError) {
+      toast.error(sessionError.message);
     } else {
       toast.success(`Tid sparad: ${formatDuration(duration)}`);
+      qc.invalidateQueries({ queryKey: ["study_sessions"] });
+      qc.invalidateQueries({ queryKey: ["study_session_tasks"] });
       qc.invalidateQueries({ queryKey: ["time_entries"] });
       qc.invalidateQueries({ queryKey: ["stats"] });
     }
@@ -528,7 +555,7 @@ function TimerWidget() {
               <SelectTrigger><SelectValue placeholder="Välj kurs" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">Ingen kurs</SelectItem>
-                {courses.map((c) => (
+                {courses.filter(c => !c.completed).map((c) => (
                   <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                 ))}
               </SelectContent>

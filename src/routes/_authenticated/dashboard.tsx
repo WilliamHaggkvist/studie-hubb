@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -13,8 +14,8 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
   component: Dashboard,
 });
 
-type TimeEntry = { id: string; started_at: string; duration_seconds: number | null; course_id: string | null };
-type Session = { id: string; planned_start: string; planned_end: string; completed: boolean; course_id: string | null };
+type TimeEntry = { id: string; started_at: string; duration_seconds: number | null; course_id: string | null; source: string };
+type Session = { id: string; planned_start: string; planned_end: string; completed: boolean; course_id: string | null; actual_start?: string | null; actual_end?: string | null };
 
 function todayPeriod(terms: TermRow[]): TermRow["term"] | null {
   const today = new Date().toISOString().slice(0, 10);
@@ -47,7 +48,7 @@ function Dashboard() {
 
   const activePeriod = todayPeriod(terms);
   const activeCourses = courses.filter((c) =>
-    (currentYear === null || c.arskurs === null || c.arskurs === currentYear)
+    !c.completed && (currentYear === null || c.arskurs === null || c.arskurs === currentYear)
   );
 
   const groupedCourses = activeCourses.reduce((acc, c) => {
@@ -72,12 +73,48 @@ function Dashboard() {
     queryFn: async () => {
       const { data } = await supabase
         .from("time_entries")
-        .select("id,started_at,duration_seconds,course_id")
+        .select("id,started_at,duration_seconds,course_id,source")
         .gte("started_at", weekStart.toISOString())
         .lte("started_at", weekEnd.toISOString());
       return (data ?? []) as TimeEntry[];
     },
   });
+
+  const { data: weekSessions = [] } = useQuery({
+    queryKey: ["study_sessions", "week", weekStart.toISOString()],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("study_sessions")
+        .select("id,course_id,planned_start,planned_end,actual_start,actual_end,completed")
+        .eq("needs_review", false)
+        .gte("planned_start", weekStart.toISOString())
+        .lte("planned_start", weekEnd.toISOString());
+      return (data ?? []) as Session[];
+    },
+  });
+
+  const weekCombinedEntries = useMemo(() => {
+    const out: Array<{ started_at: string; duration_seconds: number; course_id: string | null }> = [];
+    for (const e of weekEntries) {
+      if (e.source === "session") continue;
+      out.push({
+        started_at: e.started_at,
+        duration_seconds: e.duration_seconds ?? 0,
+        course_id: e.course_id,
+      });
+    }
+    for (const s of weekSessions) {
+      const start = s.actual_start ?? s.planned_start;
+      const end = s.actual_end ?? s.planned_end;
+      const dur = Math.max(0, Math.floor((new Date(end).getTime() - new Date(start).getTime()) / 1000));
+      out.push({
+        started_at: start,
+        duration_seconds: dur,
+        course_id: s.course_id,
+      });
+    }
+    return out;
+  }, [weekEntries, weekSessions]);
 
   const { data: todaysSessions = [] } = useQuery({
     queryKey: ["sessions", "today"],
@@ -97,9 +134,9 @@ function Dashboard() {
 
   const perDay = Array.from({ length: 7 }).map((_, i) => {
     const d = addDays(weekStart, i);
-    const total = weekEntries
+    const total = weekCombinedEntries
       .filter((e) => e.started_at >= startOfDay(d).toISOString() && e.started_at <= endOfDay(d).toISOString())
-      .reduce((s, e) => s + (e.duration_seconds ?? 0), 0);
+      .reduce((s, e) => s + e.duration_seconds, 0);
     return { d, hours: total / 3600 };
   });
   const maxDayH = Math.max(1, ...perDay.map((p) => p.hours));
@@ -144,12 +181,11 @@ function Dashboard() {
               return (
                 <div key={periodName} className="space-y-2">
                   <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60 flex items-center gap-1.5 pl-1">
-                    <span className="inline-block h-1 w-1 rounded-full bg-primary" />
                     {displayPeriod}
                   </div>
                   <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                     {periodCourses.map((c) => {
-                      const hoursThisWeek = weekEntries.filter((e) => e.course_id === c.id).reduce((s, e) => s + (e.duration_seconds ?? 0), 0) / 3600;
+                      const hoursThisWeek = weekCombinedEntries.filter((e) => e.course_id === c.id).reduce((s, e) => s + e.duration_seconds, 0) / 3600;
                       const goal = c.weekly_goal_hours ?? 0;
                       const pct = goal > 0 ? Math.min(100, (hoursThisWeek / goal) * 100) : 0;
                       return (
@@ -157,7 +193,6 @@ function Dashboard() {
                           <div className="flex items-center gap-2">
                             <span className="text-xl">{c.icon || "📚"}</span>
                             <span className="min-w-0 flex-1 truncate font-display font-semibold">{c.name}</span>
-                            <span className="inline-block h-2 w-2 shrink-0 rounded-full" style={{ background: c.color }} />
                           </div>
                           {goal > 0 ? (
                             <>
@@ -191,7 +226,7 @@ function Dashboard() {
               <Clock className="h-4 w-4" style={{ color: "var(--c-7)" }} /> Idag
             </CardTitle>
             <div className="text-xs text-muted-foreground">
-              {formatHoursCompact(weekEntries.filter((e) => isSameDay(new Date(e.started_at), new Date())).reduce((s, e) => s + (e.duration_seconds ?? 0), 0))} loggat
+              {formatHoursCompact(weekCombinedEntries.filter((e) => isSameDay(new Date(e.started_at), new Date())).reduce((s, e) => s + e.duration_seconds, 0))} loggat
             </div>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -214,10 +249,8 @@ function Dashboard() {
               <div className="mb-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">Deadlines idag</div>
               {todayTasks.length === 0 && <div className="text-sm text-muted-foreground">Inga deadlines idag.</div>}
               {todayTasks.map((t) => {
-                const c = courses.find((c) => c.id === t.course_id);
                 return (
                   <Link key={t.id} to="/tasks" className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-white/5">
-                    <span className="inline-block h-2 w-2 rounded-full" style={{ background: c?.color ?? "var(--muted-foreground)" }} />
                     <span className="min-w-0 flex-1 truncate">{t.title}</span>
                     {t.task_kind === "exam" && <span className="rounded-full bg-sunset-rose/20 px-1.5 py-0.5 text-[9px] uppercase text-sunset-rose">Exam</span>}
                   </Link>
@@ -255,7 +288,7 @@ function Dashboard() {
             </div>
             <div className="flex items-center justify-between rounded-md border border-white/5 bg-white/5 px-3 py-2 text-sm">
               <span className="flex items-center gap-2"><Clock className="h-3.5 w-3.5" style={{ color: "var(--c-10)" }} /> Total studietid</span>
-              <span className="tabular-nums font-semibold">{formatHoursCompact(weekEntries.reduce((s, e) => s + (e.duration_seconds ?? 0), 0))}</span>
+              <span className="tabular-nums font-semibold">{formatHoursCompact(weekCombinedEntries.reduce((s, e) => s + e.duration_seconds, 0))}</span>
             </div>
           </CardContent>
         </Card>
@@ -271,10 +304,8 @@ function Dashboard() {
           <CardContent>
             <div className="space-y-1">
               {pendingReview.map((t) => {
-                const c = courses.find((c) => c.id === t.course_id);
                 return (
                   <Link key={t.id} to="/tasks" className="flex items-center gap-3 rounded-md px-2 py-2 text-sm hover:bg-white/5">
-                    <span className="inline-block h-2 w-2 rounded-full" style={{ background: c?.color ?? "var(--muted-foreground)" }} />
                     <span className="min-w-0 flex-1 truncate">{t.title}</span>
                     {t.due_at && (
                       <span className="text-xs text-muted-foreground">
@@ -301,10 +332,8 @@ function Dashboard() {
           {openTasks.length === 0 && <div className="rounded-md border border-dashed border-border/60 p-6 text-center text-sm text-muted-foreground">Inga öppna uppgifter. Bra jobbat!</div>}
           <div className="space-y-1">
             {openTasks.slice(0, 8).map((t) => {
-              const c = courses.find((c) => c.id === t.course_id);
               return (
                 <Link key={t.id} to="/tasks" className="flex items-center gap-3 rounded-md px-2 py-2 text-sm hover:bg-white/5">
-                  <span className="inline-block h-2 w-2 rounded-full" style={{ background: c?.color ?? "var(--muted-foreground)" }} />
                   <span className="min-w-0 flex-1 truncate">{t.title}</span>
                   {t.task_kind === "exam" && <span className="rounded-full bg-sunset-rose/20 px-1.5 py-0.5 text-[9px] uppercase text-sunset-rose">Exam</span>}
                   {t.due_at && (

@@ -9,7 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, BookOpen, CheckCircle2, Pencil, Trash2 } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Plus, BookOpen, CheckCircle2 } from "lucide-react";
 import { PALETTE, DEFAULT_COURSE_ICONS, COURSE_PERIODS, ARSKURS_OPTIONS } from "@/lib/course-presets";
 import { useUniversities } from "@/lib/settings";
 import { cn } from "@/lib/utils";
@@ -40,13 +41,11 @@ function CoursesPage() {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
-  const [editing, setEditing] = useState<CourseRow | null>(null);
   const { data: universities = [] } = useUniversities();
 
   // form state
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
-  const [color, setColor] = useState<string>(PALETTE[1].value);
   const [icon, setIcon] = useState<string>(DEFAULT_COURSE_ICONS[0]);
   const [hp, setHp] = useState<string>("");
   const [period, setPeriod] = useState<string>("");
@@ -57,21 +56,10 @@ function CoursesPage() {
   function resetForm() {
     setName(""); setCode(""); setHp(""); setPeriod(""); setArskurs("");
     setUniversityId(""); setWeeklyGoal("");
-    setColor(PALETTE[1].value); setIcon(DEFAULT_COURSE_ICONS[0]);
+    setIcon(DEFAULT_COURSE_ICONS[0]);
   }
 
-  function openEdit(c: CourseRow) {
-    setEditing(c);
-    setName(c.name);
-    setCode(c.code ?? "");
-    setHp(c.hp != null ? String(c.hp) : "");
-    setPeriod(c.period ?? "");
-    setArskurs(c.arskurs != null ? String(c.arskurs) : "");
-    setUniversityId(c.university_id ?? "");
-    setWeeklyGoal(c.weekly_goal_hours != null ? String(c.weekly_goal_hours) : "");
-    setColor(c.color);
-    setIcon(c.icon ?? DEFAULT_COURSE_ICONS[0]);
-  }
+
 
   const { data: courses = [] } = useQuery(coursesQuery);
 
@@ -80,11 +68,14 @@ function CoursesPage() {
     mutationFn: async () => {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) throw new Error("no user");
+      const colors = ["#f94144", "#f3722c", "#f8961e", "#f9844a", "#f9c74f", "#90be6d", "#43aa8b", "#4d908e", "#577590", "#277da1"];
+      const randomColor = colors[Math.floor(Math.random() * colors.length)];
       const { data, error } = await supabase.from("courses").insert({
         user_id: u.user.id,
         name: name.trim(),
         code: code.trim() || null,
-        color, icon,
+        color: randomColor,
+        icon,
         hp: hp ? Number(hp) : null,
         period: (period || null) as "P1" | "P2" | "P3" | "P4" | "P5" | null,
         arskurs: arskurs ? Number(arskurs) : null,
@@ -104,29 +95,7 @@ function CoursesPage() {
     onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Fel"),
   });
 
-  const update = useMutation({
-    mutationFn: async () => {
-      if (!editing) throw new Error("no course");
-      const { error } = await supabase.from("courses").update({
-        name: name.trim(),
-        code: code.trim() || null,
-        color, icon,
-        hp: hp ? Number(hp) : null,
-        period: (period || null) as "P1" | "P2" | "P3" | "P4" | "P5" | null,
-        arskurs: arskurs ? Number(arskurs) : null,
-        university_id: universityId || null,
-        weekly_goal_hours: weeklyGoal ? Number(weeklyGoal) : 0,
-      }).eq("id", editing.id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["courses"] });
-      qc.invalidateQueries({ queryKey: ["courses", "all"] });
-      toast.success("Kurs uppdaterad");
-      setEditing(null); resetForm();
-    },
-    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Fel"),
-  });
+
 
   const toggleArchive = useMutation({
     mutationFn: async (c: CourseRow) => {
@@ -136,28 +105,34 @@ function CoursesPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["courses"] }),
   });
 
-  const remove = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from("courses").delete().eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["courses"] });
-      qc.invalidateQueries({ queryKey: ["courses", "all"] });
-      toast.success("Kurs borttagen");
-    },
-    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Fel"),
-  });
 
-  const active = courses.filter((c) => !c.archived);
+
+  const active = courses.filter((c) => !c.completed && !c.archived);
+  const completed = courses.filter((c) => c.completed && !c.archived);
   const archived = courses.filter((c) => c.archived);
+
+  // Group active courses by period
+  const groupedCourses = active.reduce((acc, c) => {
+    const p = c.period || "Övriga";
+    if (!acc[p]) acc[p] = [];
+    acc[p].push(c);
+    return acc;
+  }, {} as Record<string, typeof active>);
+
+  const periodOrder = ["P1", "P2", "P3", "P4", "P5", "helar", "Övriga"];
+  const sortedPeriods = Object.keys(groupedCourses).sort((a, b) => {
+    const idxA = periodOrder.indexOf(a);
+    const idxB = periodOrder.indexOf(b);
+    const orderA = idxA !== -1 ? idxA : 999;
+    const orderB = idxB !== -1 ? idxB : 999;
+    return orderA - orderB;
+  });
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 lg:px-8">
       <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="font-display text-3xl font-bold tracking-tight">Kurser</h1>
-          <p className="text-sm text-muted-foreground">Organisera dina studier per kurs.</p>
         </div>
         <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) resetForm(); }}>
           <DialogTrigger asChild>
@@ -215,14 +190,6 @@ function CoursesPage() {
                   ))}
                 </div>
               </div>
-              <div className="space-y-1.5">
-                <Label>Färg</Label>
-                <div className="flex flex-wrap gap-2">
-                  {PALETTE.map((c) => (
-                    <button type="button" key={c.value} onClick={() => setColor(c.value)} className={cn("h-8 w-8 rounded-full border-2 transition", color === c.value ? "border-foreground scale-110" : "border-transparent")} style={{ background: c.value }} title={c.name} />
-                  ))}
-                </div>
-              </div>
             </div>
             <DialogFooter>
               <Button variant="ghost" className="rounded-xl" onClick={() => setOpen(false)}>Avbryt</Button>
@@ -232,133 +199,124 @@ function CoursesPage() {
         </Dialog>
       </div>
 
-      {active.length === 0 && (
-        <Card className="border-dashed border-border/60 bg-surface/40 rounded-2xl">
-          <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
-            <div className="grid h-14 w-14 place-items-center rounded-2xl bg-primary/15 text-primary"><BookOpen className="h-6 w-6" /></div>
-            <div>
-              <div className="font-display text-lg font-semibold">Inga kurser än</div>
-              <div className="text-sm text-muted-foreground">Lägg till dina kurser för terminen för att komma igång.</div>
-            </div>
-            <Button onClick={() => setOpen(true)} className="gap-1 rounded-xl"><Plus className="h-4 w-4" /> Skapa första kursen</Button>
-          </CardContent>
-        </Card>
-      )}
+      <Tabs defaultValue="active" className="w-full">
+        <TabsList className="grid w-full max-w-[270px] grid-cols-2 rounded-xl bg-surface-2 p-1 mb-6">
+          <TabsTrigger value="active" className="rounded-lg text-xs flex items-center gap-1.5 py-1.5">
+            Aktiva <span className="rounded-full bg-white/10 px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">{active.length}</span>
+          </TabsTrigger>
+          <TabsTrigger value="completed" className="rounded-lg text-xs flex items-center gap-1.5 py-1.5">
+            Avklarade <span className="rounded-full bg-white/10 px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">{completed.length}</span>
+          </TabsTrigger>
+        </TabsList>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {active.map((c) => (
-          <div key={c.id} className="group relative">
-            <Link
-              to="/courses/$courseId"
-              params={{ courseId: c.id }}
-              aria-label={`Öppna ${c.name}`}
-              className="relative block w-full overflow-hidden rounded-2xl border border-border/60 bg-surface/60 backdrop-blur-md p-5 text-left transition-all hover:border-transparent hover:shadow-lg hover:shadow-black/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <div className="absolute inset-x-0 top-0 h-1" style={{ background: c.color }} />
-              <div className="mb-2 flex items-center justify-between">
-                <span className="text-3xl">{c.icon}</span>
-                <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: c.color, boxShadow: `0 0 20px ${c.color}80` }} />
-              </div>
-              <div className="font-display text-lg font-semibold flex items-center gap-1.5">
-                {c.name}
-                {c.completed && <CheckCircle2 className="h-4 w-4 text-c-7" />}
-              </div>
-              <div className="mt-1 flex flex-wrap gap-1 text-[10px] uppercase tracking-wider text-muted-foreground">
-                {c.code && <span>{c.code}</span>}
-                {c.hp != null && <span>• {c.hp} HP</span>}
-                {c.period && <span>• {c.period}</span>}
-                {c.arskurs != null && <span>• Åk {c.arskurs}</span>}
-              </div>
-            </Link>
-            <div className="absolute right-2 top-2 flex gap-1 opacity-100 sm:opacity-0 transition-opacity sm:group-hover:opacity-100 focus-within:opacity-100">
-              <button
-                type="button"
-                aria-label="Redigera kurs"
-                onClick={(e) => { e.stopPropagation(); openEdit(c); }}
-                className="grid h-8 w-8 place-items-center rounded-lg border border-border/60 bg-background/80 backdrop-blur-md text-muted-foreground hover:text-foreground hover:bg-surface-2"
-              >
-                <Pencil className="h-3.5 w-3.5" />
-              </button>
-              <button
-                type="button"
-                aria-label="Ta bort kurs"
-                onClick={(e) => { e.stopPropagation(); if (confirm(`Ta bort kursen "${c.name}"?`)) remove.mutate(c.id); }}
-                className="grid h-8 w-8 place-items-center rounded-lg border border-border/60 bg-background/80 backdrop-blur-md text-muted-foreground hover:text-destructive hover:bg-surface-2"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
+        <TabsContent value="active" className="space-y-6">
+          {active.length === 0 ? (
+            <Card className="border-dashed border-border/60 bg-surface/40 rounded-2xl">
+              <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
+                <div className="grid h-14 w-14 place-items-center rounded-2xl bg-primary/15 text-primary"><BookOpen className="h-6 w-6" /></div>
+                <div>
+                  <div className="font-display text-lg font-semibold">Inga aktiva kurser</div>
+                  <div className="text-sm text-muted-foreground">Alla dina kurser är avklarade!</div>
+                </div>
+                <Button onClick={() => setOpen(true)} className="gap-1 rounded-xl"><Plus className="h-4 w-4" /> Skapa ny kurs</Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-6">
+              {sortedPeriods.map((periodName) => {
+                const periodCourses = groupedCourses[periodName];
+                if (!periodCourses || periodCourses.length === 0) return null;
 
-      {archived.length > 0 && (
-        <div className="mt-10">
-          <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Arkiverade</h2>
-          <div className="space-y-1">
-            {archived.map((c) => (
-              <div key={c.id} className="flex items-center gap-3 rounded-xl border border-border/60 bg-surface/40 px-3 py-2 text-sm">
-                <span>{c.icon}</span>
-                <span className="flex-1 text-muted-foreground">{c.name}</span>
-                <Button variant="ghost" size="sm" className="rounded-lg" onClick={() => toggleArchive.mutate(c)}>Återställ</Button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+                let displayPeriod = periodName;
+                if (periodName.startsWith("P")) {
+                  displayPeriod = `Period ${periodName.slice(1)}`;
+                } else if (periodName === "helar") {
+                  displayPeriod = "Helår";
+                } else if (periodName === "Övriga") {
+                  displayPeriod = "Övriga kurser";
+                }
 
-      <Dialog open={!!editing} onOpenChange={(o) => { if (!o) { setEditing(null); resetForm(); } }}>
-        <DialogContent className="max-w-lg glass rounded-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle className="font-display">Redigera kurs</DialogTitle></DialogHeader>
-          <div className="grid gap-4">
-            <div className="space-y-1.5">
-              <Label>Kursnamn</Label>
-              <Input value={name} onChange={(e) => setName(e.target.value)} className="rounded-xl" />
+                return (
+                  <div key={periodName} className="space-y-3">
+                    <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground/60 flex items-center gap-1.5 pl-1">
+                      <span className="inline-block h-1.5 w-1.5 rounded-full bg-primary" />
+                      {displayPeriod}
+                    </div>
+                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                      {periodCourses.map((c) => (
+                        <div key={c.id} className="group relative">
+                          <Link
+                            to="/courses/$courseId"
+                            params={{ courseId: c.id }}
+                            aria-label={`Öppna ${c.name}`}
+                            className="relative block w-full overflow-hidden rounded-2xl border border-border/60 bg-surface/60 backdrop-blur-md p-5 text-left transition-all hover:border-transparent hover:shadow-lg hover:shadow-black/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          >
+                            <div className="absolute inset-x-0 top-0 h-1" style={{ background: c.color }} />
+                            <div className="mb-2 flex items-center justify-between">
+                              <span className="text-3xl">{c.icon}</span>
+                            </div>
+                            <div className="font-display text-lg font-semibold flex items-center gap-1.5">
+                              {c.name}
+                            </div>
+                            <div className="mt-1 flex flex-wrap gap-1 text-[10px] uppercase tracking-wider text-muted-foreground">
+                              {c.code && <span>{c.code}</span>}
+                              {c.hp != null && <span>• {c.hp} HP</span>}
+                              {c.period && <span>• {c.period}</span>}
+                              {c.arskurs != null && <span>• Åk {c.arskurs}</span>}
+                            </div>
+                          </Link>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label>Kurskod</Label>
-                <Input value={code} onChange={(e) => setCode(e.target.value)} className="rounded-xl" />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Högskolepoäng</Label>
-                <Input type="number" step="0.5" value={hp} onChange={(e) => setHp(e.target.value)} className="rounded-xl" />
-              </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="completed" className="space-y-6">
+          {completed.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-border/60 bg-surface/40 p-12 text-center text-sm text-muted-foreground">
+              Inga avklarade kurser än. När du markerar en kurs som avklarad hamnar den här!
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label>Period</Label>
-                <Select value={period} onValueChange={setPeriod}>
-                  <SelectTrigger className="rounded-xl"><SelectValue placeholder="Välj period" /></SelectTrigger>
-                  <SelectContent>{COURSE_PERIODS.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Årskurs</Label>
-                <Select value={arskurs} onValueChange={setArskurs}>
-                  <SelectTrigger className="rounded-xl"><SelectValue placeholder="Välj årskurs" /></SelectTrigger>
-                  <SelectContent>{ARSKURS_OPTIONS.map((a) => <SelectItem key={a} value={String(a)}>Årskurs {a}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {completed.map((c) => (
+                <div key={c.id} className="group relative">
+                  <Link
+                    to="/courses/$courseId"
+                    params={{ courseId: c.id }}
+                    aria-label={`Öppna ${c.name}`}
+                    className="relative block w-full overflow-hidden rounded-2xl border border-border/60 bg-surface/60 backdrop-blur-md p-5 text-left transition-all hover:border-transparent hover:shadow-lg hover:shadow-black/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <div className="absolute inset-x-0 top-0 h-1 bg-c-7" />
+                    <div className="mb-2 flex items-center justify-between">
+                      <span className="text-3xl">{c.icon}</span>
+                      {c.final_grade && (
+                        <span className="rounded-full bg-primary/10 border border-primary/20 px-2 py-0.5 text-[10px] font-bold text-primary">
+                          Betyg: {c.final_grade}
+                        </span>
+                      )}
+                    </div>
+                    <div className="font-display text-lg font-semibold flex items-center gap-1.5">
+                      {c.name}
+                      <CheckCircle2 className="h-4 w-4 text-c-7 shrink-0" />
+                    </div>
+                    <div className="mt-1 flex flex-wrap gap-1 text-[10px] uppercase tracking-wider text-muted-foreground">
+                      {c.code && <span>{c.code}</span>}
+                      {c.hp != null && <span>• {c.hp} HP</span>}
+                      {c.period && <span>• {c.period}</span>}
+                      {c.arskurs != null && <span>• Åk {c.arskurs}</span>}
+                    </div>
+                  </Link>
+                </div>
+              ))}
             </div>
-            <div className="space-y-1.5">
-              <Label>Universitet</Label>
-              <Select value={universityId} onValueChange={setUniversityId}>
-                <SelectTrigger className="rounded-xl"><SelectValue placeholder="Välj universitet" /></SelectTrigger>
-                <SelectContent>{universities.map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Veckomål studietid (h)</Label>
-              <Input type="number" step="0.5" value={weeklyGoal} onChange={(e) => setWeeklyGoal(e.target.value)} className="rounded-xl" />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="ghost" className="rounded-xl" onClick={() => { setEditing(null); resetForm(); }}>Avbryt</Button>
-            <Button disabled={!name.trim() || update.isPending} onClick={() => update.mutate()} className="rounded-xl">Spara</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          )}
+        </TabsContent>
+      </Tabs>
+
     </div>
   );
 }
