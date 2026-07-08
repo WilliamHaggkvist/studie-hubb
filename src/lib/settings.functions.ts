@@ -27,10 +27,21 @@ export const requestReminderEmailVerification = createServerFn({ method: "POST" 
 
     if (dbErr) throw new Error(dbErr.message);
 
+    // Skapa service-role klient för e-postutskick (eftersom e-posttabeller kräver service_role)
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!supabaseUrl || !serviceKey) {
+      throw new Error("Servern saknar konfiguration för e-postutskick (SUPABASE_SERVICE_ROLE_KEY)");
+    }
+    const { createClient } = await import("@supabase/supabase-js");
+    const serviceRoleSupabase = createClient(supabaseUrl, serviceKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+
     // Skicka verifieringsmejl
     const { enqueueTemplateEmail } = await import("@/lib/email/enqueue.server");
     const emailRes = await enqueueTemplateEmail({
-      supabase: context.supabase,
+      supabase: serviceRoleSupabase,
       templateName: "verify-reminder-email",
       recipientEmail: email,
       idempotencyKey: `verify:${context.userId}:${sentAt}`,
@@ -117,10 +128,21 @@ export const sendTestReminderEmail = createServerFn({ method: "POST" })
     const now = new Date();
     const mockDedupeKey = `test-reminder:${context.userId}:${now.getTime()}`;
 
+    // Skapa service-role klient för e-postutskick
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!supabaseUrl || !serviceKey) {
+      throw new Error("Servern saknar konfiguration för e-postutskick (SUPABASE_SERVICE_ROLE_KEY)");
+    }
+    const { createClient } = await import("@supabase/supabase-js");
+    const serviceRoleSupabase = createClient(supabaseUrl, serviceKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+
     // Skicka testmejl
     const { enqueueTemplateEmail } = await import("@/lib/email/enqueue.server");
     const emailRes = await enqueueTemplateEmail({
-      supabase: context.supabase,
+      supabase: serviceRoleSupabase,
       templateName: "deadline-reminder",
       recipientEmail,
       idempotencyKey: mockDedupeKey,

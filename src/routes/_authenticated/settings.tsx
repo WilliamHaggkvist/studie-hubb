@@ -76,7 +76,7 @@ function NotificationsCard() {
   const requestVerify = useMutation({
     mutationFn: async (email: string) => {
       const { requestReminderEmailVerification } = await import("@/lib/settings.functions");
-      return await requestReminderEmailVerification({ email });
+      return await requestReminderEmailVerification({ data: { email } });
     },
     onSuccess: () => {
       setShowVerificationInput(true);
@@ -88,7 +88,7 @@ function NotificationsCard() {
   const verifyCode = useMutation({
     mutationFn: async (code: string) => {
       const { verifyReminderEmailCode } = await import("@/lib/settings.functions");
-      return await verifyReminderEmailCode({ code });
+      return await verifyReminderEmailCode({ data: { code } });
     },
     onSuccess: () => {
       setIsEditingEmail(false);
