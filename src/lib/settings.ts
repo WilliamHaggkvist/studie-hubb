@@ -14,6 +14,10 @@ export type UserSettings = {
   daily_summary_enabled: boolean;
   weekly_summary_enabled: boolean;
   timezone: string;
+  reminder_email: string | null;
+  reminder_email_verified: boolean;
+  reminder_email_verification_code: string | null;
+  reminder_email_verification_sent_at: string | null;
 };
 
 export type University = {

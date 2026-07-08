@@ -785,6 +785,10 @@ export type Database = {
           updated_at: string
           user_id: string
           weekly_summary_enabled: boolean
+          reminder_email: string | null
+          reminder_email_verified: boolean
+          reminder_email_verification_code: string | null
+          reminder_email_verification_sent_at: string | null
         }
         Insert: {
           created_at?: string
@@ -801,6 +805,10 @@ export type Database = {
           updated_at?: string
           user_id: string
           weekly_summary_enabled?: boolean
+          reminder_email?: string | null
+          reminder_email_verified?: boolean
+          reminder_email_verification_code?: string | null
+          reminder_email_verification_sent_at?: string | null
         }
         Update: {
           created_at?: string
@@ -817,6 +825,10 @@ export type Database = {
           updated_at?: string
           user_id?: string
           weekly_summary_enabled?: boolean
+          reminder_email?: string | null
+          reminder_email_verified?: boolean
+          reminder_email_verification_code?: string | null
+          reminder_email_verification_sent_at?: string | null
         }
         Relationships: []
       }

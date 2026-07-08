@@ -141,6 +141,27 @@ export const Route = createFileRoute("/email/unsubscribe")({
           return Response.json({ error: 'Failed to process unsubscribe' }, { status: 500 })
         }
 
+        const unsubEmail = tokenRecord.email.toLowerCase()
+
+        // 1. Inaktivera påminnelser för användare med denna anpassade e-post
+        await supabase
+          .from('user_settings')
+          .update({ email_reminders_enabled: false })
+          .eq('reminder_email', unsubEmail)
+
+        // 2. Inaktivera påminnelser för användare med denna primära e-post
+        try {
+          const { data: userData } = await supabase.auth.admin.getUserByEmail(unsubEmail)
+          if (userData?.user) {
+            await supabase
+              .from('user_settings')
+              .update({ email_reminders_enabled: false })
+              .eq('user_id', userData.user.id)
+          }
+        } catch (e) {
+          console.error('Failed to get user by email for unsubscribe update', e)
+        }
+
         console.log('Email unsubscribed', {
           email_redacted: redactEmail(tokenRecord.email),
         })

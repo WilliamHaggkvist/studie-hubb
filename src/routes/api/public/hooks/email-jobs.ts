@@ -28,7 +28,7 @@ export const Route = createFileRoute('/api/public/hooks/email-jobs')({
         // 1. Fetch users with any notification enabled
         const { data: settings, error: settingsError } = await supabase
           .from('user_settings')
-          .select('user_id,email_reminders_enabled,reminder_offsets,reminder_fallback_hour,daily_summary_enabled,weekly_summary_enabled,timezone')
+          .select('user_id,email_reminders_enabled,reminder_offsets,reminder_fallback_hour,daily_summary_enabled,weekly_summary_enabled,timezone,reminder_email,reminder_email_verified')
         if (settingsError) return Response.json({ error: settingsError.message }, { status: 500 })
         const activeUsers = (settings ?? []).filter(
           (s) => s.email_reminders_enabled || s.daily_summary_enabled || s.weekly_summary_enabled
@@ -137,9 +137,13 @@ export const Route = createFileRoute('/api/public/hooks/email-jobs')({
 
         for (const settings of activeUsers) {
           const info = emails.get(settings.user_id)
-          if (!info) { results.skipped_no_email++; continue }
+          const recipientEmail = (settings.reminder_email && settings.reminder_email_verified)
+            ? settings.reminder_email
+            : info?.email
+
+          if (!recipientEmail) { results.skipped_no_email++; continue }
           const tz = settings.timezone || 'Europe/Stockholm'
-          const displayName = info.displayName || displayNames.get(settings.user_id) || info.email.split('@')[0]
+          const displayName = info?.displayName || displayNames.get(settings.user_id) || recipientEmail.split('@')[0]
 
           const userTasks = (tasks ?? []).filter((t) => t.user_id === settings.user_id)
 
@@ -181,7 +185,7 @@ export const Route = createFileRoute('/api/public/hooks/email-jobs')({
                 const res = await enqueueTemplateEmail({
                   supabase,
                   templateName: 'deadline-reminder',
-                  recipientEmail: info.email,
+                  recipientEmail: recipientEmail,
                   idempotencyKey: dedupeKey,
                   templateData: {
                     taskTitle: t.title,
@@ -207,24 +211,24 @@ export const Route = createFileRoute('/api/public/hooks/email-jobs')({
             if (!dupErr) {
               const todayEnd = new Date(now.getTime() + 48 * 3600_000)
               const dayTasks = userTasks
-                .filter((t) => t.due_at && new Date(t.due_at) <= todayEnd)
-                .map((t) => ({
-                  title: t.title,
-                  courseName: t.course_id ? courseMap.get(t.course_id) ?? null : null,
-                  dueLabel: t.due_at ? fmtDue(t.due_at, tz) : '',
-                }))
+                  .filter((t) => t.due_at && new Date(t.due_at) <= todayEnd)
+                  .map((t) => ({
+                    title: t.title,
+                    courseName: t.course_id ? courseMap.get(t.course_id) ?? null : null,
+                    dueLabel: t.due_at ? fmtDue(t.due_at, tz) : '',
+                  }))
               const todaySessions = (sessions ?? [])
-                .filter((s) => s.user_id === settings.user_id && s.planned_start && localDateStr(new Date(s.planned_start), tz) === dateStr)
-                .map((s) => ({
-                  title: (s.course_id && courseMap.get(s.course_id)) || 'Studiepass',
-                  startLabel: new Intl.DateTimeFormat('sv-SE', { timeZone: tz, hour: '2-digit', minute: '2-digit' }).format(new Date(s.planned_start!)),
-                }))
+                  .filter((s) => s.user_id === settings.user_id && s.planned_start && localDateStr(new Date(s.planned_start), tz) === dateStr)
+                  .map((s) => ({
+                    title: (s.course_id && courseMap.get(s.course_id)) || 'Studiepass',
+                    startLabel: new Intl.DateTimeFormat('sv-SE', { timeZone: tz, hour: '2-digit', minute: '2-digit' }).format(new Date(s.planned_start!)),
+                  }))
 
               const dateLabel = new Intl.DateTimeFormat('sv-SE', { timeZone: tz, weekday: 'long', day: 'numeric', month: 'long' }).format(now)
               const res = await enqueueTemplateEmail({
                 supabase,
                 templateName: 'daily-summary',
-                recipientEmail: info.email,
+                recipientEmail: recipientEmail,
                 idempotencyKey: dedupeKey,
                 templateData: { displayName, dateLabel, tasks: dayTasks, sessions: todaySessions, appUrl: 'https://studiehubb.lovable.app' },
               })
@@ -242,26 +246,26 @@ export const Route = createFileRoute('/api/public/hooks/email-jobs')({
             if (!dupErr) {
               const weekEnd = new Date(now.getTime() + 7 * 86400_000)
               const weekTasks = userTasks
-                .filter((t) => t.due_at && new Date(t.due_at) <= weekEnd)
-                .map((t) => ({
-                  title: t.title,
-                  courseName: t.course_id ? courseMap.get(t.course_id) ?? null : null,
-                  dueLabel: t.due_at ? fmtDue(t.due_at, tz) : '',
-                }))
+                  .filter((t) => t.due_at && new Date(t.due_at) <= weekEnd)
+                  .map((t) => ({
+                    title: t.title,
+                    courseName: t.course_id ? courseMap.get(t.course_id) ?? null : null,
+                    dueLabel: t.due_at ? fmtDue(t.due_at, tz) : '',
+                  }))
               // Study hours last 7 days
               const weekStart = new Date(now.getTime() - 7 * 86400_000)
               const { data: entries } = await supabase
-                .from('time_entries')
-                .select('duration_seconds')
-                .eq('user_id', settings.user_id)
-                .gte('started_at', weekStart.toISOString())
+                  .from('time_entries')
+                  .select('duration_seconds')
+                  .eq('user_id', settings.user_id)
+                  .gte('started_at', weekStart.toISOString())
               const totalSec = (entries ?? []).reduce((a, e) => a + ((e as { duration_seconds: number }).duration_seconds ?? 0), 0)
               const hours = Math.round(totalSec / 360) / 10
 
               const res = await enqueueTemplateEmail({
                 supabase,
                 templateName: 'weekly-summary',
-                recipientEmail: info.email,
+                recipientEmail: recipientEmail,
                 idempotencyKey: dedupeKey,
                 templateData: { displayName, weekLabel: wk, tasks: weekTasks, studyHours: hours, appUrl: 'https://studiehubb.lovable.app' },
               })

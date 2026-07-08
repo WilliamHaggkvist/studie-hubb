@@ -43,9 +43,26 @@ const REMINDER_CHOICES: { minutes: number; label: string }[] = [
   { minutes: 120, label: "2 timmar innan" },
 ];
 
+
+
 function NotificationsCard() {
   const { data: s } = useUserSettings();
   const qc = useQueryClient();
+
+  const [primaryEmail, setPrimaryEmail] = useState("");
+  const [isEditingEmail, setIsEditingEmail] = useState(false);
+  const [newEmail, setNewEmail] = useState("");
+  const [showVerificationInput, setShowVerificationInput] = useState(false);
+  const [verificationCode, setVerificationCode] = useState("");
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user?.email) {
+        setPrimaryEmail(data.user.email);
+      }
+    });
+  }, []);
+
   const save = useMutation({
     mutationFn: async (patch: Record<string, unknown>) => {
       const { data: u } = await supabase.auth.getUser();
@@ -55,11 +72,61 @@ function NotificationsCard() {
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["user_settings"] }),
   });
+
+  const requestVerify = useMutation({
+    mutationFn: async (email: string) => {
+      const { requestReminderEmailVerification } = await import("@/lib/settings.functions");
+      return await requestReminderEmailVerification({ email });
+    },
+    onSuccess: () => {
+      setShowVerificationInput(true);
+      toast.success("Verifieringskod har skickats till " + newEmail);
+    },
+    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Kunde inte skicka kod"),
+  });
+
+  const verifyCode = useMutation({
+    mutationFn: async (code: string) => {
+      const { verifyReminderEmailCode } = await import("@/lib/settings.functions");
+      return await verifyReminderEmailCode({ code });
+    },
+    onSuccess: () => {
+      setIsEditingEmail(false);
+      setShowVerificationInput(false);
+      setVerificationCode("");
+      qc.invalidateQueries({ queryKey: ["user_settings"] });
+      toast.success("E-postadressen har verifierats!");
+    },
+    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Verifiering misslyckades"),
+  });
+
+  const testEmail = useMutation({
+    mutationFn: async () => {
+      const { sendTestReminderEmail } = await import("@/lib/settings.functions");
+      return await sendTestReminderEmail();
+    },
+    onSuccess: (res) => {
+      toast.success(`Testmejl skickat till ${res.email}`);
+    },
+    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Kunde inte skicka testmejl"),
+  });
+
   const offsets = s?.reminder_offsets ?? [];
   const toggleOffset = (min: number) => {
     const next = offsets.includes(min) ? offsets.filter((o) => o !== min) : [...offsets, min].sort((a, b) => b - a);
     save.mutate({ reminder_offsets: next });
   };
+
+  const resetToDefaultEmail = () => {
+    save.mutate({
+      reminder_email: null,
+      reminder_email_verified: false,
+    });
+    setIsEditingEmail(false);
+    setShowVerificationInput(false);
+    toast.success("Återställt till inloggningsmejl");
+  };
+
   return (
     <Card className="border-border/60 bg-surface/60 backdrop-blur-md rounded-2xl">
       <CardHeader><CardTitle className="font-display text-base">Mejlnotiser</CardTitle></CardHeader>
@@ -72,35 +139,117 @@ function NotificationsCard() {
           <Switch checked={!!s?.email_reminders_enabled} onCheckedChange={(v) => save.mutate({ email_reminders_enabled: v })} />
         </div>
         {s?.email_reminders_enabled && (
-          <div className="space-y-2">
-            <Label className="text-xs uppercase tracking-wide text-muted-foreground">Standardintervall</Label>
-            <div className="flex flex-wrap gap-2">
-              {REMINDER_CHOICES.map((c) => {
-                const active = offsets.includes(c.minutes);
-                return (
-                  <button
-                    key={c.minutes}
-                    onClick={() => toggleOffset(c.minutes)}
-                    className={`rounded-xl border px-3 py-1.5 text-xs transition ${active ? "gradient-sunset text-white border-transparent" : "border-border/60 bg-background/40 text-muted-foreground hover:text-foreground"}`}
-                  >
-                    {c.label}
-                  </button>
-                );
-              })}
-            </div>
-            <div className="grid grid-cols-2 gap-3 pt-2">
-              <div className="space-y-1">
-                <Label className="text-xs">Tid för dag-baserade påminnelser</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  max={23}
-                  value={s.reminder_fallback_hour}
-                  onChange={(e) => save.mutate({ reminder_fallback_hour: Math.max(0, Math.min(23, Number(e.target.value) || 0)) })}
-                  className="rounded-xl"
-                />
-                <p className="text-[11px] text-muted-foreground">Om uppgiften saknar klockslag skickas påminnelser vid denna tid.</p>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label className="text-xs uppercase tracking-wide text-muted-foreground">Standardintervall</Label>
+              <div className="flex flex-wrap gap-2">
+                {REMINDER_CHOICES.map((c) => {
+                  const active = offsets.includes(c.minutes);
+                  return (
+                    <button
+                      key={c.minutes}
+                      onClick={() => toggleOffset(c.minutes)}
+                      className={`rounded-xl border px-3 py-1.5 text-xs transition ${active ? "gradient-sunset text-white border-transparent" : "border-border/60 bg-background/40 text-muted-foreground hover:text-foreground"}`}
+                    >
+                      {c.label}
+                    </button>
+                  );
+                })}
               </div>
+              <div className="grid grid-cols-2 gap-3 pt-2">
+                <div className="space-y-1">
+                  <Label className="text-xs">Tid för dag-baserade påminnelser</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={23}
+                    value={s.reminder_fallback_hour}
+                    onChange={(e) => save.mutate({ reminder_fallback_hour: Math.max(0, Math.min(23, Number(e.target.value) || 0)) })}
+                    className="rounded-xl"
+                  />
+                  <p className="text-[11px] text-muted-foreground">Om uppgiften saknar klockslag skickas påminnelser vid denna tid.</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-3 pt-3 border-t border-border/60">
+              <Label className="text-xs uppercase tracking-wide text-muted-foreground">Mottagande e-postadress</Label>
+              
+              <div className="text-sm">
+                Aktiv e-post: <strong className="text-foreground">{s?.reminder_email && s?.reminder_email_verified ? s.reminder_email : primaryEmail}</strong>
+                {!s?.reminder_email_verified && s?.reminder_email && (
+                  <span className="ml-2 text-xs text-sunset-amber bg-sunset-amber/10 px-2 py-0.5 rounded-full font-semibold">Ej verifierad (skickas fortfarande till inloggningsmejl)</span>
+                )}
+                {s?.reminder_email_verified && s?.reminder_email && (
+                  <span className="ml-2 text-xs text-green-500 bg-green-500/10 px-2 py-0.5 rounded-full font-semibold">Verifierad</span>
+                )}
+              </div>
+              
+              {!isEditingEmail ? (
+                <div className="flex gap-2 flex-wrap">
+                  <Button size="sm" variant="outline" onClick={() => { setIsEditingEmail(true); setNewEmail(s?.reminder_email ?? ""); }} className="rounded-xl text-xs">
+                    Använd en annan e-postadress
+                  </Button>
+                  {s?.reminder_email && (
+                    <Button size="sm" variant="ghost" onClick={resetToDefaultEmail} className="rounded-xl text-xs text-destructive hover:bg-destructive/10">
+                      Återställ till inloggningsmejl
+                    </Button>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-2 max-w-md">
+                  <div className="flex gap-2">
+                    <Input
+                      type="email"
+                      placeholder="ange.ny@epost.se"
+                      value={newEmail}
+                      onChange={(e) => setNewEmail(e.target.value)}
+                      className="rounded-xl"
+                    />
+                    <Button onClick={() => requestVerify.mutate(newEmail)} disabled={requestVerify.isPending} className="rounded-xl gradient-sunset text-white whitespace-nowrap">
+                      {requestVerify.isPending ? "Skickar..." : "Skicka kod"}
+                    </Button>
+                    <Button variant="ghost" onClick={() => { setIsEditingEmail(false); setShowVerificationInput(false); }} className="rounded-xl">
+                      Avbryt
+                    </Button>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">Vi kommer att skicka en 6-siffrig verifieringskod till adressen.</p>
+                </div>
+              )}
+
+              {showVerificationInput && (
+                <div className="space-y-2 max-w-sm p-3 rounded-xl border border-sunset-amber/40 bg-sunset-amber/5">
+                  <Label className="text-xs">Mottagen kod (6 siffror)</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      type="text"
+                      placeholder="123456"
+                      value={verificationCode}
+                      onChange={(e) => setVerificationCode(e.target.value)}
+                      className="rounded-xl text-center font-mono font-bold"
+                      maxLength={6}
+                    />
+                    <Button onClick={() => verifyCode.mutate(verificationCode)} disabled={verifyCode.isPending} className="rounded-xl bg-foreground text-background">
+                      {verifyCode.isPending ? "Verifierar..." : "Verifiera"}
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="pt-3 border-t border-border/60 flex items-center justify-between">
+              <div>
+                <div className="text-sm font-medium">Skicka testmejl</div>
+                <div className="text-[11px] text-muted-foreground">Testa påminnelsesystemet genom att skicka ett provmejl direkt.</div>
+              </div>
+              <Button 
+                size="sm" 
+                onClick={() => testEmail.mutate()} 
+                disabled={testEmail.isPending} 
+                className="rounded-xl bg-surface hover:bg-surface-2 border border-border/60 text-foreground text-xs"
+              >
+                {testEmail.isPending ? "Skickar..." : "Skicka testmejl"}
+              </Button>
             </div>
           </div>
         )}
