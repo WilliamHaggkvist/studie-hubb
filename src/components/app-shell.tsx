@@ -25,6 +25,8 @@ import {
   Star,
   Settings,
   StickyNote,
+  Lightbulb,
+  GraduationCap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -179,6 +181,7 @@ function SidebarContent() {
         <NavItem to="/time" icon={<Clock className="h-4 w-4" />} label="Studietid" activeColor="var(--c-5)" />
         <NavItem to="/stats" icon={<BarChart3 className="h-4 w-4" />} label="Statistik" activeColor="var(--c-6)" />
         <NavItem to="/notes" icon={<StickyNote className="h-4 w-4" />} label="Anteckningar" activeColor="var(--c-8)" />
+        <NavItem to="/tips" icon={<Lightbulb className="h-4 w-4" />} label="Tips och råd" activeColor="var(--c-3)" />
         <NavItem to="/settings" icon={<Settings className="h-4 w-4" />} label="Inställningar" activeColor="var(--c-9)" />
       </nav>
 
@@ -271,10 +274,9 @@ function CourseNode({ course }: { course: CourseRow }) {
           : "hover:bg-sidebar-accent/60 hover:text-foreground",
       )}
     >
-      <span className="inline-block h-2 w-2 shrink-0 rounded-full" style={{ background: course.color }} />
-      <span className="text-sm">{course.icon || "📚"}</span>
+      <GraduationCap className="h-4 w-4 shrink-0" style={{ color: course.color }} />
       <span className="truncate">{course.name}</span>
-      {course.code && <span className="ml-auto shrink-0 text-[10px] text-muted-foreground">{course.code}</span>}
+      {course.code && <span className="ml-auto shrink-0 text-[10px] text-sidebar-foreground/60">{course.code}</span>}
     </Link>
   );
 }
@@ -462,7 +464,13 @@ function GlobalSearch() {
               className="flex w-full items-center justify-between gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent"
             >
               <div className="flex items-center gap-2 min-w-0">
-                <span className="text-base shrink-0">{r.icon}</span>
+                {r.type === "course" ? (
+                  <GraduationCap className="h-4 w-4 shrink-0" style={{ color: r.courseColor }} />
+                ) : r.type === "task" ? (
+                  <ListTodo className="h-4 w-4 shrink-0 text-sunset-amber" />
+                ) : (
+                  <FileText className="h-4 w-4 shrink-0 text-purple-400" />
+                )}
                 <span className="truncate">{r.title}</span>
               </div>
               <span className={`text-[9px] uppercase font-bold px-2 py-0.5 rounded-full shrink-0 ${

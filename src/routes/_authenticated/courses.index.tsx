@@ -10,8 +10,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, BookOpen, CheckCircle2 } from "lucide-react";
-import { PALETTE, DEFAULT_COURSE_ICONS, COURSE_PERIODS, ARSKURS_OPTIONS } from "@/lib/course-presets";
+import { Plus, GraduationCap, CheckCircle2 } from "lucide-react";
+import { PALETTE, COURSE_PERIODS, ARSKURS_OPTIONS, PERIOD_TO_TERM, TERM_LABELS, type CoursePeriod, type Term } from "@/lib/course-presets";
 import { useUniversities } from "@/lib/settings";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -46,7 +46,6 @@ function CoursesPage() {
   // form state
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
-  const [icon, setIcon] = useState<string>(DEFAULT_COURSE_ICONS[0]);
   const [hp, setHp] = useState<string>("");
   const [period, setPeriod] = useState<string>("");
   const [arskurs, setArskurs] = useState<string>("");
@@ -56,7 +55,6 @@ function CoursesPage() {
   function resetForm() {
     setName(""); setCode(""); setHp(""); setPeriod(""); setArskurs("");
     setUniversityId(""); setWeeklyGoal("");
-    setIcon(DEFAULT_COURSE_ICONS[0]);
   }
 
 
@@ -68,14 +66,16 @@ function CoursesPage() {
     mutationFn: async () => {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) throw new Error("no user");
-      const colors = ["#f94144", "#f3722c", "#f8961e", "#f9844a", "#f9c74f", "#90be6d", "#43aa8b", "#4d908e", "#577590", "#277da1"];
-      const randomColor = colors[Math.floor(Math.random() * colors.length)];
+      const usedColors = courses.filter((c) => !c.archived).map((c) => c.color);
+      const availableColors = PALETTE.filter((p) => !usedColors.includes(p.value));
+      const chosenColor = availableColors.length > 0
+        ? availableColors[0].value
+        : PALETTE[Math.floor(Math.random() * PALETTE.length)].value;
       const { data, error } = await supabase.from("courses").insert({
         user_id: u.user.id,
         name: name.trim(),
         code: code.trim() || null,
-        color: randomColor,
-        icon,
+        color: chosenColor,
         hp: hp ? Number(hp) : null,
         period: (period || null) as "P1" | "P2" | "P3" | "P4" | "P5" | null,
         arskurs: arskurs ? Number(arskurs) : null,
@@ -182,14 +182,6 @@ function CoursesPage() {
                 <Label>Veckomål (h)</Label>
                 <Input type="number" step="0.5" value={weeklyGoal} onChange={(e) => setWeeklyGoal(e.target.value)} placeholder="ex. 8" className="rounded-xl" />
               </div>
-              <div className="space-y-1.5">
-                <Label>Ikon</Label>
-                <div className="flex flex-wrap gap-1">
-                  {DEFAULT_COURSE_ICONS.map((i) => (
-                    <button type="button" key={i} onClick={() => setIcon(i)} className={cn("grid h-9 w-9 place-items-center rounded-xl border text-lg transition", icon === i ? "border-primary bg-surface-2" : "border-border/60 hover:bg-surface")}>{i}</button>
-                  ))}
-                </div>
-              </div>
             </div>
             <DialogFooter>
               <Button variant="ghost" className="rounded-xl" onClick={() => setOpen(false)}>Avbryt</Button>
@@ -252,20 +244,22 @@ function CoursesPage() {
                             to="/courses/$courseId"
                             params={{ courseId: c.id }}
                             aria-label={`Öppna ${c.name}`}
-                            className="relative block w-full overflow-hidden rounded-2xl border border-border/60 bg-surface/60 backdrop-blur-md p-5 text-left transition-all hover:border-transparent hover:shadow-lg hover:shadow-black/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            className="relative flex items-center gap-3 w-full overflow-hidden rounded-xl border border-border/60 bg-surface/50 p-3 text-left transition-all hover:border-transparent hover:shadow-lg hover:shadow-black/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                           >
                             <div className="absolute inset-x-0 top-0 h-1" style={{ background: c.color }} />
-                            <div className="mb-2 flex items-center justify-between">
-                              <span className="text-3xl">{c.icon}</span>
+                            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-surface-2/60">
+                              <GraduationCap className="h-5 w-5" style={{ color: c.color }} />
                             </div>
-                            <div className="font-display text-lg font-semibold flex items-center gap-1.5">
-                              {c.name}
-                            </div>
-                            <div className="mt-1 flex flex-wrap gap-1 text-[10px] uppercase tracking-wider text-muted-foreground">
-                              {c.code && <span>{c.code}</span>}
-                              {c.hp != null && <span>• {c.hp} HP</span>}
-                              {c.period && <span>• {c.period}</span>}
-                              {c.arskurs != null && <span>• Åk {c.arskurs}</span>}
+                            <div className="min-w-0 flex-1">
+                              <h3 className="font-display text-sm font-semibold tracking-tight truncate">
+                                {c.name}
+                              </h3>
+                              <div className="mt-1 flex flex-wrap gap-1 text-[10px] uppercase tracking-wider text-muted-foreground">
+                                {c.code && <span>{c.code}</span>}
+                                {c.hp != null && <span>• {c.hp} HP</span>}
+                                {c.period && <span>• {c.period}</span>}
+                                {c.arskurs != null && <span>• Åk {c.arskurs}</span>}
+                              </div>
                             </div>
                           </Link>
                         </div>
@@ -284,38 +278,7 @@ function CoursesPage() {
               Inga avklarade kurser än. När du markerar en kurs som avklarad hamnar den här!
             </div>
           ) : (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {completed.map((c) => (
-                <div key={c.id} className="group relative">
-                  <Link
-                    to="/courses/$courseId"
-                    params={{ courseId: c.id }}
-                    aria-label={`Öppna ${c.name}`}
-                    className="relative block w-full overflow-hidden rounded-2xl border border-border/60 bg-surface/60 backdrop-blur-md p-5 text-left transition-all hover:border-transparent hover:shadow-lg hover:shadow-black/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  >
-                    <div className="absolute inset-x-0 top-0 h-1 bg-c-7" />
-                    <div className="mb-2 flex items-center justify-between">
-                      <span className="text-3xl">{c.icon}</span>
-                      {c.final_grade && (
-                        <span className="rounded-full bg-primary/10 border border-primary/20 px-2 py-0.5 text-[10px] font-bold text-primary">
-                          Betyg: {c.final_grade}
-                        </span>
-                      )}
-                    </div>
-                    <div className="font-display text-lg font-semibold flex items-center gap-1.5">
-                      {c.name}
-                      <CheckCircle2 className="h-4 w-4 text-c-7 shrink-0" />
-                    </div>
-                    <div className="mt-1 flex flex-wrap gap-1 text-[10px] uppercase tracking-wider text-muted-foreground">
-                      {c.code && <span>{c.code}</span>}
-                      {c.hp != null && <span>• {c.hp} HP</span>}
-                      {c.period && <span>• {c.period}</span>}
-                      {c.arskurs != null && <span>• Åk {c.arskurs}</span>}
-                    </div>
-                  </Link>
-                </div>
-              ))}
-            </div>
+            <CompletedList courses={completed} universities={universities} />
           )}
         </TabsContent>
 
@@ -332,20 +295,22 @@ function CoursesPage() {
                     to="/courses/$courseId"
                     params={{ courseId: c.id }}
                     aria-label={`Öppna ${c.name}`}
-                    className="relative block w-full overflow-hidden rounded-2xl border border-border/60 bg-surface/60 backdrop-blur-md p-5 text-left transition-all hover:border-transparent hover:shadow-lg hover:shadow-black/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="relative flex items-center gap-3 w-full overflow-hidden rounded-xl border border-border/60 bg-surface/50 p-3 text-left transition-all hover:border-transparent hover:shadow-lg hover:shadow-black/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     <div className="absolute inset-x-0 top-0 h-1" style={{ background: c.color }} />
-                    <div className="mb-2 flex items-center justify-between">
-                      <span className="text-3xl">{c.icon}</span>
+                    <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-surface-2/60">
+                      <GraduationCap className="h-5 w-5" style={{ color: c.color }} />
                     </div>
-                    <div className="font-display text-lg font-semibold flex items-center gap-1.5">
-                      {c.name}
-                    </div>
-                    <div className="mt-1 flex flex-wrap gap-1 text-[10px] uppercase tracking-wider text-muted-foreground">
-                      {c.code && <span>{c.code}</span>}
-                      {c.hp != null && <span>• {c.hp} HP</span>}
-                      {c.period && <span>• {c.period}</span>}
-                      {c.arskurs != null && <span>• Åk {c.arskurs}</span>}
+                    <div className="min-w-0 flex-1">
+                      <h3 className="font-display text-sm font-semibold tracking-tight truncate">
+                        {c.name}
+                      </h3>
+                      <div className="mt-1 flex flex-wrap gap-1 text-[10px] uppercase tracking-wider text-muted-foreground">
+                        {c.code && <span>{c.code}</span>}
+                        {c.hp != null && <span>• {c.hp} HP</span>}
+                        {c.period && <span>• {c.period}</span>}
+                        {c.arskurs != null && <span>• Åk {c.arskurs}</span>}
+                      </div>
                     </div>
                   </Link>
                 </div>
@@ -361,3 +326,95 @@ function CoursesPage() {
 
 // silence unused type import warnings
 void Textarea;
+
+/* ─── Compact completed-courses list ─── */
+
+const PERIOD_ORDER: CoursePeriod[] = ["P1", "P2", "P3", "P4", "P5"];
+const TERM_ORDER: Term[] = ["HT", "VT", "ST"];
+
+function CompletedList({ courses, universities }: { courses: CourseRow[]; universities: { id: string; name: string }[] }) {
+  const uniMap = new Map(universities.map((u) => [u.id, u.name]));
+
+  // Sort courses by period within each group
+  const sorted = [...courses].sort((a, b) => {
+    const pa = PERIOD_ORDER.indexOf(a.period as CoursePeriod);
+    const pb = PERIOD_ORDER.indexOf(b.period as CoursePeriod);
+    return (pa === -1 ? 99 : pa) - (pb === -1 ? 99 : pb);
+  });
+
+  // Group by årskurs → term
+  type Group = { arskurs: number | null; term: Term | null; courses: CourseRow[] };
+  const groups: Group[] = [];
+  const key = (ak: number | null, t: Term | null) => `${ak ?? "x"}-${t ?? "x"}`;
+  const map = new Map<string, Group>();
+
+  for (const c of sorted) {
+    const t = c.period ? (PERIOD_TO_TERM[c.period as CoursePeriod] ?? null) : null;
+    const k = key(c.arskurs, t);
+    let g = map.get(k);
+    if (!g) {
+      g = { arskurs: c.arskurs, term: t, courses: [] };
+      map.set(k, g);
+      groups.push(g);
+    }
+    g.courses.push(c);
+  }
+
+  // Sort groups: by årskurs asc then term order
+  groups.sort((a, b) => {
+    const akA = a.arskurs ?? 99;
+    const akB = b.arskurs ?? 99;
+    if (akA !== akB) return akA - akB;
+    const tA = a.term ? TERM_ORDER.indexOf(a.term) : 99;
+    const tB = b.term ? TERM_ORDER.indexOf(b.term) : 99;
+    return tA - tB;
+  });
+
+  return (
+    <div className="space-y-5">
+      {groups.map((g) => {
+        const label = [
+          g.arskurs != null ? `Årskurs ${g.arskurs}` : null,
+          g.term ? TERM_LABELS[g.term] : null,
+        ].filter(Boolean).join(" · ") || "Övriga";
+
+        return (
+          <div key={`${g.arskurs}-${g.term}`}>
+            <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              {label}
+              <span className="ml-auto rounded-full bg-surface-2 px-2 py-0.5 text-[10px]">{g.courses.length}</span>
+            </div>
+            <div className="rounded-xl border border-border/60 bg-surface/40 divide-y divide-border/40">
+              {g.courses.map((c) => {
+                const uni = c.university_id ? uniMap.get(c.university_id) : null;
+                return (
+                  <Link
+                    key={c.id}
+                    to="/courses/$courseId"
+                    params={{ courseId: c.id }}
+                    className="flex items-center gap-2.5 px-3 py-2.5 transition-colors hover:bg-white/5 first:rounded-t-xl last:rounded-b-xl"
+                  >
+                    <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-c-7" />
+                    <span className="min-w-0 flex-1 truncate text-sm font-medium">{c.name}</span>
+                    <span className="shrink-0 text-[10px] text-muted-foreground whitespace-nowrap">
+                      {[c.code?.toUpperCase(), uni, c.hp != null ? `${c.hp} HP` : null, c.period].filter(Boolean).join(" · ")}
+                    </span>
+                    {c.final_grade ? (
+                      <span className="shrink-0 rounded-full bg-c-7/15 border border-c-7/30 px-2 py-0.5 text-[10px] font-bold text-c-7 tabular-nums">
+                        {c.final_grade}
+                      </span>
+                    ) : (
+                      <span className="shrink-0 rounded-full bg-surface-2 px-2 py-0.5 text-[10px] text-muted-foreground">
+                        –
+                      </span>
+                    )}
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}

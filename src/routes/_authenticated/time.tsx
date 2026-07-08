@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -175,7 +176,7 @@ function TimePage() {
       .slice(0, 5);
   }, [inPeriod, sessionsInPeriod, aggSessionTasks, allTasks]);
 
-  const totalPeriodHours = +(totalPeriod / 3600).toFixed(1);
+  const totalPeriodHours = +(totalPeriod / 3600).toFixed(2);
   const weeklyTarget = courses.reduce((sum, c) => sum + (c.weekly_goal_hours ?? 0), 0);
   const targetProgress = weeklyTarget > 0 ? Math.min(100, Math.floor((totalPeriodHours / weeklyTarget) * 100)) : 0;
   const targetColor = targetProgress >= 100 ? "var(--c-7)" : "gradient-sunset";

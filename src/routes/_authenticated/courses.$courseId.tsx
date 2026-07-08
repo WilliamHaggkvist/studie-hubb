@@ -199,7 +199,12 @@ function CourseDetail() {
   const toggleArchive = useMutation({
     mutationFn: async () => {
       const nextArchived = !course?.archived;
-      const { error } = await supabase.from("courses").update({ archived: nextArchived }).eq("id", courseId);
+      const update: Record<string, unknown> = { archived: nextArchived };
+      if (nextArchived) {
+        update.completed = false;
+        update.final_grade = null;
+      }
+      const { error } = await supabase.from("courses").update(update).eq("id", courseId);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -264,8 +269,8 @@ function CourseDetail() {
         <div className="absolute inset-0 opacity-25 pointer-events-none" style={{ background: `radial-gradient(circle at 15% 15%, ${course.color}, transparent 55%)` }} />
         <div className="relative flex flex-wrap items-start justify-between gap-4">
           <div className="flex items-start gap-4 min-w-0">
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-3xl select-none" style={{ background: `${course.color}22`, border: `1px solid ${course.color}55` }}>
-              <span className="leading-none pt-0.5">{course.icon}</span>
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl select-none" style={{ background: `${course.color}22`, border: `1px solid ${course.color}55` }}>
+              <GraduationCap className="h-7 w-7" style={{ color: course.color }} />
             </div>
             <div className="min-w-0">
               {course.code && <div className="text-xs uppercase tracking-widest text-muted-foreground">{course.code}</div>}
@@ -279,7 +284,7 @@ function CourseDetail() {
                 {course.arskurs != null && <Chip>Årskurs {course.arskurs}</Chip>}
                 {universityName && <Chip>{universityName}</Chip>}
                 {goalHours > 0 && <Chip>Mål {goalHours} h/v</Chip>}
-                {course.completed && course.final_grade && <Chip highlight>Slutbetyg: {course.final_grade}</Chip>}
+                {!course.archived && course.completed && course.final_grade && <Chip highlight>Slutbetyg: {course.final_grade}</Chip>}
               </div>
             </div>
           </div>
@@ -287,7 +292,7 @@ function CourseDetail() {
             <Button size="sm" className="gap-1 rounded-xl" onClick={() => { timerStore.start({ courseId }); toast.success("Timer startad"); }}>
               <Play className="h-3.5 w-3.5" /> Starta timer
             </Button>
-            {course.completed ? (
+            {!course.archived && (course.completed ? (
               <Button
                 size="sm"
                 variant="outline"
@@ -308,7 +313,7 @@ function CourseDetail() {
               >
                 <CheckCircle2 className="h-3.5 w-3.5" /> Markera avklarad
               </Button>
-            )}
+            ))}
             <Button
               size="sm"
               variant="ghost"
@@ -333,22 +338,22 @@ function CourseDetail() {
         <div className="rounded-2xl border border-border/60 bg-surface/60 p-3">
           <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Denna vecka</div>
           <div className="mt-1 flex items-baseline gap-2">
-            <div className="font-display text-2xl font-bold tabular-nums">{weekHours.toFixed(1)}</div>
+            <div className="font-display text-2xl font-bold tabular-nums">{weekHours.toFixed(2)}</div>
             <div className="text-xs text-muted-foreground">/ {goalHours || "—"} h</div>
           </div>
           <div className="mt-2 h-1.5 rounded-full bg-surface-2 overflow-hidden">
             <div className="h-full rounded-full transition-all" style={{ width: `${goalPct}%`, background: goalColor }} />
           </div>
         </div>
-        <StatBox label="Snitt / vecka" value={stats.avgSec > 0 ? `${(stats.avgSec / 3600).toFixed(1)} h` : "—"} sub={`Totalt ${formatHoursCompact(stats.total)}`} />
+        <StatBox label="Snitt / vecka" value={stats.avgSec > 0 ? `${(stats.avgSec / 3600).toFixed(2)} h` : "—"} sub={`Totalt ${formatHoursCompact(stats.total)}`} />
         <StatBox
           label="Max vecka"
-          value={stats.maxW ? `${(stats.maxW.sec / 3600).toFixed(1)} h` : "—"}
+          value={stats.maxW ? `${(stats.maxW.sec / 3600).toFixed(2)} h` : "—"}
           sub={stats.maxW ? format(stats.maxW.start, "'v.'w", { locale: sv }) : ""}
         />
         <StatBox
           label="Min vecka"
-          value={stats.minW ? `${(stats.minW.sec / 3600).toFixed(1)} h` : "—"}
+          value={stats.minW ? `${(stats.minW.sec / 3600).toFixed(2)} h` : "—"}
           sub={stats.minW ? format(stats.minW.start, "'v.'w", { locale: sv }) : ""}
         />
       </div>
@@ -574,7 +579,6 @@ function EditCourseDialog({ open, onOpenChange, course }: { open: boolean; onOpe
   const [form, setForm] = useState({
     name: course.name,
     code: course.code ?? "",
-    icon: course.icon ?? DEFAULT_COURSE_ICONS[0],
     color: course.color,
     hp: course.hp?.toString() ?? "",
     period: course.period ?? "",
@@ -591,7 +595,6 @@ function EditCourseDialog({ open, onOpenChange, course }: { open: boolean; onOpe
       const { error } = await supabase.from("courses").update({
         name: form.name.trim(),
         code: form.code.trim() || null,
-        icon: form.icon,
         color: form.color,
         hp: form.hp ? Number(form.hp) : null,
         period: (form.period || null) as "P1" | "P2" | "P3" | "P4" | "P5" | null,
@@ -664,14 +667,6 @@ function EditCourseDialog({ open, onOpenChange, course }: { open: boolean; onOpe
           <div className="space-y-1.5">
             <Label>Kurslitteratur</Label>
             <Textarea rows={4} value={form.literature} onChange={(e) => setForm({ ...form, literature: e.target.value })} className="rounded-xl" placeholder="En bok per rad, gärna med författare och upplaga…" />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Ikon</Label>
-            <div className="flex flex-wrap gap-1">
-              {DEFAULT_COURSE_ICONS.map((i) => (
-                <button type="button" key={i} onClick={() => setForm({ ...form, icon: i })} className={cn("grid h-9 w-9 place-items-center rounded-xl border text-lg", form.icon === i ? "border-primary bg-surface-2" : "border-border/60 hover:bg-surface")}>{i}</button>
-              ))}
-            </div>
           </div>
           <div className="space-y-1.5">
             <Label>Färg</Label>

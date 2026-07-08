@@ -222,21 +222,21 @@ function Dashboard() {
                       return (
                         <Link key={c.id} to="/courses/$courseId" params={{ courseId: c.id }} className="group rounded-xl glass border-white/5 p-4 transition-colors hover:border-primary/40 hover:bg-white/5">
                           <div className="flex items-center gap-2">
-                            <span className="text-xl">{c.icon || "📚"}</span>
+                            <GraduationCap className="h-5 w-5 shrink-0" style={{ color: c.color }} />
                             <span className="min-w-0 flex-1 truncate font-display font-semibold">{c.name}</span>
                           </div>
                           {goal > 0 ? (
                             <>
                               <div className="mt-3 flex items-center justify-between text-xs">
                                 <span className="text-muted-foreground">Vecka</span>
-                                <span className="tabular-nums">{hoursThisWeek.toFixed(1)} / {goal} h</span>
+                                <span className="tabular-nums">{hoursThisWeek.toFixed(2)} / {goal} h</span>
                               </div>
                               <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-surface-2">
                                 <div className="h-full rounded-full" style={{ width: `${pct}%`, background: c.color }} />
                               </div>
                             </>
                           ) : (
-                            <div className="mt-3 text-xs text-muted-foreground">Inget veckomål · {hoursThisWeek.toFixed(1)} h denna vecka</div>
+                            <div className="mt-3 text-xs text-muted-foreground">Inget veckomål · {hoursThisWeek.toFixed(2)} h denna vecka</div>
                           )}
                         </Link>
                       );

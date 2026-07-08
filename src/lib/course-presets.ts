@@ -20,4 +20,36 @@ export const DEFAULT_COURSE_ICONS = ["📚", "🧮", "🧪", "💻", "🎨", "�
 export const COURSE_PERIODS = ["P1", "P2", "P3", "P4", "P5"] as const;
 export type CoursePeriod = (typeof COURSE_PERIODS)[number];
 
+/** Academic terms (terminer). */
+export const TERMS = ["HT", "VT", "ST"] as const;
+export type Term = (typeof TERMS)[number];
+
+export const TERM_LABELS: Record<Term, string> = {
+  HT: "Hösttermin",
+  VT: "Vårtermin",
+  ST: "Sommartermin",
+};
+
+/** Maps each study period to its parent term. */
+export const PERIOD_TO_TERM: Record<CoursePeriod, Term> = {
+  P1: "HT",
+  P2: "HT",
+  P3: "VT",
+  P4: "VT",
+  P5: "ST",
+};
+
+/** Returns which periods belong to a given term. */
+export const TERM_PERIODS: Record<Term, readonly CoursePeriod[]> = {
+  HT: ["P1", "P2"],
+  VT: ["P3", "P4"],
+  ST: ["P5"],
+};
+
+/** Get the term for a period, or null if period is undefined/null. */
+export function getTermForPeriod(period: CoursePeriod | null | undefined): Term | null {
+  if (!period) return null;
+  return PERIOD_TO_TERM[period] ?? null;
+}
+
 export const ARSKURS_OPTIONS = [1, 2, 3, 4, 5, 6] as const;

@@ -14,6 +14,7 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as EmailUnsubscribeRouteImport } from './routes/email/unsubscribe'
+import { Route as AuthenticatedTipsRouteImport } from './routes/_authenticated/tips'
 import { Route as AuthenticatedTimeRouteImport } from './routes/_authenticated/time'
 import { Route as AuthenticatedTasksRouteImport } from './routes/_authenticated/tasks'
 import { Route as AuthenticatedStatsRouteImport } from './routes/_authenticated/stats'
@@ -56,6 +57,11 @@ const EmailUnsubscribeRoute = EmailUnsubscribeRouteImport.update({
   id: '/email/unsubscribe',
   path: '/email/unsubscribe',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedTipsRoute = AuthenticatedTipsRouteImport.update({
+  id: '/tips',
+  path: '/tips',
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedTimeRoute = AuthenticatedTimeRouteImport.update({
   id: '/time',
@@ -167,6 +173,7 @@ export interface FileRoutesByFullPath {
   '/stats': typeof AuthenticatedStatsRoute
   '/tasks': typeof AuthenticatedTasksRoute
   '/time': typeof AuthenticatedTimeRoute
+  '/tips': typeof AuthenticatedTipsRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
   '/courses/$courseId': typeof AuthenticatedCoursesCourseIdRoute
   '/notes/$noteId': typeof AuthenticatedNotesNoteIdRoute
@@ -189,6 +196,7 @@ export interface FileRoutesByTo {
   '/stats': typeof AuthenticatedStatsRoute
   '/tasks': typeof AuthenticatedTasksRoute
   '/time': typeof AuthenticatedTimeRoute
+  '/tips': typeof AuthenticatedTipsRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
   '/courses/$courseId': typeof AuthenticatedCoursesCourseIdRoute
   '/notes/$noteId': typeof AuthenticatedNotesNoteIdRoute
@@ -215,6 +223,7 @@ export interface FileRoutesById {
   '/_authenticated/stats': typeof AuthenticatedStatsRoute
   '/_authenticated/tasks': typeof AuthenticatedTasksRoute
   '/_authenticated/time': typeof AuthenticatedTimeRoute
+  '/_authenticated/tips': typeof AuthenticatedTipsRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
   '/_authenticated/courses/$courseId': typeof AuthenticatedCoursesCourseIdRoute
   '/_authenticated/notes/$noteId': typeof AuthenticatedNotesNoteIdRoute
@@ -241,6 +250,7 @@ export interface FileRouteTypes {
     | '/stats'
     | '/tasks'
     | '/time'
+    | '/tips'
     | '/email/unsubscribe'
     | '/courses/$courseId'
     | '/notes/$noteId'
@@ -263,6 +273,7 @@ export interface FileRouteTypes {
     | '/stats'
     | '/tasks'
     | '/time'
+    | '/tips'
     | '/email/unsubscribe'
     | '/courses/$courseId'
     | '/notes/$noteId'
@@ -288,6 +299,7 @@ export interface FileRouteTypes {
     | '/_authenticated/stats'
     | '/_authenticated/tasks'
     | '/_authenticated/time'
+    | '/_authenticated/tips'
     | '/email/unsubscribe'
     | '/_authenticated/courses/$courseId'
     | '/_authenticated/notes/$noteId'
@@ -351,6 +363,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/email/unsubscribe'
       preLoaderRoute: typeof EmailUnsubscribeRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/tips': {
+      id: '/_authenticated/tips'
+      path: '/tips'
+      fullPath: '/tips'
+      preLoaderRoute: typeof AuthenticatedTipsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/time': {
       id: '/_authenticated/time'
@@ -516,6 +535,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedStatsRoute: typeof AuthenticatedStatsRoute
   AuthenticatedTasksRoute: typeof AuthenticatedTasksRoute
   AuthenticatedTimeRoute: typeof AuthenticatedTimeRoute
+  AuthenticatedTipsRoute: typeof AuthenticatedTipsRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
@@ -527,6 +547,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedStatsRoute: AuthenticatedStatsRoute,
   AuthenticatedTasksRoute: AuthenticatedTasksRoute,
   AuthenticatedTimeRoute: AuthenticatedTimeRoute,
+  AuthenticatedTipsRoute: AuthenticatedTipsRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =

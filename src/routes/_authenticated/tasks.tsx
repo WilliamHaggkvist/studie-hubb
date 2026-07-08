@@ -197,20 +197,33 @@ function TasksPage() {
 
   const setStatus = (t: Task, s: TaskStatus) => {
     if (s === "done") {
-      setCompleteFor(t);
+      if (t.task_type === "annat" || t.task_type === "modul") {
+        upsert.mutate({
+          id: t.id,
+          status: "done",
+          completed_at: new Date().toISOString(),
+          grade: null,
+          points: null,
+          pending_review: false,
+        });
+      } else {
+        setCompleteFor(t);
+      }
       return;
     }
-    const patch: Partial<Task> & { id: string; completed_at?: string | null } = {
+    const wasCompleted = t.status === "done";
+    const patch: Partial<Task> & { id: string; completed_at?: string | null; grade?: string | null; points?: string | null; pending_review?: boolean } = {
       id: t.id,
       status: s,
+      completed_at: null,
+      ...(wasCompleted && { grade: null, points: null, pending_review: false }),
     };
-    (patch as { completed_at?: string | null }).completed_at = null;
     upsert.mutate(patch);
   };
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
   const onDragEnd = (e: DragEndEvent) => {
-    const t = board.find((x) => x.id === e.active.id);
+    const t = filtered.find((x) => x.id === e.active.id);
     const target = e.over?.id as TaskStatus | undefined;
     if (!t || !target || t.status === target) return;
     setStatus(t, target);
@@ -261,21 +274,21 @@ function TasksPage() {
               <Column key={col.key} col={col} tasks={board.filter((t) => t.status === col.key)} courses={courses} onOpen={setEditing} />
             ))}
           </div>
-        </DndContext>
 
-        {pending.length > 0 && (
-          <div className="rounded-2xl border border-border/60 bg-surface/40 p-3">
-            <div className="mb-2 flex items-center gap-2 px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              <Inbox className="h-3.5 w-3.5" /> Väntar på bedömning
-              <span className="ml-auto rounded-full bg-surface-2 px-2 py-0.5 text-[10px]">{pending.length}</span>
+          {pending.length > 0 && (
+            <div className="rounded-2xl border border-border/60 bg-surface/40 p-3">
+              <div className="mb-2 flex items-center gap-2 px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                <Inbox className="h-3.5 w-3.5" /> Väntar på bedömning
+                <span className="ml-auto rounded-full bg-surface-2 px-2 py-0.5 text-[10px]">{pending.length}</span>
+              </div>
+              <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
+                {pending.map((t) => (
+                  <DraggableCard key={t.id} task={t} courses={courses} onOpen={setCompleteFor} />
+                ))}
+              </div>
             </div>
-            <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
-              {pending.map((t) => (
-                <Card key={t.id} task={t} courses={courses} onOpen={setCompleteFor} />
-              ))}
-            </div>
-          </div>
-        )}
+          )}
+        </DndContext>
 
         {filtered.length === 0 && (
           <div className="rounded-2xl border border-dashed border-border/60 bg-surface/40 p-10 text-center text-sm text-muted-foreground">
@@ -386,7 +399,7 @@ function Card({ task, courses, onOpen }: { task: Task; courses: Course[]; onOpen
             <CalIcon className="h-2.5 w-2.5" /> {format(parseISO(task.due_at), "d MMM", { locale: sv })} · {daysLeftLabel(task.due_at)}
           </span>
         )}
-        {task.grade && <span className="rounded-full bg-surface-2 px-1.5 py-0.5">Betyg: {task.grade}</span>}
+        {task.grade && task.task_type !== "annat" && task.task_type !== "modul" && <span className="rounded-full bg-surface-2 px-1.5 py-0.5">Betyg: {task.grade}</span>}
       </div>
     </button>
   );
@@ -481,18 +494,25 @@ function CompleteDialog({
   const [points, setPoints] = useState("");
   useEffect(() => { setGrade(task?.grade ?? ""); setPoints(task?.points ?? ""); }, [task]);
   if (!task) return null;
+  const noGrade = task.task_type === "annat" || task.task_type === "modul";
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-sm">
         <DialogHeader><DialogTitle className="font-display">Markera som klar</DialogTitle></DialogHeader>
-        <p className="text-sm text-muted-foreground">Fyll i betyg och poäng. Använd <code>-</code> om det inte gäller. När båda är ifyllda markeras uppgiften som klar.</p>
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1.5"><Label>Betyg</Label><Input autoFocus value={grade} onChange={(e) => setGrade(e.target.value)} placeholder="A / 5 / -" /></div>
-          <div className="space-y-1.5"><Label>Poäng</Label><Input value={points} onChange={(e) => setPoints(e.target.value)} placeholder="18/20 / -" /></div>
-        </div>
+        {noGrade ? (
+          <p className="text-sm text-muted-foreground">Uppgiften markeras som klar utan betyg eller poäng.</p>
+        ) : (
+          <>
+            <p className="text-sm text-muted-foreground">Fyll i betyg och poäng. Använd <code>-</code> om det inte gäller. När båda är ifyllda markeras uppgiften som klar.</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5"><Label>Betyg</Label><Input autoFocus value={grade} onChange={(e) => setGrade(e.target.value)} placeholder="A / 5 / -" /></div>
+              <div className="space-y-1.5"><Label>Poäng</Label><Input value={points} onChange={(e) => setPoints(e.target.value)} placeholder="18/20 / -" /></div>
+            </div>
+          </>
+        )}
         <DialogFooter className="gap-2">
           <Button variant="ghost" onClick={onClose}>Avbryt</Button>
-          <Button variant="outline" onClick={() => onPending(task)}>Väntar på bedömning</Button>
+          {!noGrade && <Button variant="outline" onClick={() => onPending(task)}>Väntar på bedömning</Button>}
           <Button onClick={() => onDone(task, grade, points)} className="gradient-sunset text-white hover:opacity-90">Spara</Button>
         </DialogFooter>
       </DialogContent>
