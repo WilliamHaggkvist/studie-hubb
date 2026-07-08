@@ -191,6 +191,41 @@ export type Database = {
           },
         ]
       }
+      email_reminders_sent: {
+        Row: {
+          dedupe_key: string
+          id: string
+          kind: string
+          sent_at: string
+          task_id: string | null
+          user_id: string
+        }
+        Insert: {
+          dedupe_key: string
+          id?: string
+          kind: string
+          sent_at?: string
+          task_id?: string | null
+          user_id: string
+        }
+        Update: {
+          dedupe_key?: string
+          id?: string
+          kind?: string
+          sent_at?: string
+          task_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_reminders_sent_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       email_send_log: {
         Row: {
           created_at: string
@@ -514,6 +549,41 @@ export type Database = {
         }
         Relationships: []
       }
+      task_reminder_overrides: {
+        Row: {
+          created_at: string
+          disabled: boolean
+          offsets: number[] | null
+          task_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          disabled?: boolean
+          offsets?: number[] | null
+          task_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          disabled?: boolean
+          offsets?: number[] | null
+          task_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_reminder_overrides_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: true
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tasks: {
         Row: {
           completed_at: string | null
@@ -703,32 +773,50 @@ export type Database = {
         Row: {
           created_at: string
           current_year: number
+          daily_summary_enabled: boolean
           density: string
+          email_reminders_enabled: boolean
           google_calendar_id: string | null
           google_connected: boolean
+          reminder_fallback_hour: number
+          reminder_offsets: number[]
+          timezone: string
           translucent: boolean
           updated_at: string
           user_id: string
+          weekly_summary_enabled: boolean
         }
         Insert: {
           created_at?: string
           current_year?: number
+          daily_summary_enabled?: boolean
           density?: string
+          email_reminders_enabled?: boolean
           google_calendar_id?: string | null
           google_connected?: boolean
+          reminder_fallback_hour?: number
+          reminder_offsets?: number[]
+          timezone?: string
           translucent?: boolean
           updated_at?: string
           user_id: string
+          weekly_summary_enabled?: boolean
         }
         Update: {
           created_at?: string
           current_year?: number
+          daily_summary_enabled?: boolean
           density?: string
+          email_reminders_enabled?: boolean
           google_calendar_id?: string | null
           google_connected?: boolean
+          reminder_fallback_hour?: number
+          reminder_offsets?: number[]
+          timezone?: string
           translucent?: boolean
           updated_at?: string
           user_id?: string
+          weekly_summary_enabled?: boolean
         }
         Relationships: []
       }
