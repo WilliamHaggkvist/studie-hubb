@@ -86,94 +86,107 @@ export async function syncGoogleCalendarForUser(
   let unmapped = 0;
   let totalItems = 0;
 
+  let fetchFailed = false;
+
   for (const t of targets) {
-    const url = new URL(
-      `${GATEWAY_URL}/calendars/${encodeURIComponent(t.google_calendar_id)}/events`,
-    );
-    url.searchParams.set("timeMin", timeMin);
-    url.searchParams.set("timeMax", timeMax);
-    url.searchParams.set("singleEvents", "true");
-    url.searchParams.set("orderBy", "startTime");
-    url.searchParams.set("maxResults", "500");
-    const res = await fetch(url.toString(), { headers });
-    if (!res.ok) continue;
-    const json = (await res.json()) as { items?: GEvent[] };
-    const items = json.items ?? [];
-    totalItems += items.length;
+    let pageToken: string | undefined = undefined;
+    
+    do {
+      const url = new URL(
+        `${GATEWAY_URL}/calendars/${encodeURIComponent(t.google_calendar_id)}/events`,
+      );
+      url.searchParams.set("timeMin", timeMin);
+      url.searchParams.set("timeMax", timeMax);
+      url.searchParams.set("singleEvents", "true");
+      url.searchParams.set("orderBy", "startTime");
+      url.searchParams.set("maxResults", "250");
+      if (pageToken) {
+        url.searchParams.set("pageToken", pageToken);
+      }
+      
+      const res = await fetch(url.toString(), { headers });
+      if (!res.ok) {
+        fetchFailed = true;
+        break; // Avbryt denna kalender
+      }
+      
+      const json = (await res.json()) as { items?: GEvent[]; nextPageToken?: string };
+      const items = json.items ?? [];
+      totalItems += items.length;
+      pageToken = json.nextPageToken;
 
-    for (const ev of items) {
-      if (ev.status === "cancelled") continue;
-      const startsRaw = ev.start?.dateTime ?? ev.start?.date;
-      const endsRaw = ev.end?.dateTime ?? ev.end?.date ?? startsRaw;
-      if (!startsRaw || !endsRaw) continue;
-      const allDay = !ev.start?.dateTime;
-      const title = ev.summary ?? "(utan titel)";
-      const isTaggedSession = title.startsWith("[Studiepass]");
-      // Ett event blir studiepass om det taggats så eller om kalendern räknas som studietid
-      const isSession = isTaggedSession || !!t.counts_as_study;
+      for (const ev of items) {
+        if (ev.status === "cancelled") continue;
+        const startsRaw = ev.start?.dateTime ?? ev.start?.date;
+        const endsRaw = ev.end?.dateTime ?? ev.end?.date ?? startsRaw;
+        if (!startsRaw || !endsRaw) continue;
+        const allDay = !ev.start?.dateTime;
+        const title = ev.summary ?? "(utan titel)";
+        const isTaggedSession = title.startsWith("[Studiepass]");
+        const isSession = isTaggedSession || !!t.counts_as_study;
 
-      if (isSession) {
-        seenSessionIds.add(ev.id);
+        if (isSession) {
+          seenSessionIds.add(ev.id);
+          const code = parseCourseCode(title);
+          const courseId = code ? codeMap.get(code) ?? null : null;
+          const { data: existingRecords } = await supabase
+            .from("study_sessions")
+            .select("id")
+            .eq("google_event_id", ev.id);
+            
+          const base = {
+            user_id: userId,
+            planned_start: new Date(startsRaw).toISOString(),
+            planned_end: new Date(endsRaw).toISOString(),
+            notes: isTaggedSession
+              ? title.replace("[Studiepass]", "").trim() || null
+              : title,
+            source: "google",
+            google_event_id: ev.id,
+          };
+          
+          if (existingRecords && existingRecords.length > 0) {
+            const existing = existingRecords[0];
+            
+            if (existingRecords.length > 1) {
+              const duplicateIds = existingRecords.slice(1).map(r => r.id);
+              await supabase.from("study_sessions").delete().in("id", duplicateIds);
+            }
+            
+            const { error } = await supabase
+              .from("study_sessions")
+              .update(base)
+              .eq("id", existing.id);
+            if (!error) sessions++;
+          } else {
+            const { error } = await supabase
+              .from("study_sessions")
+              .insert({ ...base, course_id: courseId, needs_review: true });
+            if (!error) sessions++;
+          }
+          continue;
+        }
+
+        seenEventIds.add(ev.id);
         const code = parseCourseCode(title);
         const courseId = code ? codeMap.get(code) ?? null : null;
-        const { data: existingRecords } = await supabase
-          .from("study_sessions")
-          .select("id")
-          .eq("google_event_id", ev.id);
-          
-        const base = {
+        if (courseId) mapped++;
+        else unmapped++;
+
+        rows.push({
           user_id: userId,
-          planned_start: new Date(startsRaw).toISOString(),
-          planned_end: new Date(endsRaw).toISOString(),
-          notes: isTaggedSession
-            ? title.replace("[Studiepass]", "").trim() || null
-            : title,
+          title,
+          location: ev.location ?? null,
+          starts_at: new Date(startsRaw).toISOString(),
+          ends_at: new Date(endsRaw).toISOString(),
+          all_day: allDay,
           source: "google",
-          google_event_id: ev.id,
-        };
-        
-        if (existingRecords && existingRecords.length > 0) {
-          const existing = existingRecords[0];
-          
-          // Om det finns dubbletter på grund av tidigare bugg, ta bort dem
-          if (existingRecords.length > 1) {
-            const duplicateIds = existingRecords.slice(1).map(r => r.id);
-            await supabase.from("study_sessions").delete().in("id", duplicateIds);
-          }
-          
-          const { error } = await supabase
-            .from("study_sessions")
-            .update(base)
-            .eq("id", existing.id);
-          if (!error) sessions++;
-        } else {
-          const { error } = await supabase
-            .from("study_sessions")
-            .insert({ ...base, course_id: courseId, needs_review: true });
-          if (!error) sessions++;
-        }
-        continue;
+          external_id: ev.id,
+          counts_as_study: false,
+          course_id: courseId,
+        });
       }
-
-      seenEventIds.add(ev.id);
-      const code = parseCourseCode(title);
-      const courseId = code ? codeMap.get(code) ?? null : null;
-      if (courseId) mapped++;
-      else unmapped++;
-
-      rows.push({
-        user_id: userId,
-        title,
-        location: ev.location ?? null,
-        starts_at: new Date(startsRaw).toISOString(),
-        ends_at: new Date(endsRaw).toISOString(),
-        all_day: allDay,
-        source: "google",
-        external_id: ev.id,
-        counts_as_study: false,
-        course_id: courseId,
-      });
-    }
+    } while (pageToken);
   }
 
   let imported = 0;
@@ -186,34 +199,37 @@ export async function syncGoogleCalendarForUser(
   }
 
   // Google är källan – ta bort pass/event som inte längre finns där inom synkfönstret.
-  const inList = (ids: string[]) =>
-    `(${ids.map((id) => `"${id.replace(/"/g, "")}"`).join(",")})`;
+  // Men bara om vi lyckades hämta alla kalendrar utan fel, annars riskerar vi att radera pass felaktigt.
+  if (!fetchFailed) {
+    const inList = (ids: string[]) =>
+      `(${ids.map((id) => `"${id.replace(/"/g, "")}"`).join(",")})`;
 
-  {
-    let q = supabase
-      .from("study_sessions")
-      .delete()
-      .eq("user_id", userId)
-      .eq("source", "google")
-      .gte("planned_start", timeMin)
-      .lte("planned_start", timeMax);
-    if (seenSessionIds.size > 0) {
-      q = q.not("google_event_id", "in", inList(Array.from(seenSessionIds)));
+    {
+      let q = supabase
+        .from("study_sessions")
+        .delete()
+        .eq("user_id", userId)
+        .eq("source", "google")
+        .gte("planned_start", timeMin)
+        .lte("planned_start", timeMax);
+      if (seenSessionIds.size > 0) {
+        q = q.not("google_event_id", "in", inList(Array.from(seenSessionIds)));
+      }
+      await q;
     }
-    await q;
-  }
-  {
-    let q = supabase
-      .from("calendar_events")
-      .delete()
-      .eq("user_id", userId)
-      .eq("source", "google")
-      .gte("starts_at", timeMin)
-      .lte("starts_at", timeMax);
-    if (seenEventIds.size > 0) {
-      q = q.not("external_id", "in", inList(Array.from(seenEventIds)));
+    {
+      let q = supabase
+        .from("calendar_events")
+        .delete()
+        .eq("user_id", userId)
+        .eq("source", "google")
+        .gte("starts_at", timeMin)
+        .lte("starts_at", timeMax);
+      if (seenEventIds.size > 0) {
+        q = q.not("external_id", "in", inList(Array.from(seenEventIds)));
+      }
+      await q;
     }
-    await q;
   }
 
   return {
