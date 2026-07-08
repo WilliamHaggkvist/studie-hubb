@@ -54,6 +54,7 @@ type SessionAgg = {
 };
 
 function TimePage() {
+  const qc = useQueryClient();
   const [period, setPeriod] = useState<"week" | "30">("week");
 
   const { data: allCourses = [] } = useQuery(coursesQuery);
@@ -381,6 +382,23 @@ function SessionsPanel({ courses, allTasks }: { courses: Course[]; allTasks: Tas
     onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Fel"),
   });
 
+  const sync = useMutation({
+    mutationFn: async () => {
+      const { syncGoogleCalendar } = await import("@/lib/google-calendar.functions");
+      return await syncGoogleCalendar();
+    },
+    onSuccess: (r) => {
+      qc.invalidateQueries({ queryKey: ["study_sessions"] });
+      qc.invalidateQueries({ queryKey: ["study_sessions", "agg"] });
+      qc.invalidateQueries({ queryKey: ["time_entries"] });
+      qc.invalidateQueries({ queryKey: ["stats"] });
+      toast.success(
+        `Synkat ${r.calendars} kalender(-rar): ${r.imported} händelser, ${r.sessions} studiepass`,
+      );
+    },
+    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Synkfel"),
+  });
+
   const inbox = sessions.filter((s) => s.needs_review);
   const reviewed = sessions.filter((s) => !s.needs_review);
   const planned = reviewed.filter((s) => !s.completed);
@@ -409,12 +427,22 @@ function SessionsPanel({ courses, allTasks }: { courses: Course[]; allTasks: Tas
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="text-sm text-muted-foreground">
           {inbox.length > 0 && <span className="mr-2 text-sunset-amber">{inbox.length} i inkorg · </span>}
           {planned.length} planerade · {completed.length} genomförda
         </div>
-        <div className="text-xs text-muted-foreground">Studiepass schemaläggs i Google Kalender</div>
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="text-xs text-muted-foreground">Studiepass schemaläggs i Google Kalender</span>
+          <Button
+            size="sm"
+            onClick={() => sync.mutate()}
+            disabled={sync.isPending}
+            className="gap-1 rounded-xl gradient-sunset text-white hover:opacity-90"
+          >
+            {sync.isPending ? "Synkar…" : "Synka nu"}
+          </Button>
+        </div>
       </div>
 
       {inbox.length > 0 && (
