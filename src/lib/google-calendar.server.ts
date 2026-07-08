@@ -116,11 +116,11 @@ export async function syncGoogleCalendarForUser(
         seenSessionIds.add(ev.id);
         const code = parseCourseCode(title);
         const courseId = code ? codeMap.get(code) ?? null : null;
-        const { data: existing } = await supabase
+        const { data: existingRecords } = await supabase
           .from("study_sessions")
           .select("id")
-          .eq("google_event_id", ev.id)
-          .maybeSingle();
+          .eq("google_event_id", ev.id);
+          
         const base = {
           user_id: userId,
           planned_start: new Date(startsRaw).toISOString(),
@@ -131,7 +131,16 @@ export async function syncGoogleCalendarForUser(
           source: "google",
           google_event_id: ev.id,
         };
-        if (existing) {
+        
+        if (existingRecords && existingRecords.length > 0) {
+          const existing = existingRecords[0];
+          
+          // Om det finns dubbletter på grund av tidigare bugg, ta bort dem
+          if (existingRecords.length > 1) {
+            const duplicateIds = existingRecords.slice(1).map(r => r.id);
+            await supabase.from("study_sessions").delete().in("id", duplicateIds);
+          }
+          
           const { error } = await supabase
             .from("study_sessions")
             .update(base)
