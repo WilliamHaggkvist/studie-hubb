@@ -97,14 +97,14 @@ function AuthPage() {
   return (
     <div className="relative min-h-screen overflow-hidden bg-background">
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute -top-40 -left-32 h-96 w-96 rounded-full bg-sunset-coral/20 blur-3xl" />
-        <div className="absolute top-1/2 -right-32 h-96 w-96 rounded-full bg-sunset-violet/20 blur-3xl" />
-        <div className="absolute -bottom-40 left-1/3 h-96 w-96 rounded-full bg-sunset-amber/10 blur-3xl" />
+        <div className="absolute -top-40 -left-32 h-[500px] w-[500px] rounded-full bg-[#277da1]/18 blur-[120px] animate-blob-1" />
+        <div className="absolute top-1/2 -right-32 h-[500px] w-[500px] rounded-full bg-[#43aa8b]/15 blur-[120px] animate-blob-2" />
+        <div className="absolute -bottom-40 left-1/3 h-[500px] w-[500px] rounded-full bg-[#4d908e]/12 blur-[120px] animate-blob-3" />
       </div>
 
       <div className="relative mx-auto flex min-h-screen max-w-6xl flex-col items-center justify-center px-6 py-12">
         <div className="mb-10 text-center">
-          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-border/60 bg-surface/60 px-3 py-1 text-xs text-muted-foreground backdrop-blur">
+          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/5 bg-white/5 px-3 py-1 text-xs text-muted-foreground backdrop-blur-md">
             <Sparkles className="h-3 w-3 text-sunset-amber" />
             Din studiearbetsyta
           </div>
@@ -116,7 +116,7 @@ function AuthPage() {
           </p>
         </div>
 
-        <Card className="w-full max-w-md border-border/60 bg-surface/70 backdrop-blur-xl">
+        <Card className="w-full max-w-md glass border-white/5 shadow-2xl">
           <CardHeader>
             <CardTitle className="font-display">Kom igång</CardTitle>
             <CardDescription>Personlig arbetsyta — logga in med din kod.</CardDescription>

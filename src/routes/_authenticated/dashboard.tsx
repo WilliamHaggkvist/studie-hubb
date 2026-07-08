@@ -92,8 +92,7 @@ function Dashboard() {
   const now = new Date();
   const hour = now.getHours();
   const greeting = hour < 6 ? "God natt" : hour < 12 ? "God morgon" : hour < 18 ? "God dag" : "God kväll";
-
-  return (
+  return (
     <div className="mx-auto max-w-6xl px-4 py-8 lg:px-8">
       <div className="mb-8">
         <div className="text-xs uppercase tracking-widest text-muted-foreground">{format(now, "EEEE d MMMM", { locale: sv })}</div>
@@ -119,11 +118,11 @@ function Dashboard() {
             const goal = c.weekly_goal_hours ?? 0;
             const pct = goal > 0 ? Math.min(100, (hoursThisWeek / goal) * 100) : 0;
             return (
-              <Link key={c.id} to="/courses/$courseId" params={{ courseId: c.id }} className="group rounded-xl border border-border/60 bg-surface/60 p-4 transition-colors hover:border-sunset-coral/40">
+              <Link key={c.id} to="/courses/$courseId" params={{ courseId: c.id }} className="group rounded-xl glass border-white/5 p-4 transition-colors hover:border-primary/40 hover:bg-white/5">
                 <div className="flex items-center gap-2">
                   <span className="text-xl">{c.icon || "📚"}</span>
                   <span className="min-w-0 flex-1 truncate font-display font-semibold">{c.name}</span>
-                  <span className="inline-block h-2 w-2 rounded-full" style={{ background: c.color }} />
+                  <span className="inline-block h-2 w-2 shrink-0 rounded-full" style={{ background: c.color }} />
                 </div>
                 {goal > 0 ? (
                   <>
@@ -146,9 +145,11 @@ function Dashboard() {
 
       <div className="grid gap-4 lg:grid-cols-2">
         {/* Idag */}
-        <Card className="border-border/60 bg-surface/60">
+        <Card className="glass border-white/5 shadow-lg">
           <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="font-display text-base flex items-center gap-2"><Clock className="h-4 w-4 text-sunset-coral" /> Idag</CardTitle>
+            <CardTitle className="font-display text-base flex items-center gap-2">
+              <Clock className="h-4 w-4" style={{ color: "var(--c-7)" }} /> Idag
+            </CardTitle>
             <div className="text-xs text-muted-foreground">
               {formatHoursCompact(weekEntries.filter((e) => isSameDay(new Date(e.started_at), new Date())).reduce((s, e) => s + (e.duration_seconds ?? 0), 0))} loggat
             </div>
@@ -160,11 +161,11 @@ function Dashboard() {
               {todaysSessions.map((s) => {
                 const c = courses.find((c) => c.id === s.course_id);
                 return (
-                  <div key={s.id} className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-surface">
+                  <div key={s.id} className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-white/5">
                     <GraduationCap className="h-3.5 w-3.5" style={{ color: c?.color ?? "var(--sunset-violet)" }} />
                     <span className="tabular-nums text-xs text-muted-foreground">{format(parseISO(s.planned_start), "HH:mm")}–{format(parseISO(s.planned_end), "HH:mm")}</span>
                     <span className="min-w-0 flex-1 truncate">{c?.name ?? "Ingen kurs"}</span>
-                    {s.completed && <span className="text-[10px] uppercase text-sunset-coral">Klart</span>}
+                    {s.completed && <span className="text-[10px] uppercase font-bold" style={{ color: "var(--c-7)" }}>Klart</span>}
                   </div>
                 );
               })}
@@ -175,7 +176,7 @@ function Dashboard() {
               {todayTasks.map((t) => {
                 const c = courses.find((c) => c.id === t.course_id);
                 return (
-                  <Link key={t.id} to="/tasks" className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-surface">
+                  <Link key={t.id} to="/tasks" className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-white/5">
                     <span className="inline-block h-2 w-2 rounded-full" style={{ background: c?.color ?? "var(--muted-foreground)" }} />
                     <span className="min-w-0 flex-1 truncate">{t.title}</span>
                     {t.task_kind === "exam" && <span className="rounded-full bg-sunset-rose/20 px-1.5 py-0.5 text-[9px] uppercase text-sunset-rose">Exam</span>}
@@ -187,9 +188,11 @@ function Dashboard() {
         </Card>
 
         {/* Denna vecka */}
-        <Card className="border-border/60 bg-surface/60">
+        <Card className="glass border-white/5 shadow-lg">
           <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="font-display text-base flex items-center gap-2"><CalendarIcon className="h-4 w-4 text-sunset-violet" /> Denna vecka</CardTitle>
+            <CardTitle className="font-display text-base flex items-center gap-2">
+              <CalendarIcon className="h-4 w-4" style={{ color: "var(--c-10)" }} /> Denna vecka
+            </CardTitle>
             <Link to="/stats" className="text-xs text-muted-foreground hover:text-foreground">Statistik →</Link>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -199,19 +202,19 @@ function Dashboard() {
                 {perDay.map((p) => (
                   <div key={p.d.toISOString()} className="flex flex-1 flex-col items-center gap-1">
                     <div className="flex h-16 w-full items-end">
-                      <div className="w-full rounded-t bg-gradient-to-t from-sunset-violet to-sunset-coral" style={{ height: `${Math.max(4, (p.hours / maxDayH) * 100)}%` }} />
+                      <div className="w-full rounded-t bg-gradient-to-t from-[var(--c-10)] to-[var(--c-6)]" style={{ height: `${Math.max(4, (p.hours / maxDayH) * 100)}%` }} />
                     </div>
                     <div className={`text-[10px] uppercase ${isSameDay(p.d, new Date()) ? "font-semibold text-foreground" : "text-muted-foreground"}`}>{format(p.d, "EEEEE", { locale: sv })}</div>
                   </div>
                 ))}
               </div>
             </div>
-            <div className="flex items-center justify-between rounded-md border border-border/60 bg-surface/60 px-3 py-2 text-sm">
+            <div className="flex items-center justify-between rounded-md border border-white/5 bg-white/5 px-3 py-2 text-sm">
               <span className="flex items-center gap-2"><ListTodo className="h-3.5 w-3.5 text-sunset-amber" /> Uppgifter kvar</span>
               <span className="tabular-nums font-semibold">{openTasks.length}</span>
             </div>
-            <div className="flex items-center justify-between rounded-md border border-border/60 bg-surface/60 px-3 py-2 text-sm">
-              <span className="flex items-center gap-2"><Clock className="h-3.5 w-3.5 text-sunset-coral" /> Total studietid</span>
+            <div className="flex items-center justify-between rounded-md border border-white/5 bg-white/5 px-3 py-2 text-sm">
+              <span className="flex items-center gap-2"><Clock className="h-3.5 w-3.5" style={{ color: "var(--c-10)" }} /> Total studietid</span>
               <span className="tabular-nums font-semibold">{formatHoursCompact(weekEntries.reduce((s, e) => s + (e.duration_seconds ?? 0), 0))}</span>
             </div>
           </CardContent>
@@ -220,7 +223,7 @@ function Dashboard() {
 
       {/* Väntar på bedömning */}
       {pendingReview.length > 0 && (
-        <Card className="mt-6 border-sunset-amber/40 bg-surface/60">
+        <Card className="mt-6 glass border-sunset-amber/30 shadow-lg">
           <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="font-display text-base flex items-center gap-2"><AlertCircle className="h-4 w-4 text-sunset-amber" /> Väntar på bedömning</CardTitle>
             <Link to="/tasks" className="text-xs text-muted-foreground hover:text-foreground">Se alla →</Link>
@@ -230,7 +233,7 @@ function Dashboard() {
               {pendingReview.map((t) => {
                 const c = courses.find((c) => c.id === t.course_id);
                 return (
-                  <Link key={t.id} to="/tasks" className="flex items-center gap-3 rounded-md px-2 py-2 text-sm hover:bg-surface">
+                  <Link key={t.id} to="/tasks" className="flex items-center gap-3 rounded-md px-2 py-2 text-sm hover:bg-white/5">
                     <span className="inline-block h-2 w-2 rounded-full" style={{ background: c?.color ?? "var(--muted-foreground)" }} />
                     <span className="min-w-0 flex-1 truncate">{t.title}</span>
                     {t.due_at && (
@@ -247,9 +250,11 @@ function Dashboard() {
       )}
 
       {/* Kommande uppgifter */}
-      <Card className="mt-6 border-border/60 bg-surface/60">
+      <Card className="mt-6 glass border-white/5 shadow-lg">
         <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="font-display text-base flex items-center gap-2"><ListTodo className="h-4 w-4 text-sunset-coral" /> Kommande uppgifter</CardTitle>
+          <CardTitle className="font-display text-base flex items-center gap-2">
+            <ListTodo className="h-4 w-4" style={{ color: "var(--c-4)" }} /> Kommande uppgifter
+          </CardTitle>
           <Link to="/tasks" className="text-xs text-muted-foreground hover:text-foreground">Se alla →</Link>
         </CardHeader>
         <CardContent>
@@ -258,7 +263,7 @@ function Dashboard() {
             {openTasks.slice(0, 8).map((t) => {
               const c = courses.find((c) => c.id === t.course_id);
               return (
-                <Link key={t.id} to="/tasks" className="flex items-center gap-3 rounded-md px-2 py-2 text-sm hover:bg-surface">
+                <Link key={t.id} to="/tasks" className="flex items-center gap-3 rounded-md px-2 py-2 text-sm hover:bg-white/5">
                   <span className="inline-block h-2 w-2 rounded-full" style={{ background: c?.color ?? "var(--muted-foreground)" }} />
                   <span className="min-w-0 flex-1 truncate">{t.title}</span>
                   {t.task_kind === "exam" && <span className="rounded-full bg-sunset-rose/20 px-1.5 py-0.5 text-[9px] uppercase text-sunset-rose">Exam</span>}

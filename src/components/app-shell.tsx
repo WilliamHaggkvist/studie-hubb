@@ -56,17 +56,24 @@ export function AppShell({ children }: { children: ReactNode }) {
   useEffect(() => setMobileOpen(false), [pathname]);
 
   return (
-    <div className="flex min-h-screen w-full bg-background text-foreground">
+    <div className="relative flex min-h-screen w-full overflow-hidden bg-background text-foreground">
+      {/* Ambient background blobs for liquid glass feel */}
+      <div className="pointer-events-none absolute inset-0 -z-10 select-none overflow-hidden">
+        <div className="absolute -top-[10%] -left-[10%] h-[600px] w-[600px] rounded-full bg-[#f9c74f]/07 blur-[130px] animate-blob-1" />
+        <div className="absolute top-[45%] -right-[10%] h-[600px] w-[600px] rounded-full bg-[#43aa8b]/08 blur-[130px] animate-blob-2" />
+        <div className="absolute -bottom-[10%] left-[20%] h-[600px] w-[600px] rounded-full bg-[#277da1]/08 blur-[130px] animate-blob-3" />
+      </div>
+
       {/* Sidebar — desktop */}
-      <aside className="hidden w-72 shrink-0 border-r border-sidebar-border bg-sidebar lg:flex lg:flex-col">
+      <aside className="hidden w-72 shrink-0 border-r border-sidebar-border/30 bg-sidebar/55 backdrop-blur-xl lg:flex lg:flex-col">
         <SidebarContent />
       </aside>
 
       {/* Sidebar — mobile drawer */}
       {mobileOpen && (
         <div className="fixed inset-0 z-50 lg:hidden">
-          <div className="absolute inset-0 bg-black/60" onClick={() => setMobileOpen(false)} />
-          <aside className="absolute left-0 top-0 flex h-full w-72 flex-col border-r border-sidebar-border bg-sidebar">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setMobileOpen(false)} />
+          <aside className="absolute left-0 top-0 flex h-full w-72 flex-col border-r border-sidebar-border/30 bg-sidebar/70 backdrop-blur-xl">
             <SidebarContent />
           </aside>
         </div>
@@ -74,7 +81,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar onMenuClick={() => setMobileOpen(true)} />
-        <main className="min-w-0 flex-1 overflow-y-auto">{children}</main>
+        <main className="min-w-0 flex-1 overflow-y-auto relative">{children}</main>
       </div>
     </div>
   );
@@ -147,13 +154,13 @@ function SidebarContent() {
       </div>
 
       <nav className="px-2">
-        <NavItem to="/dashboard" icon={<Home className="h-4 w-4" />} label="Översikt" />
-        <NavItem to="/tasks" icon={<ListTodo className="h-4 w-4" />} label="Uppgifter" />
-        <NavItem to="/calendar" icon={<Calendar className="h-4 w-4" />} label="Kalender" />
-        <NavItem to="/time" icon={<Clock className="h-4 w-4" />} label="Studietid" />
-        <NavItem to="/stats" icon={<BarChart3 className="h-4 w-4" />} label="Statistik" />
-        <NavItem to="/notes" icon={<StickyNote className="h-4 w-4" />} label="Anteckningar" />
-        <NavItem to="/settings" icon={<Settings className="h-4 w-4" />} label="Inställningar" />
+        <NavItem to="/dashboard" icon={<Home className="h-4 w-4" />} label="Översikt" activeColor="var(--c-7)" />
+        <NavItem to="/tasks" icon={<ListTodo className="h-4 w-4" />} label="Uppgifter" activeColor="var(--c-4)" />
+        <NavItem to="/calendar" icon={<Calendar className="h-4 w-4" />} label="Kalender" activeColor="var(--c-10)" />
+        <NavItem to="/time" icon={<Clock className="h-4 w-4" />} label="Studietid" activeColor="var(--c-5)" />
+        <NavItem to="/stats" icon={<BarChart3 className="h-4 w-4" />} label="Statistik" activeColor="var(--c-6)" />
+        <NavItem to="/notes" icon={<StickyNote className="h-4 w-4" />} label="Anteckningar" activeColor="var(--c-8)" />
+        <NavItem to="/settings" icon={<Settings className="h-4 w-4" />} label="Inställningar" activeColor="var(--c-9)" />
       </nav>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-4 pt-4">
@@ -209,7 +216,7 @@ function Section({ label, action, children }: { label: string; action?: ReactNod
   );
 }
 
-function NavItem({ to, icon, label }: { to: string; icon: ReactNode; label: string }) {
+function NavItem({ to, icon, label, activeColor }: { to: string; icon: ReactNode; label: string; activeColor: string }) {
   const pathname = useRouterState({ select: (r) => r.location.pathname });
   const active = pathname === to || (to !== "/dashboard" && pathname.startsWith(to));
   return (
@@ -222,7 +229,10 @@ function NavItem({ to, icon, label }: { to: string; icon: ReactNode; label: stri
           : "hover:bg-sidebar-accent/60 hover:text-foreground",
       )}
     >
-      <span className={cn("text-muted-foreground group-hover:text-foreground", active && "text-sunset-coral")}>
+      <span
+        className="text-muted-foreground group-hover:text-foreground transition-colors"
+        style={active ? { color: activeColor } : undefined}
+      >
         {icon}
       </span>
       <span className="truncate">{label}</span>
@@ -332,7 +342,7 @@ function UserFooter() {
 
 function TopBar({ onMenuClick }: { onMenuClick: () => void }) {
   return (
-    <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 border-b border-border/60 bg-background/80 px-3 backdrop-blur-xl lg:px-6">
+    <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 border-b border-white/5 bg-background/55 px-3 backdrop-blur-xl lg:px-6">
       <button
         onClick={onMenuClick}
         className="grid h-9 w-9 place-items-center rounded-md text-muted-foreground hover:bg-surface hover:text-foreground lg:hidden"
