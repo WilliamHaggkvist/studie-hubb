@@ -75,10 +75,10 @@ export const Route = createFileRoute('/api/public/hooks/email-jobs')({
           supabase.from('courses').select('id,name').in('user_id', userIds),
           supabase
             .from('study_sessions')
-            .select('id,user_id,title,start_at')
+            .select('id,user_id,course_id,planned_start')
             .in('user_id', userIds)
-            .gte('start_at', new Date(now.getTime() - 12 * 3600_000).toISOString())
-            .lte('start_at', new Date(now.getTime() + 24 * 3600_000).toISOString()),
+            .gte('planned_start', new Date(now.getTime() - 12 * 3600_000).toISOString())
+            .lte('planned_start', new Date(now.getTime() + 24 * 3600_000).toISOString()),
         ])
 
         const overrideMap = new Map<string, { offsets: number[] | null; disabled: boolean }>()
@@ -214,10 +214,10 @@ export const Route = createFileRoute('/api/public/hooks/email-jobs')({
                   dueLabel: t.due_at ? fmtDue(t.due_at, tz) : '',
                 }))
               const todaySessions = (sessions ?? [])
-                .filter((s) => s.user_id === settings.user_id && localDateStr(new Date(s.start_at), tz) === dateStr)
+                .filter((s) => s.user_id === settings.user_id && s.planned_start && localDateStr(new Date(s.planned_start), tz) === dateStr)
                 .map((s) => ({
-                  title: s.title ?? 'Studiepass',
-                  startLabel: new Intl.DateTimeFormat('sv-SE', { timeZone: tz, hour: '2-digit', minute: '2-digit' }).format(new Date(s.start_at)),
+                  title: (s.course_id && courseMap.get(s.course_id)) || 'Studiepass',
+                  startLabel: new Intl.DateTimeFormat('sv-SE', { timeZone: tz, hour: '2-digit', minute: '2-digit' }).format(new Date(s.planned_start!)),
                 }))
 
               const dateLabel = new Intl.DateTimeFormat('sv-SE', { timeZone: tz, weekday: 'long', day: 'numeric', month: 'long' }).format(now)
