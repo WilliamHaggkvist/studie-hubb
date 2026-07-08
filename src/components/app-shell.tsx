@@ -367,47 +367,111 @@ function GlobalSearch() {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const navigate = useNavigate();
+  
+  type SearchResult = {
+    id: string;
+    title: string;
+    icon?: string | null;
+    type: "note" | "task" | "course";
+    courseColor?: string;
+    archived?: boolean;
+  };
+
   const { data: results = [] } = useQuery({
     queryKey: ["search", q],
-    queryFn: async () => {
+    queryFn: async (): Promise<SearchResult[]> => {
       if (!q.trim()) return [];
-      const { data, error } = await supabase
-        .from("pages")
-        .select("id,title,icon")
-        .ilike("title", `%${q}%`)
-        .limit(10);
-      if (error) throw error;
-      return data ?? [];
+      
+      const [pagesRes, tasksRes, coursesRes] = await Promise.all([
+        supabase.from("pages").select("id,title,icon").ilike("title", `%${q}%`).eq("archived", false).limit(5),
+        supabase.from("tasks").select("id,title,course_id").ilike("title", `%${q}%`).limit(5),
+        supabase.from("courses").select("id,name,code,color,icon,archived").or(`name.ilike.%${q}%,code.ilike.%${q}%`).limit(5),
+      ]);
+
+      const list: SearchResult[] = [];
+      
+      if (coursesRes.data) {
+        for (const c of coursesRes.data) {
+          list.push({
+            id: c.id,
+            title: c.code ? `${c.code} - ${c.name}` : c.name,
+            icon: c.icon || "📚",
+            type: "course",
+            courseColor: c.color,
+            archived: c.archived,
+          });
+        }
+      }
+      
+      if (tasksRes.data) {
+        for (const t of tasksRes.data) {
+          list.push({
+            id: t.id,
+            title: t.title,
+            icon: "📋",
+            type: "task",
+          });
+        }
+      }
+      
+      if (pagesRes.data) {
+        for (const p of pagesRes.data) {
+          list.push({
+            id: p.id,
+            title: p.title || "Utan titel",
+            icon: p.icon || "📝",
+            type: "note",
+          });
+        }
+      }
+      
+      return list;
     },
     enabled: q.trim().length > 0,
   });
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <button className="flex h-9 w-full max-w-sm items-center gap-2 rounded-md border border-border/60 bg-surface px-3 text-sm text-muted-foreground hover:border-border">
           <Search className="h-4 w-4" />
-          <span>Sök anteckningar…</span>
+          <span>Sök…</span>
         </button>
       </PopoverTrigger>
       <PopoverContent className="w-[min(28rem,90vw)] p-0" align="start">
         <div className="border-b border-border/60 p-2">
-          <Input autoFocus placeholder="Sök i anteckningar…" value={q} onChange={(e) => setQ(e.target.value)} />
+          <Input autoFocus placeholder="Sök efter kurser, uppgifter, anteckningar…" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
         <div className="max-h-72 overflow-y-auto p-1">
           {results.length === 0 && q && <div className="p-3 text-sm text-muted-foreground">Inga träffar</div>}
-          {!q && <div className="p-3 text-sm text-muted-foreground">Börja skriv för att söka i dina anteckningar.</div>}
+          {!q && <div className="p-3 text-sm text-muted-foreground">Sök på kurser, uppgifter eller anteckningar.</div>}
           {results.map((r) => (
             <button
-              key={r.id}
+              key={`${r.type}:${r.id}`}
               onClick={() => {
                 setOpen(false);
                 setQ("");
-                navigate({ to: "/notes/$noteId", params: { noteId: r.id } });
+                if (r.type === "course") {
+                  navigate({ to: "/courses/$courseId", params: { courseId: r.id } });
+                } else if (r.type === "task") {
+                  navigate({ to: "/tasks" });
+                } else {
+                  navigate({ to: "/notes/$noteId", params: { noteId: r.id } });
+                }
               }}
-              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent"
+              className="flex w-full items-center justify-between gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent"
             >
-              <span>{r.icon || "📄"}</span>
-              <span className="truncate">{r.title || "Utan titel"}</span>
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-base shrink-0">{r.icon}</span>
+                <span className="truncate">{r.title}</span>
+              </div>
+              <span className={`text-[9px] uppercase font-bold px-2 py-0.5 rounded-full shrink-0 ${
+                r.type === "course" ? (r.archived ? "bg-muted text-muted-foreground" : "bg-primary/10 text-primary") :
+                r.type === "task" ? "bg-sunset-amber/10 text-sunset-amber" :
+                "bg-purple-500/10 text-purple-400"
+              }`}>
+                {r.type === "course" ? (r.archived ? "Kurs (Arkiv)" : "Kurs") : r.type === "task" ? "Uppgift" : "Anteckning"}
+              </span>
             </button>
           ))}
         </div>

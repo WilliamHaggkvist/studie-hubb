@@ -41,10 +41,25 @@ function Dashboard() {
 
   const { data: allCourses = [] } = useQuery(coursesQuery);
   const courses = allCourses.filter((c) => !c.archived);
+  const coursesMap = new Map(allCourses.map((c) => [c.id, c]));
   const { data: terms = [] } = useQuery(termsQuery);
   const { data: allTasks = [] } = useQuery(tasksQuery);
-  const openTasks = allTasks.filter((t) => t.status !== "done");
-  const pendingReview = allTasks.filter((t) => t.pending_review && t.status !== "done");
+  const openTasks = allTasks.filter((t) => {
+    if (t.status === "done") return false;
+    if (t.course_id) {
+      const course = coursesMap.get(t.course_id);
+      if (course?.archived) return false;
+    }
+    return true;
+  });
+  const pendingReview = allTasks.filter((t) => {
+    if (!t.pending_review || t.status === "done") return false;
+    if (t.course_id) {
+      const course = coursesMap.get(t.course_id);
+      if (course?.archived) return false;
+    }
+    return true;
+  });
 
   const activePeriod = todayPeriod(terms);
   const activeCourses = courses.filter((c) =>
@@ -97,6 +112,10 @@ function Dashboard() {
     const out: Array<{ started_at: string; duration_seconds: number; course_id: string | null }> = [];
     for (const e of weekEntries) {
       if (e.source === "session") continue;
+      if (e.course_id) {
+        const course = coursesMap.get(e.course_id);
+        if (course?.archived) continue;
+      }
       out.push({
         started_at: e.started_at,
         duration_seconds: e.duration_seconds ?? 0,
@@ -104,6 +123,10 @@ function Dashboard() {
       });
     }
     for (const s of weekSessions) {
+      if (s.course_id) {
+        const course = coursesMap.get(s.course_id);
+        if (course?.archived) continue;
+      }
       const start = s.actual_start ?? s.planned_start;
       const end = s.actual_end ?? s.planned_end;
       const dur = Math.max(0, Math.floor((new Date(end).getTime() - new Date(start).getTime()) / 1000));
@@ -114,9 +137,9 @@ function Dashboard() {
       });
     }
     return out;
-  }, [weekEntries, weekSessions]);
+  }, [weekEntries, weekSessions, coursesMap]);
 
-  const { data: todaysSessions = [] } = useQuery({
+  const { data: rawTodaysSessions = [] } = useQuery({
     queryKey: ["sessions", "today"],
     queryFn: async () => {
       const { data } = await supabase
@@ -129,6 +152,14 @@ function Dashboard() {
       return (data ?? []) as Session[];
     },
   });
+
+  const todaysSessions = useMemo(() => {
+    return rawTodaysSessions.filter((s) => {
+      if (!s.course_id) return true;
+      const course = coursesMap.get(s.course_id);
+      return course ? !course.archived : true;
+    });
+  }, [rawTodaysSessions, coursesMap]);
 
   const todayTasks = openTasks.filter((t) => t.due_at && isSameDay(parseISO(t.due_at), new Date()));
 

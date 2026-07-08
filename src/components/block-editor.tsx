@@ -1,7 +1,8 @@
 // Simple block editor. Blocks: text, h1, h2, h3, todo, bullet, numbered, quote, divider, code
 import { useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
-import { Type, Heading1, Heading2, Heading3, ListChecks, List, ListOrdered, Quote, Minus, Code } from "lucide-react";
+import { Type, Heading1, Heading2, Heading3, ListChecks, List, ListOrdered, Quote, Minus, Code, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 
 export type Block = {
   id: string;
@@ -36,7 +37,7 @@ export function BlockEditor({
   value: Block[];
   onChange: (blocks: Block[]) => void;
 }) {
-  const blocks = value.length > 0 ? value : [newBlock()];
+  const blocks = value.length > 0 ? value : [{ id: "fallback-block", type: "text", text: "" } as Block];
   const [focusId, setFocusId] = useState<string | null>(null);
   const [slashFor, setSlashFor] = useState<string | null>(null);
 
@@ -53,11 +54,47 @@ export function BlockEditor({
   }, [blocks, onChange]);
 
   const remove = useCallback((id: string) => {
+    if (blocks.length <= 1) {
+      onChange([newBlock()]);
+      setFocusId(blocks[0].id);
+      return;
+    }
     const idx = blocks.findIndex((b) => b.id === id);
-    if (idx <= 0) return;
+    
+    // Om blocket innan är en avdelare, radera den först
+    if (idx > 0 && blocks[idx - 1].type === "divider") {
+      const dividerBlock = blocks[idx - 1];
+      const next = blocks.filter((b) => b.id !== dividerBlock.id);
+      onChange(next);
+      setFocusId(id);
+      
+      toast.success("Avdelare borttagen", {
+        action: {
+          label: "Ångra",
+          onClick: () => {
+            const restored = [...next.slice(0, idx - 1), dividerBlock, ...next.slice(idx - 1)];
+            onChange(restored);
+          }
+        }
+      });
+      return;
+    }
+
+    const deletedBlock = blocks[idx];
     const next = blocks.filter((b) => b.id !== id);
-    onChange(next.length ? next : [newBlock()]);
-    setFocusId(next[idx - 1]?.id ?? null);
+    onChange(next);
+    const nextFocusIdx = idx > 0 ? idx - 1 : 0;
+    setFocusId(next[nextFocusIdx]?.id ?? null);
+
+    toast.success("Block borttaget", {
+      action: {
+        label: "Ångra",
+        onClick: () => {
+          const restored = [...next.slice(0, idx), deletedBlock, ...next.slice(idx)];
+          onChange(restored);
+        }
+      }
+    });
   }, [blocks, onChange]);
 
   const changeType = useCallback((id: string, type: Block["type"]) => {
@@ -66,30 +103,77 @@ export function BlockEditor({
     setFocusId(id);
   }, [update]);
 
+  const handleWrapperClick = (e: React.MouseEvent) => {
+    if (e.target === e.currentTarget) {
+      const lastBlock = blocks[blocks.length - 1];
+      if (lastBlock) {
+        if (lastBlock.text !== "" || lastBlock.type === "divider") {
+          insertAfter(lastBlock.id, "text");
+        } else {
+          if (["bullet", "numbered", "todo"].includes(lastBlock.type)) {
+            update(lastBlock.id, { type: "text" });
+          }
+          setFocusId(lastBlock.id);
+        }
+      }
+    }
+  };
+
   return (
-    <div className="space-y-0.5">
-      {blocks.map((b) => (
-        <BlockRow
-          key={b.id}
-          block={b}
-          focused={focusId === b.id}
-          onFocused={() => setFocusId(b.id)}
-          onChange={(patch) => update(b.id, patch)}
-          onEnter={() => insertAfter(b.id)}
-          onBackspaceEmpty={() => remove(b.id)}
-          onSlash={() => setSlashFor(b.id)}
-          slashOpen={slashFor === b.id}
-          onCloseSlash={() => setSlashFor(null)}
-          onPickType={(t) => changeType(b.id, t)}
-        />
-      ))}
+    <div 
+      className="space-y-1 min-h-[300px] cursor-text pb-20" 
+      onClick={handleWrapperClick}
+    >
+      {blocks.map((b, index) => {
+        let listNumber: number | undefined = undefined;
+        if (b.type === "numbered") {
+          let count = 1;
+          for (let i = index - 1; i >= 0; i--) {
+            if (blocks[i].type === "numbered") {
+              count++;
+            } else {
+              break;
+            }
+          }
+          listNumber = count;
+        }
+
+        const isLast = index === blocks.length - 1;
+
+        return (
+          <BlockRow
+            key={b.id}
+            block={b}
+            listNumber={listNumber}
+            isLast={isLast}
+            onArrowDownLast={() => {
+              if (["bullet", "numbered", "todo"].includes(b.type) && b.text === "") {
+                update(b.id, { type: "text" });
+              }
+            }}
+            focused={focusId === b.id}
+            onFocused={() => setFocusId(b.id)}
+            onChange={(patch) => update(b.id, patch)}
+            onEnter={() => {
+              const listTypes: Block["type"][] = ["bullet", "numbered", "todo"];
+              const nextType = listTypes.includes(b.type) ? b.type : "text";
+              insertAfter(b.id, nextType);
+            }}
+            onBackspaceEmpty={() => remove(b.id)}
+            onSlash={() => setSlashFor(b.id)}
+            slashOpen={slashFor === b.id}
+            onCloseSlash={() => setSlashFor(null)}
+            onPickType={(t) => changeType(b.id, t)}
+          />
+        );
+      })}
     </div>
   );
 }
 
 function BlockRow({
   block, focused, onFocused, onChange, onEnter, onBackspaceEmpty, onSlash,
-  slashOpen, onCloseSlash, onPickType,
+  slashOpen, onCloseSlash, onPickType, listNumber, isLast, onArrowDownLast,
 }: {
   block: Block;
   focused: boolean;
@@ -101,32 +185,45 @@ function BlockRow({
   slashOpen: boolean;
   onCloseSlash: () => void;
   onPickType: (t: Block["type"]) => void;
+  listNumber?: number;
+  isLast?: boolean;
+  onArrowDownLast?: () => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (focused && ref.current && document.activeElement !== ref.current) {
       ref.current.focus();
-      // Place caret at end
-      const range = document.createRange();
-      range.selectNodeContents(ref.current);
-      range.collapse(false);
-      const sel = window.getSelection();
-      sel?.removeAllRanges();
-      sel?.addRange(range);
+      
+      // Endast tvinga markören till slutet om det finns text.
+      // För helt tomma element kan range-urval störa webbläsarens egen hantering av markören.
+      if (block.text.length > 0 && ref.current.childNodes.length > 0) {
+        try {
+          const range = document.createRange();
+          range.selectNodeContents(ref.current);
+          range.collapse(false);
+          const sel = window.getSelection();
+          if (sel) {
+            sel.removeAllRanges();
+            sel.addRange(range);
+          }
+        } catch (e) {
+          // Ignorera urvalsfel
+        }
+      }
     }
-  }, [focused]);
+  }, [focused, block.text]);
 
   useEffect(() => {
-    if (ref.current && ref.current.innerText !== block.text) {
+    if (ref.current && document.activeElement !== ref.current && ref.current.innerText !== block.text) {
       ref.current.innerText = block.text;
     }
   }, [block.text, block.type]);
 
   if (block.type === "divider") {
     return (
-      <div className="group flex items-center gap-2 py-2">
-        <hr className="w-full border-border" />
+      <div className="group relative flex items-center py-2 px-1">
+        <div className="w-full h-[2px] bg-gradient-to-r from-sunset-amber/60 via-sunset-coral/60 to-sunset-violet/60 rounded-full" />
       </div>
     );
   }
@@ -154,13 +251,13 @@ function BlockRow({
             type="checkbox"
             checked={!!block.checked}
             onChange={(e) => onChange({ checked: e.target.checked })}
-            className="mt-2 h-4 w-4 shrink-0 accent-sunset-coral"
+            className="mt-1 h-4 w-4 shrink-0 accent-sunset-coral"
           />
         );
       case "bullet":
-        return <span className="mt-2 shrink-0 select-none text-muted-foreground">•</span>;
+        return <span className="shrink-0 select-none text-muted-foreground w-4 text-center text-base leading-relaxed font-semibold">•</span>;
       case "numbered":
-        return <span className="mt-2 shrink-0 select-none text-muted-foreground">1.</span>;
+        return <span className="shrink-0 select-none text-muted-foreground text-base leading-relaxed font-medium">{listNumber ?? 1}.</span>;
       default:
         return null;
     }
@@ -177,7 +274,31 @@ function BlockRow({
           data-placeholder={placeholder}
           onFocus={onFocused}
           onInput={(e) => {
-            const text = (e.target as HTMLDivElement).innerText;
+            const target = e.target as HTMLDivElement;
+            const text = target.innerText;
+
+            // Känn av Markdown-genvägar i början av blocket
+            if (text === "[] " || text === "[ ] " || text === "- [ ] ") {
+              target.innerText = "";
+              onChange({ type: "todo", text: "" });
+              return;
+            }
+            if (text === "- " || text === "* ") {
+              target.innerText = "";
+              onChange({ type: "bullet", text: "" });
+              return;
+            }
+            if (text === "1. ") {
+              target.innerText = "";
+              onChange({ type: "numbered", text: "" });
+              return;
+            }
+            if (text === "> ") {
+              target.innerText = "";
+              onChange({ type: "quote", text: "" });
+              return;
+            }
+
             onChange({ text });
             if (text === "/") onSlash();
             else if (!text.startsWith("/")) onCloseSlash();
@@ -186,12 +307,22 @@ function BlockRow({
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
               onCloseSlash();
-              onEnter();
+              if (block.text === "" && ["bullet", "numbered", "todo"].includes(block.type)) {
+                onChange({ type: "text" });
+              } else {
+                onEnter();
+              }
             } else if (e.key === "Backspace" && (e.target as HTMLDivElement).innerText === "") {
               e.preventDefault();
-              onBackspaceEmpty();
+              if (block.type !== "text") {
+                onChange({ type: "text" });
+              } else {
+                onBackspaceEmpty();
+              }
             } else if (e.key === "Escape") {
               onCloseSlash();
+            } else if (e.key === "ArrowDown" && isLast && onArrowDownLast) {
+              onArrowDownLast();
             }
           }}
           className={cn(

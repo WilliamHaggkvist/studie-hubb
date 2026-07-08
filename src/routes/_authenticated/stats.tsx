@@ -78,12 +78,26 @@ function StatsPage() {
     },
   });
 
+  const coursesMap = new Map(allCourses.map((c) => [c.id, c]));
+
+  const filteredEntries = entries.filter((e) => {
+    if (!e.course_id) return true;
+    const course = coursesMap.get(e.course_id);
+    return course ? !course.archived : true;
+  });
+
+  const filteredSessionRows = sessionRows.filter((s) => {
+    if (!s.course_id) return true;
+    const course = coursesMap.get(s.course_id);
+    return course ? !course.archived : true;
+  });
+
   // Studiepass (bekräftade) räknas som studietid, oavsett completed-status.
   // Timer-poster (time_entries) räknas separat men vi filtrerar bort source="session"
   // för att undvika dubbelräkning av äldre historik.
   const derivedEntries: Entry[] = useMemo(() => {
     const out: Entry[] = [];
-    for (const s of sessionRows) {
+    for (const s of filteredSessionRows) {
       const start = s.actual_start ?? s.planned_start;
       const end = s.actual_end ?? s.planned_end;
       const dur = Math.max(0, Math.floor((new Date(end).getTime() - new Date(start).getTime()) / 1000));
@@ -99,25 +113,20 @@ function StatsPage() {
       }
     }
     return out;
-  }, [sessionRows, sessionTaskRows]);
+  }, [filteredSessionRows, sessionTaskRows]);
 
-  const combined = useMemo(() => [...entries, ...derivedEntries], [entries, derivedEntries]);
+  const combined = useMemo(() => [...filteredEntries, ...derivedEntries], [filteredEntries, derivedEntries]);
 
-  const { data: tasks = [] } = useQuery(tasksQuery);
+  const { data: allTasks = [] } = useQuery(tasksQuery);
+  const tasks = useMemo(() => {
+    return allTasks.filter((t) => {
+      if (!t.course_id) return true;
+      const course = coursesMap.get(t.course_id);
+      return course ? !course.archived : true;
+    });
+  }, [allTasks, coursesMap]);
 
-
-  const { data: sessionsCount = 0 } = useQuery({
-    queryKey: ["stats", "sessions", range.start.toISOString(), range.end.toISOString()],
-    queryFn: async () => {
-      const { count } = await supabase
-        .from("study_sessions")
-        .select("id", { count: "exact", head: true })
-        .eq("needs_review", false)
-        .gte("planned_start", range.start.toISOString())
-        .lte("planned_start", range.end.toISOString());
-      return count ?? 0;
-    },
-  });
+  const sessionsCount = filteredSessionRows.length;
 
   const totalDays = Math.max(1, differenceInCalendarDays(range.end, range.start) + 1);
   const days = Array.from({ length: totalDays }).map((_, i) => {

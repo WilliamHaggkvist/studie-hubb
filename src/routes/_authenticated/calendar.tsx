@@ -92,9 +92,29 @@ function CalendarPage() {
     },
   });
 
-  const selectedEvents = events.filter((e) => isSameDay(parseISO(e.starts_at), selected));
-  const selectedTasks = tasksDue.filter((t) => t.due_at && isSameDay(parseISO(t.due_at), selected));
-  const selectedSessions = sessions.filter((s) => isSameDay(parseISO(s.planned_start), selected));
+  const coursesMap = new Map(allCourses.map((c) => [c.id, c]));
+
+  const filteredEvents = events.filter((e) => {
+    if (!e.course_id) return true;
+    const course = coursesMap.get(e.course_id);
+    return course ? !course.archived : true;
+  });
+
+  const filteredTasksDue = tasksDue.filter((t) => {
+    if (!t.course_id) return true;
+    const course = coursesMap.get(t.course_id);
+    return course ? !course.archived : true;
+  });
+
+  const filteredSessions = sessions.filter((s) => {
+    if (!s.course_id) return true;
+    const course = coursesMap.get(s.course_id);
+    return course ? !course.archived : true;
+  });
+
+  const selectedEvents = filteredEvents.filter((e) => isSameDay(parseISO(e.starts_at), selected));
+  const selectedTasks = filteredTasksDue.filter((t) => t.due_at && isSameDay(parseISO(t.due_at), selected));
+  const selectedSessions = filteredSessions.filter((s) => isSameDay(parseISO(s.planned_start), selected));
 
   const shift = (dir: -1 | 1) => {
     if (view === "month") setCursor(dir > 0 ? addMonths(cursor, 1) : subMonths(cursor, 1));
@@ -132,9 +152,9 @@ function CalendarPage() {
           <div className={cn("grid grid-cols-7", view === "month" ? "auto-rows-fr" : "auto-rows-[10rem]")}>
             {days.map((d) => {
               const inMonth = view === "week" || isSameMonth(d, cursor);
-              const dayEvents = events.filter((e) => isSameDay(parseISO(e.starts_at), d));
-              const dayTasks = tasksDue.filter((t) => t.due_at && isSameDay(parseISO(t.due_at), d));
-              const daySessions = sessions.filter((s) => isSameDay(parseISO(s.planned_start), d));
+              const dayEvents = filteredEvents.filter((e) => isSameDay(parseISO(e.starts_at), d));
+              const dayTasks = filteredTasksDue.filter((t) => t.due_at && isSameDay(parseISO(t.due_at), d));
+              const daySessions = filteredSessions.filter((s) => isSameDay(parseISO(s.planned_start), d));
               const isSel = isSameDay(d, selected);
               const isToday = isSameDay(d, new Date());
               const items = [

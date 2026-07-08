@@ -200,12 +200,15 @@ function CoursesPage() {
       </div>
 
       <Tabs defaultValue="active" className="w-full">
-        <TabsList className="grid w-full max-w-[270px] grid-cols-2 rounded-xl bg-surface-2 p-1 mb-6">
+        <TabsList className="grid w-full max-w-[380px] grid-cols-3 rounded-xl bg-surface-2 p-1 mb-6">
           <TabsTrigger value="active" className="rounded-lg text-xs flex items-center gap-1.5 py-1.5">
             Aktiva <span className="rounded-full bg-white/10 px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">{active.length}</span>
           </TabsTrigger>
           <TabsTrigger value="completed" className="rounded-lg text-xs flex items-center gap-1.5 py-1.5">
             Avklarade <span className="rounded-full bg-white/10 px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">{completed.length}</span>
+          </TabsTrigger>
+          <TabsTrigger value="archived" className="rounded-lg text-xs flex items-center gap-1.5 py-1.5">
+            Arkiv <span className="rounded-full bg-white/10 px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">{archived.length}</span>
           </TabsTrigger>
         </TabsList>
 
@@ -216,7 +219,7 @@ function CoursesPage() {
                 <div className="grid h-14 w-14 place-items-center rounded-2xl bg-primary/15 text-primary"><BookOpen className="h-6 w-6" /></div>
                 <div>
                   <div className="font-display text-lg font-semibold">Inga aktiva kurser</div>
-                  <div className="text-sm text-muted-foreground">Alla dina kurser är avklarade!</div>
+                  <div className="text-sm text-muted-foreground">Alla dina kurser är avklarade eller inaktiva!</div>
                 </div>
                 <Button onClick={() => setOpen(true)} className="gap-1 rounded-xl"><Plus className="h-4 w-4" /> Skapa ny kurs</Button>
               </CardContent>
@@ -302,6 +305,41 @@ function CoursesPage() {
                     <div className="font-display text-lg font-semibold flex items-center gap-1.5">
                       {c.name}
                       <CheckCircle2 className="h-4 w-4 text-c-7 shrink-0" />
+                    </div>
+                    <div className="mt-1 flex flex-wrap gap-1 text-[10px] uppercase tracking-wider text-muted-foreground">
+                      {c.code && <span>{c.code}</span>}
+                      {c.hp != null && <span>• {c.hp} HP</span>}
+                      {c.period && <span>• {c.period}</span>}
+                      {c.arskurs != null && <span>• Åk {c.arskurs}</span>}
+                    </div>
+                  </Link>
+                </div>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="archived" className="space-y-6">
+          {archived.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-border/60 bg-surface/40 p-12 text-center text-sm text-muted-foreground">
+              Inga inaktiva kurser eller utkast i arkivet.
+            </div>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {archived.map((c) => (
+                <div key={c.id} className="group relative">
+                  <Link
+                    to="/courses/$courseId"
+                    params={{ courseId: c.id }}
+                    aria-label={`Öppna ${c.name}`}
+                    className="relative block w-full overflow-hidden rounded-2xl border border-border/60 bg-surface/60 backdrop-blur-md p-5 text-left transition-all hover:border-transparent hover:shadow-lg hover:shadow-black/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <div className="absolute inset-x-0 top-0 h-1" style={{ background: c.color }} />
+                    <div className="mb-2 flex items-center justify-between">
+                      <span className="text-3xl">{c.icon}</span>
+                    </div>
+                    <div className="font-display text-lg font-semibold flex items-center gap-1.5">
+                      {c.name}
                     </div>
                     <div className="mt-1 flex flex-wrap gap-1 text-[10px] uppercase tracking-wider text-muted-foreground">
                       {c.code && <span>{c.code}</span>}

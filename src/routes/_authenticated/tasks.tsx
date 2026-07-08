@@ -137,7 +137,12 @@ function TasksPage() {
   const filtered = useMemo(() => {
     const now = Date.now();
     const day = 24 * 3600 * 1000;
+    const coursesMap = new Map(allCourses.map((c) => [c.id, c]));
     return allTasks.filter((t) => {
+      if (t.course_id) {
+        const course = coursesMap.get(t.course_id);
+        if (course?.archived) return false;
+      }
       if (filterCourse !== "all" && t.course_id !== filterCourse) return false;
       if (filterType !== "all" && t.task_type !== filterType) return false;
       if (filterDue !== "all" && t.due_at) {
@@ -151,7 +156,7 @@ function TasksPage() {
       }
       return true;
     });
-  }, [allTasks, filterCourse, filterType, filterDue]);
+  }, [allTasks, allCourses, filterCourse, filterType, filterDue]);
 
   const pending = filtered.filter((t) => t.pending_review && t.status !== "done");
   const board = filtered.filter((t) => !t.pending_review);

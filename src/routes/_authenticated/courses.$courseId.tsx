@@ -196,6 +196,20 @@ function CourseDetail() {
     },
   });
 
+  const toggleArchive = useMutation({
+    mutationFn: async () => {
+      const nextArchived = !course?.archived;
+      const { error } = await supabase.from("courses").update({ archived: nextArchived }).eq("id", courseId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["course", courseId] });
+      qc.invalidateQueries({ queryKey: ["courses"] });
+      toast.success(course?.archived ? "Kurs markerad som aktiv" : "Kurs arkiverad / markerad som inaktiv");
+    },
+    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Fel"),
+  });
+
   const toggleComplete = useMutation({
     mutationFn: async (payload: { completed: boolean; final_grade: string | null }) => {
       const { error } = await supabase.from("courses").update(payload).eq("id", courseId);
@@ -295,6 +309,15 @@ function CourseDetail() {
                 <CheckCircle2 className="h-3.5 w-3.5" /> Markera avklarad
               </Button>
             )}
+            <Button
+              size="sm"
+              variant="ghost"
+              className="gap-1 rounded-xl"
+              onClick={() => toggleArchive.mutate()}
+              disabled={toggleArchive.isPending}
+            >
+              <Archive className="h-3.5 w-3.5" /> {course.archived ? "Markera som aktiv" : "Markera som inaktiv"}
+            </Button>
             <Button size="sm" variant="ghost" className="rounded-xl" onClick={() => setEditOpen(true)}>
               <Pencil className="mr-1 h-3.5 w-3.5" /> Redigera
             </Button>

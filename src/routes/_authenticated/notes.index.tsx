@@ -5,7 +5,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Star, Search, Trash2 } from "lucide-react";
+import { Plus, Star, Search, Trash2, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { sv } from "date-fns/locale";
@@ -30,13 +30,15 @@ function NotesList() {
   const [q, setQ] = useState("");
   const [courseFilter, setCourseFilter] = useState<string>("all");
 
-  const { data: courses = [] } = useQuery({
-    queryKey: ["courses"],
+  const { data: allCourses = [] } = useQuery({
+    queryKey: ["courses", "all-for-notes"],
     queryFn: async () => {
-      const { data } = await supabase.from("courses").select("id,name,color").eq("archived", false);
-      return (data ?? []) as Course[];
+      const { data } = await supabase.from("courses").select("id,name,color,archived");
+      return (data ?? []) as (Course & { archived: boolean })[];
     },
   });
+
+  const activeCourses = allCourses.filter((c) => !c.archived);
 
   const { data: notes = [] } = useQuery({
     queryKey: ["notes-list"],
@@ -118,7 +120,7 @@ function NotesList() {
           <SelectContent>
             <SelectItem value="all">Alla kurser</SelectItem>
             <SelectItem value="none">Utan kurs</SelectItem>
-            {courses.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+            {activeCourses.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
           </SelectContent>
         </Select>
       </div>
@@ -131,37 +133,48 @@ function NotesList() {
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {filtered.map((n) => {
-          const c = courses.find((c) => c.id === n.course_id);
+          const c = allCourses.find((c) => c.id === n.course_id);
           return (
             <Link
               key={n.id}
               to="/notes/$noteId"
               params={{ noteId: n.id }}
-              className="group rounded-xl border border-border/60 bg-surface/60 p-4 transition-colors hover:border-sunset-coral/40 hover:bg-surface focus:outline-none focus:ring-2 focus:ring-sunset-amber"
+              className="group relative flex items-center gap-3 overflow-hidden rounded-xl border border-border/60 bg-surface/50 p-3.5 transition-all hover:border-transparent hover:shadow-lg hover:shadow-black/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
-              <div className="mb-2 flex items-start justify-between gap-2">
-                <div className="text-2xl">{n.icon || "📄"}</div>
-                {n.is_favorite && <Star className="h-3.5 w-3.5 fill-sunset-amber text-sunset-amber" />}
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="text-destructive"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    event.preventDefault();
-                    if (confirm("Ta bort anteckningen?")) deleteNote.mutate(n.id);
-                  }}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+              <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-surface-2/60 text-muted-foreground group-hover:text-primary transition-colors">
+                <FileText className="h-5 w-5" />
               </div>
-              <div className="block text-left">
-                <div className="line-clamp-2 font-display text-base font-semibold">{n.title || "Utan titel"}</div>
-                <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
-                  {c ? (
-                    <span className="inline-flex items-center gap-1"><span className="inline-block h-1.5 w-1.5 rounded-full" style={{ background: c.color }} />{c.name}</span>
-                  ) : <span>Ingen kurs</span>}
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="font-display text-sm font-semibold tracking-tight truncate flex-1 text-left">
+                    {n.title || "Utan titel"}
+                  </h3>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {n.is_favorite && <Star className="h-3 w-3 fill-sunset-amber text-sunset-amber" />}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 opacity-0 group-hover:opacity-100"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        event.preventDefault();
+                        if (confirm("Ta bort anteckningen?")) deleteNote.mutate(n.id);
+                      }}
+                    >
+                      <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                    </Button>
+                  </div>
+                </div>
+                <div className="mt-1 flex items-center gap-2 text-[10px] text-muted-foreground">
                   <span>{format(new Date(n.updated_at), "d MMM", { locale: sv })}</span>
+                  <span>•</span>
+                  {c ? (
+                    <span className="truncate max-w-[120px]" style={{ color: c.color }}>
+                      {c.name}
+                    </span>
+                  ) : (
+                    <span>Övrig</span>
+                  )}
                 </div>
               </div>
             </Link>
