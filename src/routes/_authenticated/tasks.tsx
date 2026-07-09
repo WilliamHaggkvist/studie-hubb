@@ -201,11 +201,11 @@ function TasksPage() {
         upsert.mutate({
           id: t.id,
           status: "done",
-          completed_at: new Date().toISOString(),
           grade: null,
           points: null,
           pending_review: false,
-        });
+          completed_at: new Date().toISOString(),
+        } as Partial<Task> & { id: string; completed_at?: string | null });
       } else {
         setCompleteFor(t);
       }

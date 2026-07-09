@@ -506,7 +506,7 @@ function TimerWidget() {
   const { data: courses = [] } = useQuery({
     queryKey: ["courses"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("courses").select("id,name,color").eq("archived", false);
+      const { data, error } = await supabase.from("courses").select("id,name,color,completed").eq("archived", false);
       if (error) throw error;
       return data ?? [];
     },
