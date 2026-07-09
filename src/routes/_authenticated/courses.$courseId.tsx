@@ -199,7 +199,7 @@ function CourseDetail() {
   const toggleArchive = useMutation({
     mutationFn: async () => {
       const nextArchived = !course?.archived;
-      const update: Record<string, unknown> = { archived: nextArchived };
+      const update: { archived: boolean; completed?: boolean; final_grade?: string | null } = { archived: nextArchived };
       if (nextArchived) {
         update.completed = false;
         update.final_grade = null;

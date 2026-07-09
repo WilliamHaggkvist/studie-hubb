@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, GraduationCap, CheckCircle2 } from "lucide-react";
+import { Plus, GraduationCap, CheckCircle2, BookOpen } from "lucide-react";
 import { PALETTE, COURSE_PERIODS, ARSKURS_OPTIONS, PERIOD_TO_TERM, TERM_LABELS, type CoursePeriod, type Term } from "@/lib/course-presets";
 import { useUniversities } from "@/lib/settings";
 import { cn } from "@/lib/utils";

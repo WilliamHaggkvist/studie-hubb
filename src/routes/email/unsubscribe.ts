@@ -151,12 +151,21 @@ export const Route = createFileRoute("/email/unsubscribe")({
 
         // 2. Inaktivera påminnelser för användare med denna primära e-post
         try {
-          const { data: userData } = await supabase.auth.admin.getUserByEmail(unsubEmail)
-          if (userData?.user) {
+          let page = 1
+          let matchedUserId: string | null = null
+          while (!matchedUserId) {
+            const { data, error } = await supabase.auth.admin.listUsers({ page, perPage: 1000 })
+            if (error) break
+            const found = data.users.find((u) => u.email?.toLowerCase() === unsubEmail)
+            if (found) { matchedUserId = found.id; break }
+            if (data.users.length < 1000) break
+            page++
+          }
+          if (matchedUserId) {
             await supabase
               .from('user_settings')
               .update({ email_reminders_enabled: false })
-              .eq('user_id', userData.user.id)
+              .eq('user_id', matchedUserId)
           }
         } catch (e) {
           console.error('Failed to get user by email for unsubscribe update', e)
