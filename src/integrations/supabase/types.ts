@@ -778,6 +778,10 @@ export type Database = {
           email_reminders_enabled: boolean
           google_calendar_id: string | null
           google_connected: boolean
+          reminder_email: string | null
+          reminder_email_verification_code: string | null
+          reminder_email_verification_sent_at: string | null
+          reminder_email_verified: boolean
           reminder_fallback_hour: number
           reminder_offsets: number[]
           timezone: string
@@ -794,6 +798,10 @@ export type Database = {
           email_reminders_enabled?: boolean
           google_calendar_id?: string | null
           google_connected?: boolean
+          reminder_email?: string | null
+          reminder_email_verification_code?: string | null
+          reminder_email_verification_sent_at?: string | null
+          reminder_email_verified?: boolean
           reminder_fallback_hour?: number
           reminder_offsets?: number[]
           timezone?: string
@@ -810,6 +818,10 @@ export type Database = {
           email_reminders_enabled?: boolean
           google_calendar_id?: string | null
           google_connected?: boolean
+          reminder_email?: string | null
+          reminder_email_verification_code?: string | null
+          reminder_email_verification_sent_at?: string | null
+          reminder_email_verified?: boolean
           reminder_fallback_hour?: number
           reminder_offsets?: number[]
           timezone?: string
