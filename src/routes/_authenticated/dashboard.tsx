@@ -614,6 +614,10 @@ function Dashboard() {
     }, 0);
   }, [todaysSessions]);
 
+  const totalTasksToday = todayTasks.length;
+  const completedOrPendingTasksToday = todayTasks.filter((t) => t.status === "done" || t.pending_review).length;
+  const taskPct = totalTasksToday > 0 ? (completedOrPendingTasksToday / totalTasksToday) * 100 : 0;
+
   const perDay = Array.from({ length: 7 }).map((_, i) => {
     const d = addDays(weekStart, i);
     const total = weekCombinedEntries
@@ -712,11 +716,72 @@ function Dashboard() {
             <CardTitle className="font-display text-base flex items-center gap-2">
               <Clock className="h-4 w-4" style={{ color: "var(--c-7)" }} /> Idag
             </CardTitle>
-            <div className="text-xs text-muted-foreground">
+            <div className="text-xs text-muted-foreground font-medium">
               {formatHoursCompact(plannedSecondsToday)} planerat
             </div>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="space-y-4">
+            {/* Progress Section */}
+            <div className="flex items-center gap-4 rounded-2xl border border-white/5 bg-white/5 p-3.5">
+              <div className="relative flex items-center justify-center shrink-0">
+                <svg className="h-20 w-20" viewBox="0 0 100 100">
+                  <circle
+                    cx="50"
+                    cy="50"
+                    r="40"
+                    fill="url(#idag-sunset-gradient-large)"
+                    className="transition-all duration-500"
+                    style={{ fillOpacity: totalTasksToday > 0 ? (taskPct === 100 ? 0.2 : (taskPct / 100) * 0.08) : 0 }}
+                  />
+                  <circle cx="50" cy="50" r="40" stroke="currentColor" className="text-white/10" strokeWidth="5.5" fill="transparent" />
+                  <circle
+                    cx="50"
+                    cy="50"
+                    r="40"
+                    stroke="url(#idag-sunset-gradient-large)"
+                    strokeWidth="6"
+                    fill="transparent"
+                    strokeDasharray={251.33}
+                    strokeDashoffset={251.33 - (taskPct / 100) * 251.33}
+                    strokeLinecap="round"
+                    className="transition-all duration-500 origin-center -rotate-90"
+                    style={{ filter: "drop-shadow(0 0 5px var(--color-sunset-rose))" }}
+                  />
+                  <defs>
+                    <linearGradient id="idag-sunset-gradient-large" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stopColor="var(--color-sunset-rose)" />
+                      <stop offset="100%" stopColor="var(--color-sunset-amber)" />
+                    </linearGradient>
+                  </defs>
+                </svg>
+                <div className="absolute flex flex-col items-center justify-center text-center">
+                  <span className="text-base font-extrabold text-white leading-none tabular-nums">
+                    {Math.round(taskPct)}%
+                  </span>
+                  <span className="text-[8px] text-muted-foreground font-bold uppercase tracking-wider mt-1">
+                    Klar
+                  </span>
+                </div>
+              </div>
+              <div className="min-w-0 flex-1 space-y-0.5">
+                <div className="text-xs font-semibold text-white">Dagens framsteg</div>
+                <p className="text-[11px] leading-relaxed text-muted-foreground">
+                  {totalTasksToday === 0 ? (
+                    "Inga uppgifter inlagda för idag."
+                  ) : (
+                    <>
+                      Du har gjort klart <span className="font-bold text-white">{completedOrPendingTasksToday}</span> av{" "}
+                      <span className="font-bold text-white">{totalTasksToday}</span> {totalTasksToday === 1 ? "uppgift" : "uppgifter"}.
+                    </>
+                  )}
+                </p>
+                {totalTasksToday > 0 && completedOrPendingTasksToday === totalTasksToday && (
+                  <div className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-1.5 py-0.25 text-[9px] font-semibold text-emerald-400 border border-emerald-500/20">
+                    Snyggt! Allt klart för idag! ✨
+                  </div>
+                )}
+              </div>
+            </div>
             <div>
               <div className="mb-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">Studiepass</div>
               {todaysSessions.length === 0 && <div className="text-sm text-muted-foreground">Inga planerade pass.</div>}
