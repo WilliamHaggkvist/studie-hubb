@@ -129,11 +129,14 @@ export async function syncGoogleCalendarForUser(
           seenSessionIds.add(ev.id);
           const code = parseCourseCode(title);
           const courseId = code ? codeMap.get(code) ?? null : null;
+          // Scope by user_id — annars kan sync (som service_role via cron)
+          // matcha en annan användares rad med samma google_event_id.
           const { data: existingRecords } = await supabase
             .from("study_sessions")
             .select("id")
+            .eq("user_id", userId)
             .eq("google_event_id", ev.id);
-            
+
           const base = {
             user_id: userId,
             planned_start: new Date(startsRaw).toISOString(),
@@ -144,19 +147,24 @@ export async function syncGoogleCalendarForUser(
             source: "google",
             google_event_id: ev.id,
           };
-          
+
           if (existingRecords && existingRecords.length > 0) {
             const existing = existingRecords[0];
-            
+
             if (existingRecords.length > 1) {
               const duplicateIds = existingRecords.slice(1).map(r => r.id);
-              await supabase.from("study_sessions").delete().in("id", duplicateIds);
+              await supabase
+                .from("study_sessions")
+                .delete()
+                .eq("user_id", userId)
+                .in("id", duplicateIds);
             }
-            
+
             const { error } = await supabase
               .from("study_sessions")
               .update(base)
-              .eq("id", existing.id);
+              .eq("id", existing.id)
+              .eq("user_id", userId);
             if (!error) sessions++;
           } else {
             const { error } = await supabase
@@ -166,6 +174,7 @@ export async function syncGoogleCalendarForUser(
           }
           continue;
         }
+
 
         seenEventIds.add(ev.id);
         const code = parseCourseCode(title);
@@ -199,8 +208,12 @@ export async function syncGoogleCalendarForUser(
   }
 
   // Google är källan – ta bort pass/event som inte längre finns där inom synkfönstret.
-  // Men bara om vi lyckades hämta alla kalendrar utan fel, annars riskerar vi att radera pass felaktigt.
-  if (!fetchFailed) {
+  // Skydd:
+  //  * fetchFailed = någon kalender-sida gav fel → hoppa över radering (undvik dataförlust)
+  //  * totalItems === 0 = Google returnerade inget alls → misstänkt tomt svar, hoppa över
+  //  * Bara rader med google_event_id/external_id satt raderas
+  //  * Studiepass som användaren redan har startat/genomfört behålls oavsett
+  if (!fetchFailed && totalItems > 0) {
     const inList = (ids: string[]) =>
       `(${ids.map((id) => `"${id.replace(/"/g, "")}"`).join(",")})`;
 
@@ -210,6 +223,9 @@ export async function syncGoogleCalendarForUser(
         .delete()
         .eq("user_id", userId)
         .eq("source", "google")
+        .not("google_event_id", "is", null)
+        .is("actual_start", null)
+        .eq("completed", false)
         .gte("planned_start", timeMin)
         .lte("planned_start", timeMax);
       if (seenSessionIds.size > 0) {
@@ -223,6 +239,7 @@ export async function syncGoogleCalendarForUser(
         .delete()
         .eq("user_id", userId)
         .eq("source", "google")
+        .not("external_id", "is", null)
         .gte("starts_at", timeMin)
         .lte("starts_at", timeMax);
       if (seenEventIds.size > 0) {
@@ -231,6 +248,7 @@ export async function syncGoogleCalendarForUser(
       await q;
     }
   }
+
 
   return {
     imported,
