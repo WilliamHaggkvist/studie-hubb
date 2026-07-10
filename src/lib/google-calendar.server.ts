@@ -129,11 +129,14 @@ export async function syncGoogleCalendarForUser(
           seenSessionIds.add(ev.id);
           const code = parseCourseCode(title);
           const courseId = code ? codeMap.get(code) ?? null : null;
+          // Scope by user_id — annars kan sync (som service_role via cron)
+          // matcha en annan användares rad med samma google_event_id.
           const { data: existingRecords } = await supabase
             .from("study_sessions")
             .select("id")
+            .eq("user_id", userId)
             .eq("google_event_id", ev.id);
-            
+
           const base = {
             user_id: userId,
             planned_start: new Date(startsRaw).toISOString(),
@@ -144,19 +147,24 @@ export async function syncGoogleCalendarForUser(
             source: "google",
             google_event_id: ev.id,
           };
-          
+
           if (existingRecords && existingRecords.length > 0) {
             const existing = existingRecords[0];
-            
+
             if (existingRecords.length > 1) {
               const duplicateIds = existingRecords.slice(1).map(r => r.id);
-              await supabase.from("study_sessions").delete().in("id", duplicateIds);
+              await supabase
+                .from("study_sessions")
+                .delete()
+                .eq("user_id", userId)
+                .in("id", duplicateIds);
             }
-            
+
             const { error } = await supabase
               .from("study_sessions")
               .update(base)
-              .eq("id", existing.id);
+              .eq("id", existing.id)
+              .eq("user_id", userId);
             if (!error) sessions++;
           } else {
             const { error } = await supabase
@@ -166,6 +174,7 @@ export async function syncGoogleCalendarForUser(
           }
           continue;
         }
+
 
         seenEventIds.add(ev.id);
         const code = parseCourseCode(title);
