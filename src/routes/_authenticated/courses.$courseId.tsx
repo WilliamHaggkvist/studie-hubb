@@ -13,7 +13,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import {
   Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
-import { Archive, Play, Plus, Clock, ListTodo, FileText, Trash2, Upload, Download, CheckCircle2, Pencil, GraduationCap, StickyNote, CalendarClock, TrendingUp, Check, Lock } from "lucide-react";
+import { Archive, Play, Plus, Clock, ListTodo, FileText, Trash2, Upload, Download, CheckCircle2, Pencil, GraduationCap, StickyNote, CalendarClock, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
 import { formatHoursCompact } from "@/lib/timer-store";
 import { timerStore } from "@/lib/timer-store";
@@ -263,10 +263,6 @@ function CourseDetail() {
 
   const examProgressPct = examTasks.length > 0 ? (completedExamTasks.length / examTasks.length) * 100 : 0;
 
-  const firstUncompletedIndex = useMemo(() => {
-    return examTasks.findIndex((t) => t.status !== "done");
-  }, [examTasks]);
-
   return (
     <div className="mx-auto max-w-5xl px-4 py-6 lg:px-8">
       <Breadcrumb className="mb-4">
@@ -393,81 +389,6 @@ function CourseDetail() {
           sub={stats.minW ? format(stats.minW.start, "'v.'w", { locale: sv }) : ""}
         />
       </div>
-
-      {/* Spelifierad Lärandestig */}
-      {examTasks.length > 0 && (
-        <Card className="mb-4 border-border/60 bg-surface/60 backdrop-blur-md rounded-2xl overflow-hidden shadow-lg">
-          <CardHeader className="pb-1">
-            <CardTitle className="font-display text-base flex items-center gap-2">
-              <span className="text-lg">🗺️</span> Lärandestig
-            </CardTitle>
-            <p className="text-[11px] text-muted-foreground">Din personliga väg genom kursens examinationer. Slutför föregående uppgift för att låsa upp nästa.</p>
-          </CardHeader>
-          <CardContent className="overflow-x-auto py-6">
-            <div className="flex items-center gap-6 px-4 min-w-max justify-center py-4">
-              {examTasks.map((t, index) => {
-                const isCompleted = t.status === "done";
-                const isCurrent = !isCompleted && index === firstUncompletedIndex;
-                const isLocked = !isCompleted && (firstUncompletedIndex !== -1 && index > firstUncompletedIndex);
-                
-                return (
-                  <div key={t.id} className="flex items-center relative">
-                    <div
-                      className={cn(
-                        "flex flex-col items-center relative transition-all duration-300",
-                        index % 2 === 0 ? "-translate-y-2.5" : "translate-y-2.5"
-                      )}
-                    >
-                      {/* The Node Circle */}
-                      <div
-                        className={cn(
-                          "w-12 h-12 rounded-full border-2 flex items-center justify-center transition-all duration-300 relative z-10",
-                          isCompleted && "shadow-[0_0_12px_rgba(255,255,255,0.15)]",
-                          isCurrent && "animate-pulse shadow-[0_0_15px_rgba(255,255,255,0.25)]",
-                          isLocked && "bg-zinc-800 border-zinc-700 text-zinc-500 cursor-not-allowed"
-                        )}
-                        style={{
-                          backgroundColor: isCompleted ? course.color : isCurrent ? `${course.color}22` : undefined,
-                          borderColor: isCompleted || isCurrent ? course.color : undefined,
-                          color: isCompleted ? '#fff' : isCurrent ? course.color : undefined
-                        }}
-                      >
-                        {isCompleted ? (
-                          <Check className="h-5 w-5" />
-                        ) : isLocked ? (
-                          <Lock className="h-4 w-4" />
-                        ) : (
-                          <span className="font-bold text-xs">{index + 1}</span>
-                        )}
-                      </div>
-                      
-                      {/* Label below */}
-                      <div className="mt-2 text-center w-24">
-                        <div className="text-[10px] font-semibold truncate text-white px-1" title={t.title}>{t.title}</div>
-                        <div className="text-[8px] text-muted-foreground mt-0.5 uppercase tracking-wider font-medium">
-                          {isCompleted ? "Klar" : isCurrent ? "Nuvarande" : "Låst"}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Connecting Line to next node */}
-                    {index < examTasks.length - 1 && (
-                      <div
-                        className="w-10 h-0.5 -mt-3.5 z-0"
-                        style={{
-                          background: isCompleted && examTasks[index + 1].status === "done"
-                            ? course.color
-                            : `linear-gradient(to right, ${isCompleted ? course.color : 'rgba(255,255,255,0.1)'}, rgba(255,255,255,0.1))`
-                        }}
-                      />
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       {/* CONTENT GRID */}
       <div className="grid gap-4 lg:grid-cols-2">

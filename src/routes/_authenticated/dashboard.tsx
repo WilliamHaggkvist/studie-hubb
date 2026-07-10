@@ -446,7 +446,8 @@ function Dashboard() {
       });
 
       return Array.from(dates).sort((a, b) => b.localeCompare(a));
-    }
+    },
+    enabled: typeof window !== "undefined",
   });
 
   const currentStreak = useMemo(() => {
@@ -555,6 +556,7 @@ function Dashboard() {
         .lte("started_at", weekEnd.toISOString());
       return (data ?? []) as TimeEntry[];
     },
+    enabled: typeof window !== "undefined",
   });
 
   const { data: weekSessions = [] } = useQuery({
@@ -568,6 +570,7 @@ function Dashboard() {
         .lte("planned_start", weekEnd.toISOString());
       return (data ?? []) as Session[];
     },
+    enabled: typeof window !== "undefined",
   });
 
   const weekCombinedEntries = useMemo(() => {
@@ -613,6 +616,7 @@ function Dashboard() {
         .order("planned_start");
       return (data ?? []) as Session[];
     },
+    enabled: typeof window !== "undefined",
   });
 
   const todaysSessions = useMemo(() => {
