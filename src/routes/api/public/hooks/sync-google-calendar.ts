@@ -35,7 +35,8 @@ export const Route = createFileRoute("/api/public/hooks/sync-google-calendar")({
         }
         const userIds = Array.from(new Set((prefs ?? []).map((p) => p.user_id)));
 
-        const results: Array<{ user_id: string; ok: boolean; error?: string; imported?: number }> = [];
+        const results: Array<{ user_id: string; ok: boolean; error?: string; imported?: number }> =
+          [];
         for (const uid of userIds) {
           try {
             const r = await syncGoogleCalendarForUser(supabase, uid);
@@ -49,10 +50,9 @@ export const Route = createFileRoute("/api/public/hooks/sync-google-calendar")({
           }
         }
 
-        return new Response(
-          JSON.stringify({ users: userIds.length, results }),
-          { headers: { "Content-Type": "application/json" } },
-        );
+        return new Response(JSON.stringify({ users: userIds.length, results }), {
+          headers: { "Content-Type": "application/json" },
+        });
       },
     },
   },

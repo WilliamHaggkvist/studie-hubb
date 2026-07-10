@@ -1,6 +1,7 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useSyncExternalStore, useEffect, useState, type ReactNode } from "react";
+import { useDebounce } from "@/hooks/use-debounce";
 import { supabase } from "@/integrations/supabase/client";
 import { useUserSettings } from "@/lib/settings";
 import { cn } from "@/lib/utils";
@@ -31,7 +32,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { useMutation } from "@tanstack/react-query";
@@ -79,7 +86,10 @@ export function AppShell({ children }: { children: ReactNode }) {
       {/* Sidebar — mobile drawer */}
       {mobileOpen && (
         <div className="fixed inset-0 z-50 lg:hidden">
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setMobileOpen(false)} />
+          <div
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            onClick={() => setMobileOpen(false)}
+          />
           <aside className="absolute left-0 top-0 flex h-full w-72 flex-col border-r border-sidebar-border/30 bg-sidebar/70 backdrop-blur-xl">
             <SidebarContent />
           </aside>
@@ -175,14 +185,54 @@ function SidebarContent() {
       </div>
 
       <nav className="px-2">
-        <NavItem to="/dashboard" icon={<Home className="h-4 w-4" />} label="Översikt" activeColor="var(--c-7)" />
-        <NavItem to="/tasks" icon={<ListTodo className="h-4 w-4" />} label="Uppgifter" activeColor="var(--c-4)" />
-        <NavItem to="/calendar" icon={<Calendar className="h-4 w-4" />} label="Kalender" activeColor="var(--c-10)" />
-        <NavItem to="/time" icon={<Clock className="h-4 w-4" />} label="Studietid" activeColor="var(--c-5)" />
-        <NavItem to="/stats" icon={<BarChart3 className="h-4 w-4" />} label="Statistik" activeColor="var(--c-6)" />
-        <NavItem to="/notes" icon={<StickyNote className="h-4 w-4" />} label="Anteckningar" activeColor="var(--c-8)" />
-        <NavItem to="/tips" icon={<Lightbulb className="h-4 w-4" />} label="Tips och råd" activeColor="var(--c-3)" />
-        <NavItem to="/settings" icon={<Settings className="h-4 w-4" />} label="Inställningar" activeColor="var(--c-9)" />
+        <NavItem
+          to="/dashboard"
+          icon={<Home className="h-4 w-4" />}
+          label="Översikt"
+          activeColor="var(--c-7)"
+        />
+        <NavItem
+          to="/tasks"
+          icon={<ListTodo className="h-4 w-4" />}
+          label="Uppgifter"
+          activeColor="var(--c-4)"
+        />
+        <NavItem
+          to="/calendar"
+          icon={<Calendar className="h-4 w-4" />}
+          label="Kalender"
+          activeColor="var(--c-10)"
+        />
+        <NavItem
+          to="/time"
+          icon={<Clock className="h-4 w-4" />}
+          label="Studietid"
+          activeColor="var(--c-5)"
+        />
+        <NavItem
+          to="/stats"
+          icon={<BarChart3 className="h-4 w-4" />}
+          label="Statistik"
+          activeColor="var(--c-6)"
+        />
+        <NavItem
+          to="/notes"
+          icon={<StickyNote className="h-4 w-4" />}
+          label="Anteckningar"
+          activeColor="var(--c-8)"
+        />
+        <NavItem
+          to="/tips"
+          icon={<Lightbulb className="h-4 w-4" />}
+          label="Tips och råd"
+          activeColor="var(--c-3)"
+        />
+        <NavItem
+          to="/settings"
+          icon={<Settings className="h-4 w-4" />}
+          label="Inställningar"
+          activeColor="var(--c-9)"
+        />
       </nav>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-4 pt-4">
@@ -194,10 +244,7 @@ function SidebarContent() {
           </Section>
         )}
 
-        <Section
-          label="Kurser"
-          labelLink="/courses"
-        >
+        <Section label="Kurser" labelLink="/courses">
           {sidebarCourses.length === 0 && (
             <Link
               to="/courses"
@@ -210,7 +257,6 @@ function SidebarContent() {
             <CourseNode key={c.id} course={c} />
           ))}
         </Section>
-
       </div>
 
       <UserFooter />
@@ -218,7 +264,17 @@ function SidebarContent() {
   );
 }
 
-function Section({ label, action, children, labelLink }: { label: string; action?: ReactNode; children: ReactNode; labelLink?: string }) {
+function Section({
+  label,
+  action,
+  children,
+  labelLink,
+}: {
+  label: string;
+  action?: ReactNode;
+  children: ReactNode;
+  labelLink?: string;
+}) {
   return (
     <div className="mb-4">
       <div className="mb-1 flex items-center justify-between px-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
@@ -236,7 +292,17 @@ function Section({ label, action, children, labelLink }: { label: string; action
   );
 }
 
-function NavItem({ to, icon, label, activeColor }: { to: string; icon: ReactNode; label: string; activeColor: string }) {
+function NavItem({
+  to,
+  icon,
+  label,
+  activeColor,
+}: {
+  to: string;
+  icon: ReactNode;
+  label: string;
+  activeColor: string;
+}) {
   const pathname = useRouterState({ select: (r) => r.location.pathname });
   const active = pathname === to || (to !== "/dashboard" && pathname.startsWith(to));
   return (
@@ -276,7 +342,11 @@ function CourseNode({ course }: { course: CourseRow }) {
     >
       <GraduationCap className="h-4 w-4 shrink-0" style={{ color: course.color }} />
       <span className="truncate">{course.name}</span>
-      {course.code && <span className="ml-auto shrink-0 text-[10px] text-sidebar-foreground/60">{course.code}</span>}
+      {course.code && (
+        <span className="ml-auto shrink-0 text-[10px] text-sidebar-foreground/60">
+          {course.code}
+        </span>
+      )}
     </Link>
   );
 }
@@ -290,7 +360,9 @@ function PageLink({ page }: { page: PageRow }) {
       params={{ noteId: page.id }}
       className={cn(
         "flex items-center gap-2 rounded-md px-3 py-1 text-sm text-sidebar-foreground",
-        active ? "bg-sidebar-accent text-foreground" : "hover:bg-sidebar-accent/60 hover:text-foreground",
+        active
+          ? "bg-sidebar-accent text-foreground"
+          : "hover:bg-sidebar-accent/60 hover:text-foreground",
       )}
     >
       <span className="text-sm">{page.icon || "📄"}</span>
@@ -300,21 +372,40 @@ function PageLink({ page }: { page: PageRow }) {
   );
 }
 
-function PageTree({ page, allPages, depth }: { page: PageRow; allPages: PageRow[]; depth: number }) {
+function PageTree({
+  page,
+  allPages,
+  depth,
+}: {
+  page: PageRow;
+  allPages: PageRow[];
+  depth: number;
+}) {
   const children = allPages.filter((p) => p.parent_id === page.id);
   const [open, setOpen] = useState(depth < 1);
   return (
     <div>
-      <div className="group flex items-center gap-1 rounded-md pl-1 pr-2 hover:bg-sidebar-accent/60" style={{ marginLeft: depth * 10 }}>
+      <div
+        className="group flex items-center gap-1 rounded-md pl-1 pr-2 hover:bg-sidebar-accent/60"
+        style={{ marginLeft: depth * 10 }}
+      >
         <button
           onClick={() => setOpen((o) => !o)}
-          className={cn("grid h-5 w-5 shrink-0 place-items-center rounded text-muted-foreground", children.length === 0 && "opacity-0")}
+          className={cn(
+            "grid h-5 w-5 shrink-0 place-items-center rounded text-muted-foreground",
+            children.length === 0 && "opacity-0",
+          )}
         >
-          {open ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+          {open ? (
+            <ChevronDown className="h-3.5 w-3.5" />
+          ) : (
+            <ChevronRight className="h-3.5 w-3.5" />
+          )}
         </button>
         <PageLink page={page} />
       </div>
-      {open && children.map((c) => <PageTree key={c.id} page={c} allPages={allPages} depth={depth + 1} />)}
+      {open &&
+        children.map((c) => <PageTree key={c.id} page={c} allPages={allPages} depth={depth + 1} />)}
     </div>
   );
 }
@@ -341,7 +432,11 @@ function UserFooter() {
         <div className="min-w-0 flex-1">
           <div className="truncate text-xs text-muted-foreground">{email}</div>
         </div>
-        <button onClick={signOut} className="rounded p-1.5 text-muted-foreground hover:bg-sidebar-accent hover:text-foreground" title="Logga ut">
+        <button
+          onClick={signOut}
+          className="rounded p-1.5 text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
+          title="Logga ut"
+        >
           <LogOut className="h-4 w-4" />
         </button>
       </div>
@@ -368,8 +463,9 @@ function TopBar({ onMenuClick }: { onMenuClick: () => void }) {
 function GlobalSearch() {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
+  const debouncedQ = useDebounce(q, 300);
   const navigate = useNavigate();
-  
+
   type SearchResult = {
     id: string;
     title: string;
@@ -381,18 +477,31 @@ function GlobalSearch() {
   };
 
   const { data: results = [] } = useQuery({
-    queryKey: ["search", q],
+    queryKey: ["search", debouncedQ],
     queryFn: async (): Promise<SearchResult[]> => {
-      if (!q.trim()) return [];
-      
+      if (!debouncedQ.trim()) return [];
+
       const [pagesRes, tasksRes, coursesRes] = await Promise.all([
-        supabase.from("pages").select("id,title,icon").ilike("title", `%${q}%`).eq("archived", false).limit(5),
-        supabase.from("tasks").select("id,title,course_id").ilike("title", `%${q}%`).limit(5),
-        supabase.from("courses").select("id,name,code,color,icon,archived,completed").or(`name.ilike.%${q}%,code.ilike.%${q}%`).limit(5),
+        supabase
+          .from("pages")
+          .select("id,title,icon")
+          .ilike("title", `%${debouncedQ}%`)
+          .eq("archived", false)
+          .limit(5),
+        supabase
+          .from("tasks")
+          .select("id,title,course_id")
+          .ilike("title", `%${debouncedQ}%`)
+          .limit(5),
+        supabase
+          .from("courses")
+          .select("id,name,code,color,icon,archived,completed")
+          .or(`name.ilike.%${debouncedQ}%,code.ilike.%${debouncedQ}%`)
+          .limit(5),
       ]);
 
       const list: SearchResult[] = [];
-      
+
       if (coursesRes.data) {
         for (const c of coursesRes.data) {
           list.push({
@@ -406,7 +515,7 @@ function GlobalSearch() {
           });
         }
       }
-      
+
       if (tasksRes.data) {
         for (const t of tasksRes.data) {
           list.push({
@@ -417,7 +526,7 @@ function GlobalSearch() {
           });
         }
       }
-      
+
       if (pagesRes.data) {
         for (const p of pagesRes.data) {
           list.push({
@@ -428,10 +537,10 @@ function GlobalSearch() {
           });
         }
       }
-      
+
       return list;
     },
-    enabled: q.trim().length > 0,
+    enabled: debouncedQ.trim().length > 0,
   });
 
   return (
@@ -444,11 +553,22 @@ function GlobalSearch() {
       </PopoverTrigger>
       <PopoverContent className="w-[min(28rem,90vw)] p-0" align="start">
         <div className="border-b border-border/60 p-2">
-          <Input autoFocus placeholder="Sök efter kurser, uppgifter, anteckningar…" value={q} onChange={(e) => setQ(e.target.value)} />
+          <Input
+            autoFocus
+            placeholder="Sök efter kurser, uppgifter, anteckningar…"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+          />
         </div>
         <div className="max-h-72 overflow-y-auto p-1">
-          {results.length === 0 && q && <div className="p-3 text-sm text-muted-foreground">Inga träffar</div>}
-          {!q && <div className="p-3 text-sm text-muted-foreground">Sök på kurser, uppgifter eller anteckningar.</div>}
+          {results.length === 0 && q && (
+            <div className="p-3 text-sm text-muted-foreground">Inga träffar</div>
+          )}
+          {!q && (
+            <div className="p-3 text-sm text-muted-foreground">
+              Sök på kurser, uppgifter eller anteckningar.
+            </div>
+          )}
           {results.map((r) => (
             <button
               key={`${r.type}:${r.id}`}
@@ -475,12 +595,28 @@ function GlobalSearch() {
                 )}
                 <span className="truncate">{r.title}</span>
               </div>
-              <span className={`text-[9px] uppercase font-bold px-2 py-0.5 rounded-full shrink-0 ${
-                r.type === "course" ? (r.archived ? "bg-muted text-muted-foreground" : r.completed ? "bg-c-7/15 text-c-7 border border-c-7/30" : "bg-primary/10 text-primary") :
-                r.type === "task" ? "bg-sunset-amber/10 text-sunset-amber" :
-                "bg-purple-500/10 text-purple-400"
-              }`}>
-                {r.type === "course" ? (r.archived ? "Kurs (Arkiv)" : r.completed ? "Kurs (Avklarad)" : "Kurs") : r.type === "task" ? "Uppgift" : "Anteckning"}
+              <span
+                className={`text-[9px] uppercase font-bold px-2 py-0.5 rounded-full shrink-0 ${
+                  r.type === "course"
+                    ? r.archived
+                      ? "bg-muted text-muted-foreground"
+                      : r.completed
+                        ? "bg-c-7/15 text-c-7 border border-c-7/30"
+                        : "bg-primary/10 text-primary"
+                    : r.type === "task"
+                      ? "bg-sunset-amber/10 text-sunset-amber"
+                      : "bg-purple-500/10 text-purple-400"
+                }`}
+              >
+                {r.type === "course"
+                  ? r.archived
+                    ? "Kurs (Arkiv)"
+                    : r.completed
+                      ? "Kurs (Avklarad)"
+                      : "Kurs"
+                  : r.type === "task"
+                    ? "Uppgift"
+                    : "Anteckning"}
               </span>
             </button>
           ))}
@@ -492,7 +628,11 @@ function GlobalSearch() {
 
 function TimerWidget() {
   const qc = useQueryClient();
-  const running = useSyncExternalStore(timerStore.subscribe, timerStore.getSnapshot, timerStore.getServerSnapshot);
+  const running = useSyncExternalStore(
+    timerStore.subscribe,
+    timerStore.getSnapshot,
+    timerStore.getServerSnapshot,
+  );
   const [now, setNow] = useState(Date.now());
   const [open, setOpen] = useState(false);
   const [courseId, setCourseId] = useState<string>("none");
@@ -508,7 +648,10 @@ function TimerWidget() {
   const { data: courses = [] } = useQuery({
     queryKey: ["courses"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("courses").select("id,name,color,completed").eq("archived", false);
+      const { data, error } = await supabase
+        .from("courses")
+        .select("id,name,color,completed")
+        .eq("archived", false);
       if (error) throw error;
       return data ?? [];
     },
@@ -539,7 +682,6 @@ function TimerWidget() {
     setTaskIds([]);
     toast.success("Timer startad");
   }
-
 
   async function stop() {
     const prev = timerStore.stop();
@@ -577,9 +719,7 @@ function TimerWidget() {
         task_id,
         user_id: u.user!.id,
       }));
-      const { error: tasksError } = await supabase
-        .from("study_session_tasks")
-        .insert(taskRows);
+      const { error: tasksError } = await supabase.from("study_session_tasks").insert(taskRows);
       if (tasksError) {
         toast.error(tasksError.message);
       }
@@ -602,7 +742,12 @@ function TimerWidget() {
     return (
       <div className="flex items-center gap-2">
         <div className="hidden items-center gap-2 rounded-full border border-border/60 bg-surface px-3 py-1 text-sm sm:flex">
-          {course && <span className="inline-block h-2 w-2 rounded-full" style={{ background: course.color }} />}
+          {course && (
+            <span
+              className="inline-block h-2 w-2 rounded-full"
+              style={{ background: course.color }}
+            />
+          )}
           <span className="font-mono tabular-nums text-foreground">{formatDuration(seconds)}</span>
           {course && <span className="truncate text-xs text-muted-foreground">{course.name}</span>}
         </div>
@@ -625,24 +770,41 @@ function TimerWidget() {
           <div className="text-sm font-semibold">Ny tidssession</div>
           <div>
             <label className="mb-1 block text-xs text-muted-foreground">Kurs</label>
-            <Select value={courseId} onValueChange={(v) => { setCourseId(v); setTaskIds([]); }}>
-              <SelectTrigger><SelectValue placeholder="Välj kurs" /></SelectTrigger>
+            <Select
+              value={courseId}
+              onValueChange={(v) => {
+                setCourseId(v);
+                setTaskIds([]);
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Välj kurs" />
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">Ingen kurs</SelectItem>
-                {courses.filter(c => !c.completed).map((c) => (
-                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                ))}
+                {courses
+                  .filter((c) => !c.completed)
+                  .map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name}
+                    </SelectItem>
+                  ))}
               </SelectContent>
             </Select>
           </div>
           {courseId !== "none" && courseTasks.length > 0 && (
             <div>
-              <label className="mb-1 block text-xs text-muted-foreground">Uppgifter (valfritt)</label>
+              <label className="mb-1 block text-xs text-muted-foreground">
+                Uppgifter (valfritt)
+              </label>
               <div className="max-h-40 space-y-1 overflow-y-auto rounded-md border border-border/60 p-2">
                 {courseTasks.map((t) => {
                   const checked = taskIds.includes(t.id);
                   return (
-                    <label key={t.id} className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 text-sm hover:bg-accent">
+                    <label
+                      key={t.id}
+                      className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 text-sm hover:bg-accent"
+                    >
                       <input
                         type="checkbox"
                         checked={checked}
@@ -660,8 +822,14 @@ function TimerWidget() {
             </div>
           )}
           <div>
-            <label className="mb-1 block text-xs text-muted-foreground">Beskrivning (valfritt)</label>
-            <Input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="T.ex. Läsa kap 3" />
+            <label className="mb-1 block text-xs text-muted-foreground">
+              Beskrivning (valfritt)
+            </label>
+            <Input
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="T.ex. Läsa kap 3"
+            />
           </div>
           <Button className="w-full gradient-sunset text-white hover:opacity-90" onClick={start}>
             <Play className="mr-1 h-3.5 w-3.5" /> Starta

@@ -26,7 +26,10 @@ const PW_SALT = "-studyos-code";
 const MIN_CODE_LENGTH = 6;
 
 function normalizeCode(raw: string) {
-  return raw.trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+  return raw
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
 }
 function toEmail(code: string) {
   return `code-${normalizeCode(code)}@${EMAIL_DOMAIN}`;
@@ -69,7 +72,9 @@ function AuthPage() {
     e.preventDefault();
     const code = normalizeCode(signUpCode);
     if (code.length < MIN_CODE_LENGTH) {
-      return toast.error(`Koden måste vara minst ${MIN_CODE_LENGTH} tecken (bokstäver och siffror).`);
+      return toast.error(
+        `Koden måste vara minst ${MIN_CODE_LENGTH} tecken (bokstäver och siffror).`,
+      );
     }
     if (normalizeCode(confirmCode) !== code) {
       return toast.error("Koderna matchar inte.");
@@ -84,7 +89,10 @@ function AuthPage() {
     });
     setLoading(false);
     if (error) {
-      if (error.message.toLowerCase().includes("already") || error.message.toLowerCase().includes("registered")) {
+      if (
+        error.message.toLowerCase().includes("already") ||
+        error.message.toLowerCase().includes("registered")
+      ) {
         return toast.error("Den koden är redan tagen — välj en annan.");
       }
       return toast.error(error.message);
@@ -139,7 +147,11 @@ function AuthPage() {
                       placeholder="Din personliga kod"
                     />
                   </div>
-                  <Button type="submit" disabled={loading} className="w-full gradient-sunset text-white hover:opacity-90">
+                  <Button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full gradient-sunset text-white hover:opacity-90"
+                  >
                     {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Logga in
                   </Button>
                 </form>
@@ -171,9 +183,14 @@ function AuthPage() {
                     />
                   </div>
                   <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-200">
-                    ⚠️ Spara koden på ett säkert ställe. Tappar du bort den kan du <strong>inte</strong> återställa kontot — all data försvinner.
+                    ⚠️ Spara koden på ett säkert ställe. Tappar du bort den kan du{" "}
+                    <strong>inte</strong> återställa kontot — all data försvinner.
                   </div>
-                  <Button type="submit" disabled={loading} className="w-full gradient-sunset text-white hover:opacity-90">
+                  <Button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full gradient-sunset text-white hover:opacity-90"
+                  >
                     {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Skapa konto
                   </Button>
                 </form>
@@ -181,7 +198,9 @@ function AuthPage() {
             </Tabs>
             <p className="mt-6 text-center text-xs text-muted-foreground">
               Personlig arbetsyta — ingen e-post krävs.{" "}
-              <Link to="/" className="underline hover:text-foreground">Startsida</Link>
+              <Link to="/" className="underline hover:text-foreground">
+                Startsida
+              </Link>
             </p>
           </CardContent>
         </Card>

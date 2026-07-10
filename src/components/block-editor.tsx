@@ -1,7 +1,19 @@
 // Simple block editor. Blocks: text, h1, h2, h3, todo, bullet, numbered, quote, divider, code
 import { useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
-import { Type, Heading1, Heading2, Heading3, ListChecks, List, ListOrdered, Quote, Minus, Code, Trash2 } from "lucide-react";
+import {
+  Type,
+  Heading1,
+  Heading2,
+  Heading3,
+  ListChecks,
+  List,
+  ListOrdered,
+  Quote,
+  Minus,
+  Code,
+  Trash2,
+} from "lucide-react";
 import { toast } from "sonner";
 
 export type Block = {
@@ -24,10 +36,20 @@ const SLASH_MENU: { type: Block["type"]; label: string; icon: React.ReactNode; h
   { type: "h3", label: "Rubrik 3", icon: <Heading3 className="h-4 w-4" />, hint: "Liten rubrik" },
   { type: "todo", label: "Att göra", icon: <ListChecks className="h-4 w-4" />, hint: "Checkbox" },
   { type: "bullet", label: "Punktlista", icon: <List className="h-4 w-4" />, hint: "• lista" },
-  { type: "numbered", label: "Numrerad lista", icon: <ListOrdered className="h-4 w-4" />, hint: "1. lista" },
+  {
+    type: "numbered",
+    label: "Numrerad lista",
+    icon: <ListOrdered className="h-4 w-4" />,
+    hint: "1. lista",
+  },
   { type: "quote", label: "Citat", icon: <Quote className="h-4 w-4" />, hint: "Blockcitat" },
   { type: "code", label: "Kod", icon: <Code className="h-4 w-4" />, hint: "Kodblock" },
-  { type: "divider", label: "Avdelare", icon: <Minus className="h-4 w-4" />, hint: "Horisontell linje" },
+  {
+    type: "divider",
+    label: "Avdelare",
+    icon: <Minus className="h-4 w-4" />,
+    hint: "Horisontell linje",
+  },
 ];
 
 export function BlockEditor({
@@ -37,71 +59,84 @@ export function BlockEditor({
   value: Block[];
   onChange: (blocks: Block[]) => void;
 }) {
-  const blocks = value.length > 0 ? value : [{ id: "fallback-block", type: "text", text: "" } as Block];
+  const blocks =
+    value.length > 0 ? value : [{ id: "fallback-block", type: "text", text: "" } as Block];
   const [focusId, setFocusId] = useState<string | null>(null);
   const [slashFor, setSlashFor] = useState<string | null>(null);
 
-  const update = useCallback((id: string, patch: Partial<Block>) => {
-    onChange(blocks.map((b) => (b.id === id ? { ...b, ...patch } : b)));
-  }, [blocks, onChange]);
+  const update = useCallback(
+    (id: string, patch: Partial<Block>) => {
+      onChange(blocks.map((b) => (b.id === id ? { ...b, ...patch } : b)));
+    },
+    [blocks, onChange],
+  );
 
-  const insertAfter = useCallback((id: string, type: Block["type"] = "text") => {
-    const idx = blocks.findIndex((b) => b.id === id);
-    const b = newBlock(type);
-    const next = [...blocks.slice(0, idx + 1), b, ...blocks.slice(idx + 1)];
-    onChange(next);
-    setFocusId(b.id);
-  }, [blocks, onChange]);
-
-  const remove = useCallback((id: string) => {
-    if (blocks.length <= 1) {
-      onChange([newBlock()]);
-      setFocusId(blocks[0].id);
-      return;
-    }
-    const idx = blocks.findIndex((b) => b.id === id);
-    
-    // Om blocket innan är en avdelare, radera den först
-    if (idx > 0 && blocks[idx - 1].type === "divider") {
-      const dividerBlock = blocks[idx - 1];
-      const next = blocks.filter((b) => b.id !== dividerBlock.id);
+  const insertAfter = useCallback(
+    (id: string, type: Block["type"] = "text") => {
+      const idx = blocks.findIndex((b) => b.id === id);
+      const b = newBlock(type);
+      const next = [...blocks.slice(0, idx + 1), b, ...blocks.slice(idx + 1)];
       onChange(next);
-      setFocusId(id);
-      
-      toast.success("Avdelare borttagen", {
+      setFocusId(b.id);
+    },
+    [blocks, onChange],
+  );
+
+  const remove = useCallback(
+    (id: string) => {
+      if (blocks.length <= 1) {
+        onChange([newBlock()]);
+        setFocusId(blocks[0].id);
+        return;
+      }
+      const idx = blocks.findIndex((b) => b.id === id);
+
+      // Om blocket innan är en avdelare, radera den först
+      if (idx > 0 && blocks[idx - 1].type === "divider") {
+        const dividerBlock = blocks[idx - 1];
+        const next = blocks.filter((b) => b.id !== dividerBlock.id);
+        onChange(next);
+        setFocusId(id);
+
+        toast.success("Avdelare borttagen", {
+          action: {
+            label: "Ångra",
+            onClick: () => {
+              const restored = [...next.slice(0, idx - 1), dividerBlock, ...next.slice(idx - 1)];
+              onChange(restored);
+            },
+          },
+        });
+        return;
+      }
+
+      const deletedBlock = blocks[idx];
+      const next = blocks.filter((b) => b.id !== id);
+      onChange(next);
+      const nextFocusIdx = idx > 0 ? idx - 1 : 0;
+      setFocusId(next[nextFocusIdx]?.id ?? null);
+
+      toast.success("Block borttaget", {
         action: {
           label: "Ångra",
           onClick: () => {
-            const restored = [...next.slice(0, idx - 1), dividerBlock, ...next.slice(idx - 1)];
+            const restored = [...next.slice(0, idx), deletedBlock, ...next.slice(idx)];
             onChange(restored);
-          }
-        }
+          },
+        },
       });
-      return;
-    }
+    },
+    [blocks, onChange],
+  );
 
-    const deletedBlock = blocks[idx];
-    const next = blocks.filter((b) => b.id !== id);
-    onChange(next);
-    const nextFocusIdx = idx > 0 ? idx - 1 : 0;
-    setFocusId(next[nextFocusIdx]?.id ?? null);
-
-    toast.success("Block borttaget", {
-      action: {
-        label: "Ångra",
-        onClick: () => {
-          const restored = [...next.slice(0, idx), deletedBlock, ...next.slice(idx)];
-          onChange(restored);
-        }
-      }
-    });
-  }, [blocks, onChange]);
-
-  const changeType = useCallback((id: string, type: Block["type"]) => {
-    update(id, { type });
-    setSlashFor(null);
-    setFocusId(id);
-  }, [update]);
+  const changeType = useCallback(
+    (id: string, type: Block["type"]) => {
+      update(id, { type });
+      setSlashFor(null);
+      setFocusId(id);
+    },
+    [update],
+  );
 
   const handleWrapperClick = (e: React.MouseEvent) => {
     if (e.target === e.currentTarget) {
@@ -120,10 +155,7 @@ export function BlockEditor({
   };
 
   return (
-    <div 
-      className="space-y-1 min-h-[300px] cursor-text pb-20" 
-      onClick={handleWrapperClick}
-    >
+    <div className="space-y-1 min-h-[300px] cursor-text pb-20" onClick={handleWrapperClick}>
       {blocks.map((b, index) => {
         let listNumber: number | undefined = undefined;
         if (b.type === "numbered") {
@@ -172,8 +204,19 @@ export function BlockEditor({
 }
 
 function BlockRow({
-  block, focused, onFocused, onChange, onEnter, onBackspaceEmpty, onSlash,
-  slashOpen, onCloseSlash, onPickType, listNumber, isLast, onArrowDownLast,
+  block,
+  focused,
+  onFocused,
+  onChange,
+  onEnter,
+  onBackspaceEmpty,
+  onSlash,
+  slashOpen,
+  onCloseSlash,
+  onPickType,
+  listNumber,
+  isLast,
+  onArrowDownLast,
 }: {
   block: Block;
   focused: boolean;
@@ -194,7 +237,7 @@ function BlockRow({
   useEffect(() => {
     if (focused && ref.current && document.activeElement !== ref.current) {
       ref.current.focus();
-      
+
       // Endast tvinga markören till slutet om det finns text.
       // För helt tomma element kan range-urval störa webbläsarens egen hantering av markören.
       if (block.text.length > 0 && ref.current.childNodes.length > 0) {
@@ -215,7 +258,11 @@ function BlockRow({
   }, [focused, block.text]);
 
   useEffect(() => {
-    if (ref.current && document.activeElement !== ref.current && ref.current.innerText !== block.text) {
+    if (
+      ref.current &&
+      document.activeElement !== ref.current &&
+      ref.current.innerText !== block.text
+    ) {
       ref.current.innerText = block.text;
     }
   }, [block.text, block.type]);
@@ -255,9 +302,17 @@ function BlockRow({
           />
         );
       case "bullet":
-        return <span className="shrink-0 select-none text-muted-foreground w-4 text-center text-base leading-relaxed font-semibold">•</span>;
+        return (
+          <span className="shrink-0 select-none text-muted-foreground w-4 text-center text-base leading-relaxed font-semibold">
+            •
+          </span>
+        );
       case "numbered":
-        return <span className="shrink-0 select-none text-muted-foreground text-base leading-relaxed font-medium">{listNumber ?? 1}.</span>;
+        return (
+          <span className="shrink-0 select-none text-muted-foreground text-base leading-relaxed font-medium">
+            {listNumber ?? 1}.
+          </span>
+        );
       default:
         return null;
     }

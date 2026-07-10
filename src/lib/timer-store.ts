@@ -92,4 +92,3 @@ export function formatHoursCompact(seconds: number): string {
   const h = seconds / 3600;
   return `${h.toFixed(2)}h`;
 }
-

@@ -16,19 +16,34 @@ type State =
 
 function UnsubscribePage() {
   const [state, setState] = useState<State>({ kind: "loading" });
-  const token = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("token") : null;
+  const token =
+    typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("token") : null;
 
   useEffect(() => {
-    if (!token) { setState({ kind: "invalid" }); return; }
+    if (!token) {
+      setState({ kind: "invalid" });
+      return;
+    }
     (async () => {
       try {
         const res = await fetch(`/email/unsubscribe?token=${encodeURIComponent(token)}`);
         const json = await res.json();
-        if (!res.ok || json.error) { setState({ kind: "invalid" }); return; }
-        if (json.valid === false && json.reason === "already_unsubscribed") { setState({ kind: "already" }); return; }
-        if (json.valid) { setState({ kind: "confirm" }); return; }
+        if (!res.ok || json.error) {
+          setState({ kind: "invalid" });
+          return;
+        }
+        if (json.valid === false && json.reason === "already_unsubscribed") {
+          setState({ kind: "already" });
+          return;
+        }
+        if (json.valid) {
+          setState({ kind: "confirm" });
+          return;
+        }
         setState({ kind: "invalid" });
-      } catch { setState({ kind: "invalid" }); }
+      } catch {
+        setState({ kind: "invalid" });
+      }
     })();
   }, [token]);
 
@@ -54,33 +69,48 @@ function UnsubscribePage() {
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="w-full max-w-md rounded-2xl border border-border/60 bg-surface/60 p-8 text-center shadow-lg backdrop-blur-md">
         <h1 className="font-display text-3xl font-bold gradient-text">StudieHubb</h1>
-        {state.kind === "loading" && <p className="mt-6 text-sm text-muted-foreground">Kontrollerar länken…</p>}
+        {state.kind === "loading" && (
+          <p className="mt-6 text-sm text-muted-foreground">Kontrollerar länken…</p>
+        )}
         {state.kind === "invalid" && (
           <>
             <h2 className="mt-6 text-xl font-semibold">Ogiltig länk</h2>
-            <p className="mt-2 text-sm text-muted-foreground">Denna avanmälningslänk är ogiltig eller har gått ut.</p>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Denna avanmälningslänk är ogiltig eller har gått ut.
+            </p>
           </>
         )}
         {state.kind === "already" && (
           <>
             <h2 className="mt-6 text-xl font-semibold">Redan avanmäld</h2>
-            <p className="mt-2 text-sm text-muted-foreground">Denna e-postadress får redan inga mejl från oss.</p>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Denna e-postadress får redan inga mejl från oss.
+            </p>
           </>
         )}
         {state.kind === "confirm" && (
           <>
             <h2 className="mt-6 text-xl font-semibold">Vill du avanmäla dig?</h2>
-            <p className="mt-2 text-sm text-muted-foreground">Du kommer inte längre att få påminnelser eller sammanfattningar från StudieHubb.</p>
-            <button onClick={confirm} className="mt-6 inline-flex items-center justify-center rounded-md gradient-sunset px-5 py-2.5 text-sm font-medium text-white hover:opacity-90">
+            <p className="mt-2 text-sm text-muted-foreground">
+              Du kommer inte längre att få påminnelser eller sammanfattningar från StudieHubb.
+            </p>
+            <button
+              onClick={confirm}
+              className="mt-6 inline-flex items-center justify-center rounded-md gradient-sunset px-5 py-2.5 text-sm font-medium text-white hover:opacity-90"
+            >
               Bekräfta avanmälan
             </button>
           </>
         )}
-        {state.kind === "submitting" && <p className="mt-6 text-sm text-muted-foreground">Avanmäler…</p>}
+        {state.kind === "submitting" && (
+          <p className="mt-6 text-sm text-muted-foreground">Avanmäler…</p>
+        )}
         {state.kind === "success" && (
           <>
             <h2 className="mt-6 text-xl font-semibold">Du är avanmäld</h2>
-            <p className="mt-2 text-sm text-muted-foreground">Du kommer inte längre att få mejl från StudieHubb.</p>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Du kommer inte längre att få mejl från StudieHubb.
+            </p>
           </>
         )}
         {state.kind === "error" && (

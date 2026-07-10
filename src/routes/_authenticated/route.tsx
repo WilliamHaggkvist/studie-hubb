@@ -5,9 +5,12 @@ import { AppShell } from "@/components/app-shell";
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
   beforeLoad: async () => {
-    const { data, error } = await supabase.auth.getUser();
-    if (error || !data.user) throw redirect({ to: "/auth" });
-    return { user: data.user };
+    if (typeof window !== "undefined") {
+      const { data, error } = await supabase.auth.getSession();
+      if (error || !data.session) throw redirect({ to: "/auth" });
+      return { session: data.session };
+    }
+    return { session: null };
   },
   component: () => (
     <AppShell>

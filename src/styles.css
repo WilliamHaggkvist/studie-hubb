@@ -79,7 +79,7 @@
   /* Softer, more rounded */
   --radius: 0.5rem;
 
-  --background: oklch(0.12 0.006 260);      /* deeper slate-black */
+  --background: oklch(0.12 0.006 260); /* deeper slate-black */
   --foreground: oklch(0.98 0.004 250);
   --surface: rgba(20, 20, 26, 0.4);
   --surface-2: rgba(30, 30, 38, 0.55);
@@ -104,15 +104,15 @@
   --ring: #277da1;
 
   /* Palette (10 stops from red -> teal -> blue) */
-  --c-1:  #f94144;
-  --c-2:  #f3722c;
-  --c-3:  #f8961e;
-  --c-4:  #f9844a;
-  --c-5:  #f9c74f;
-  --c-6:  #90be6d;
-  --c-7:  #43aa8b;
-  --c-8:  #4d908e;
-  --c-9:  #577590;
+  --c-1: #f94144;
+  --c-2: #f3722c;
+  --c-3: #f8961e;
+  --c-4: #f9844a;
+  --c-5: #f9c74f;
+  --c-6: #90be6d;
+  --c-7: #43aa8b;
+  --c-8: #4d908e;
+  --c-9: #577590;
   --c-10: #277da1;
 
   --sidebar: rgba(14, 14, 18, 0.5);
@@ -162,19 +162,39 @@
   html {
     color-scheme: dark;
   }
-  * { border-color: var(--color-border); }
+  * {
+    border-color: var(--color-border);
+  }
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
   }
-  h1, h2, h3, .font-display { font-family: var(--font-display); letter-spacing: -0.01em; }
-  ::selection { background: color-mix(in oklab, var(--c-10) 40%, transparent); }
-  ::-webkit-scrollbar { width: 10px; height: 10px; }
-  ::-webkit-scrollbar-thumb { background: oklch(0.3 0.014 275 / 60%); border-radius: 999px; }
-  ::-webkit-scrollbar-thumb:hover { background: oklch(0.38 0.014 275 / 75%); }
-  ::-webkit-scrollbar-track { background: transparent; }
+  h1,
+  h2,
+  h3,
+  .font-display {
+    font-family: var(--font-display);
+    letter-spacing: -0.01em;
+  }
+  ::selection {
+    background: color-mix(in oklab, var(--c-10) 40%, transparent);
+  }
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: oklch(0.3 0.014 275 / 60%);
+    border-radius: 999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: oklch(0.38 0.014 275 / 75%);
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
 }
 
 /* Frosted glass surface for panels, toolbars, dialogs. */

@@ -43,9 +43,7 @@ export const listGoogleCalendars = createServerFn({ method: "POST" })
       .from("google_calendar_prefs")
       .select("google_calendar_id, sync_enabled, counts_as_study")
       .eq("user_id", context.userId);
-    const existingMap = new Map(
-      (existing ?? []).map((r) => [r.google_calendar_id, r]),
-    );
+    const existingMap = new Map((existing ?? []).map((r) => [r.google_calendar_id, r]));
 
     const rows = items.map((c) => {
       const prev = existingMap.get(c.id);

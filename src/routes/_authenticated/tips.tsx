@@ -10,7 +10,9 @@ function TipsPage() {
     <div className="mx-auto max-w-6xl px-4 py-8 lg:px-8">
       <div className="mb-8">
         <h1 className="font-display text-3xl font-bold tracking-tight">Tips och råd</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Här kan du hitta tips och råd för dina studier.</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Här kan du hitta tips och råd för dina studier.
+        </p>
       </div>
 
       <Tabs defaultValue="tab1" className="space-y-6">

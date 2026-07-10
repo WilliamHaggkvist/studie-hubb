@@ -6,7 +6,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Plus, Trash2, Save, Calendar as CalIcon } from "lucide-react";
 import { toast } from "sonner";
@@ -17,7 +23,13 @@ export const Route = createFileRoute("/_authenticated/settings")({
   component: SettingsPage,
 });
 
-type TermRow = { id: string; year: number; term: "host" | "var" | "sommar"; start_date: string; end_date: string };
+type TermRow = {
+  id: string;
+  year: number;
+  term: "host" | "var" | "sommar";
+  start_date: string;
+  end_date: string;
+};
 
 function SettingsPage() {
   return (
@@ -42,8 +54,6 @@ const REMINDER_CHOICES: { minutes: number; label: string }[] = [
   { minutes: 120, label: "2 timmar innan" },
 ];
 
-
-
 function NotificationsCard() {
   const { data: s } = useUserSettings();
   const qc = useQueryClient();
@@ -66,7 +76,10 @@ function NotificationsCard() {
     mutationFn: async (patch: Record<string, unknown>) => {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) throw new Error("no user");
-      const { error } = await supabase.from("user_settings").update(patch as never).eq("user_id", u.user.id);
+      const { error } = await supabase
+        .from("user_settings")
+        .update(patch as never)
+        .eq("user_id", u.user.id);
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["user_settings"] }),
@@ -96,7 +109,8 @@ function NotificationsCard() {
       qc.invalidateQueries({ queryKey: ["user_settings"] });
       toast.success("E-postadressen har verifierats!");
     },
-    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Verifiering misslyckades"),
+    onError: (e: unknown) =>
+      toast.error(e instanceof Error ? e.message : "Verifiering misslyckades"),
   });
 
   const testEmail = useMutation({
@@ -107,12 +121,15 @@ function NotificationsCard() {
     onSuccess: (res) => {
       toast.success(`Testmejl skickat till ${res.email}`);
     },
-    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Kunde inte skicka testmejl"),
+    onError: (e: unknown) =>
+      toast.error(e instanceof Error ? e.message : "Kunde inte skicka testmejl"),
   });
 
   const offsets = s?.reminder_offsets ?? [];
   const toggleOffset = (min: number) => {
-    const next = offsets.includes(min) ? offsets.filter((o) => o !== min) : [...offsets, min].sort((a, b) => b - a);
+    const next = offsets.includes(min)
+      ? offsets.filter((o) => o !== min)
+      : [...offsets, min].sort((a, b) => b - a);
     save.mutate({ reminder_offsets: next });
   };
 
@@ -128,19 +145,28 @@ function NotificationsCard() {
 
   return (
     <Card className="border-border/60 bg-surface/60 backdrop-blur-md rounded-2xl">
-      <CardHeader><CardTitle className="font-display text-base">Mejlnotiser</CardTitle></CardHeader>
+      <CardHeader>
+        <CardTitle className="font-display text-base">Mejlnotiser</CardTitle>
+      </CardHeader>
       <CardContent className="space-y-4">
         <div className="flex items-center justify-between rounded-xl border border-border/60 bg-background/40 px-4 py-3">
           <div>
             <div className="text-sm font-medium">Påminnelser inför deadlines</div>
-            <div className="text-[11px] text-muted-foreground">Skickar mejl inför uppgifters deadline enligt intervallen nedan.</div>
+            <div className="text-[11px] text-muted-foreground">
+              Skickar mejl inför uppgifters deadline enligt intervallen nedan.
+            </div>
           </div>
-          <Switch checked={!!s?.email_reminders_enabled} onCheckedChange={(v) => save.mutate({ email_reminders_enabled: v })} />
+          <Switch
+            checked={!!s?.email_reminders_enabled}
+            onCheckedChange={(v) => save.mutate({ email_reminders_enabled: v })}
+          />
         </div>
         {s?.email_reminders_enabled && (
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label className="text-xs uppercase tracking-wide text-muted-foreground">Standardintervall</Label>
+              <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                Standardintervall
+              </Label>
               <div className="flex flex-wrap gap-2">
                 {REMINDER_CHOICES.map((c) => {
                   const active = offsets.includes(c.minutes);
@@ -163,34 +189,67 @@ function NotificationsCard() {
                     min={0}
                     max={23}
                     value={s.reminder_fallback_hour}
-                    onChange={(e) => save.mutate({ reminder_fallback_hour: Math.max(0, Math.min(23, Number(e.target.value) || 0)) })}
+                    onChange={(e) =>
+                      save.mutate({
+                        reminder_fallback_hour: Math.max(
+                          0,
+                          Math.min(23, Number(e.target.value) || 0),
+                        ),
+                      })
+                    }
                     className="rounded-xl"
                   />
-                  <p className="text-[11px] text-muted-foreground">Om uppgiften saknar klockslag skickas påminnelser vid denna tid.</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    Om uppgiften saknar klockslag skickas påminnelser vid denna tid.
+                  </p>
                 </div>
               </div>
             </div>
 
             <div className="space-y-3 pt-3 border-t border-border/60">
-              <Label className="text-xs uppercase tracking-wide text-muted-foreground">Mottagande e-postadress</Label>
-              
+              <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                Mottagande e-postadress
+              </Label>
+
               <div className="text-sm">
-                Aktiv e-post: <strong className="text-foreground">{s?.reminder_email && s?.reminder_email_verified ? s.reminder_email : primaryEmail}</strong>
+                Aktiv e-post:{" "}
+                <strong className="text-foreground">
+                  {s?.reminder_email && s?.reminder_email_verified
+                    ? s.reminder_email
+                    : primaryEmail}
+                </strong>
                 {!s?.reminder_email_verified && s?.reminder_email && (
-                  <span className="ml-2 text-xs text-sunset-amber bg-sunset-amber/10 px-2 py-0.5 rounded-full font-semibold">Ej verifierad (skickas fortfarande till inloggningsmejl)</span>
+                  <span className="ml-2 text-xs text-sunset-amber bg-sunset-amber/10 px-2 py-0.5 rounded-full font-semibold">
+                    Ej verifierad (skickas fortfarande till inloggningsmejl)
+                  </span>
                 )}
                 {s?.reminder_email_verified && s?.reminder_email && (
-                  <span className="ml-2 text-xs text-green-500 bg-green-500/10 px-2 py-0.5 rounded-full font-semibold">Verifierad</span>
+                  <span className="ml-2 text-xs text-green-500 bg-green-500/10 px-2 py-0.5 rounded-full font-semibold">
+                    Verifierad
+                  </span>
                 )}
               </div>
-              
+
               {!isEditingEmail ? (
                 <div className="flex gap-2 flex-wrap">
-                  <Button size="sm" variant="outline" onClick={() => { setIsEditingEmail(true); setNewEmail(s?.reminder_email ?? ""); }} className="rounded-xl text-xs">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setIsEditingEmail(true);
+                      setNewEmail(s?.reminder_email ?? "");
+                    }}
+                    className="rounded-xl text-xs"
+                  >
                     Använd en annan e-postadress
                   </Button>
                   {s?.reminder_email && (
-                    <Button size="sm" variant="ghost" onClick={resetToDefaultEmail} className="rounded-xl text-xs text-destructive hover:bg-destructive/10">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={resetToDefaultEmail}
+                      className="rounded-xl text-xs text-destructive hover:bg-destructive/10"
+                    >
                       Återställ till inloggningsmejl
                     </Button>
                   )}
@@ -205,14 +264,27 @@ function NotificationsCard() {
                       onChange={(e) => setNewEmail(e.target.value)}
                       className="rounded-xl"
                     />
-                    <Button onClick={() => requestVerify.mutate(newEmail)} disabled={requestVerify.isPending} className="rounded-xl gradient-sunset text-white whitespace-nowrap">
+                    <Button
+                      onClick={() => requestVerify.mutate(newEmail)}
+                      disabled={requestVerify.isPending}
+                      className="rounded-xl gradient-sunset text-white whitespace-nowrap"
+                    >
                       {requestVerify.isPending ? "Skickar..." : "Skicka kod"}
                     </Button>
-                    <Button variant="ghost" onClick={() => { setIsEditingEmail(false); setShowVerificationInput(false); }} className="rounded-xl">
+                    <Button
+                      variant="ghost"
+                      onClick={() => {
+                        setIsEditingEmail(false);
+                        setShowVerificationInput(false);
+                      }}
+                      className="rounded-xl"
+                    >
                       Avbryt
                     </Button>
                   </div>
-                  <p className="text-[11px] text-muted-foreground">Vi kommer att skicka en 6-siffrig verifieringskod till adressen.</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    Vi kommer att skicka en 6-siffrig verifieringskod till adressen.
+                  </p>
                 </div>
               )}
 
@@ -228,7 +300,11 @@ function NotificationsCard() {
                       className="rounded-xl text-center font-mono font-bold"
                       maxLength={6}
                     />
-                    <Button onClick={() => verifyCode.mutate(verificationCode)} disabled={verifyCode.isPending} className="rounded-xl bg-foreground text-background">
+                    <Button
+                      onClick={() => verifyCode.mutate(verificationCode)}
+                      disabled={verifyCode.isPending}
+                      className="rounded-xl bg-foreground text-background"
+                    >
                       {verifyCode.isPending ? "Verifierar..." : "Verifiera"}
                     </Button>
                   </div>
@@ -239,12 +315,14 @@ function NotificationsCard() {
             <div className="pt-3 border-t border-border/60 flex items-center justify-between">
               <div>
                 <div className="text-sm font-medium">Skicka testmejl</div>
-                <div className="text-[11px] text-muted-foreground">Testa påminnelsesystemet genom att skicka ett provmejl direkt.</div>
+                <div className="text-[11px] text-muted-foreground">
+                  Testa påminnelsesystemet genom att skicka ett provmejl direkt.
+                </div>
               </div>
-              <Button 
-                size="sm" 
-                onClick={() => testEmail.mutate()} 
-                disabled={testEmail.isPending} 
+              <Button
+                size="sm"
+                onClick={() => testEmail.mutate()}
+                disabled={testEmail.isPending}
                 className="rounded-xl bg-surface hover:bg-surface-2 border border-border/60 text-foreground text-xs"
               >
                 {testEmail.isPending ? "Skickar..." : "Skicka testmejl"}
@@ -255,16 +333,26 @@ function NotificationsCard() {
         <div className="flex items-center justify-between rounded-xl border border-border/60 bg-background/40 px-4 py-3">
           <div>
             <div className="text-sm font-medium">Daglig sammanfattning</div>
-            <div className="text-[11px] text-muted-foreground">Skickas varje morgon kl 07:00 med dagens uppgifter och studiepass.</div>
+            <div className="text-[11px] text-muted-foreground">
+              Skickas varje morgon kl 07:00 med dagens uppgifter och studiepass.
+            </div>
           </div>
-          <Switch checked={!!s?.daily_summary_enabled} onCheckedChange={(v) => save.mutate({ daily_summary_enabled: v })} />
+          <Switch
+            checked={!!s?.daily_summary_enabled}
+            onCheckedChange={(v) => save.mutate({ daily_summary_enabled: v })}
+          />
         </div>
         <div className="flex items-center justify-between rounded-xl border border-border/60 bg-background/40 px-4 py-3">
           <div>
             <div className="text-sm font-medium">Veckosammanfattning</div>
-            <div className="text-[11px] text-muted-foreground">Skickas söndag kl 19:00 med veckans deadlines och studietid.</div>
+            <div className="text-[11px] text-muted-foreground">
+              Skickas söndag kl 19:00 med veckans deadlines och studietid.
+            </div>
           </div>
-          <Switch checked={!!s?.weekly_summary_enabled} onCheckedChange={(v) => save.mutate({ weekly_summary_enabled: v })} />
+          <Switch
+            checked={!!s?.weekly_summary_enabled}
+            onCheckedChange={(v) => save.mutate({ weekly_summary_enabled: v })}
+          />
         </div>
       </CardContent>
     </Card>
@@ -285,15 +373,30 @@ function StudySettingsCard() {
   });
   return (
     <Card className="border-border/60 bg-surface/60 backdrop-blur-md rounded-2xl">
-      <CardHeader><CardTitle className="font-display text-base">Studier</CardTitle></CardHeader>
+      <CardHeader>
+        <CardTitle className="font-display text-base">Studier</CardTitle>
+      </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-1.5 max-w-sm">
           <Label>Aktuell årskurs</Label>
-          <Select value={String(s?.current_year ?? 1)} onValueChange={(v) => save.mutate({ current_year: Number(v) })}>
-            <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
-            <SelectContent>{ARSKURS_OPTIONS.map((a) => <SelectItem key={a} value={String(a)}>Årskurs {a}</SelectItem>)}</SelectContent>
+          <Select
+            value={String(s?.current_year ?? 1)}
+            onValueChange={(v) => save.mutate({ current_year: Number(v) })}
+          >
+            <SelectTrigger className="rounded-xl">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {ARSKURS_OPTIONS.map((a) => (
+                <SelectItem key={a} value={String(a)}>
+                  Årskurs {a}
+                </SelectItem>
+              ))}
+            </SelectContent>
           </Select>
-          <p className="text-[11px] text-muted-foreground">Styr vilka kurser som visas som "aktiva" på översikten.</p>
+          <p className="text-[11px] text-muted-foreground">
+            Styr vilka kurser som visas som "aktiva" på översikten.
+          </p>
         </div>
       </CardContent>
     </Card>
@@ -308,10 +411,16 @@ function UniversitiesCard() {
     mutationFn: async () => {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) throw new Error("no user");
-      const { error } = await supabase.from("universities").insert({ user_id: u.user.id, name: newName.trim(), sort_order: unis.length + 1 });
+      const { error } = await supabase
+        .from("universities")
+        .insert({ user_id: u.user.id, name: newName.trim(), sort_order: unis.length + 1 });
       if (error) throw error;
     },
-    onSuccess: () => { setNewName(""); qc.invalidateQueries({ queryKey: ["universities"] }); toast.success("Tillagt"); },
+    onSuccess: () => {
+      setNewName("");
+      qc.invalidateQueries({ queryKey: ["universities"] });
+      toast.success("Tillagt");
+    },
     onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Fel"),
   });
   const rename = useMutation({
@@ -330,17 +439,47 @@ function UniversitiesCard() {
   });
   return (
     <Card className="border-border/60 bg-surface/60 backdrop-blur-md rounded-2xl">
-      <CardHeader><CardTitle className="font-display text-base">Universitet</CardTitle></CardHeader>
+      <CardHeader>
+        <CardTitle className="font-display text-base">Universitet</CardTitle>
+      </CardHeader>
       <CardContent className="space-y-2">
         {unis.map((u) => (
           <div key={u.id} className="flex items-center gap-2">
-            <Input defaultValue={u.name} onBlur={(e) => { if (e.target.value.trim() && e.target.value !== u.name) rename.mutate({ id: u.id, name: e.target.value.trim() }); }} className="rounded-xl" />
-            <Button size="icon" variant="ghost" className="rounded-xl text-destructive" onClick={() => { if (confirm(`Ta bort ${u.name}?`)) del.mutate(u.id); }}><Trash2 className="h-4 w-4" /></Button>
+            <Input
+              defaultValue={u.name}
+              onBlur={(e) => {
+                if (e.target.value.trim() && e.target.value !== u.name)
+                  rename.mutate({ id: u.id, name: e.target.value.trim() });
+              }}
+              className="rounded-xl"
+            />
+            <Button
+              size="icon"
+              variant="ghost"
+              className="rounded-xl text-destructive"
+              onClick={() => {
+                if (confirm(`Ta bort ${u.name}?`)) del.mutate(u.id);
+              }}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
           </div>
         ))}
         <div className="flex items-center gap-2 pt-2 border-t border-border/60">
-          <Input placeholder="Lägg till universitet…" value={newName} onChange={(e) => setNewName(e.target.value)} className="rounded-xl" />
-          <Button size="sm" className="gap-1 rounded-xl" disabled={!newName.trim() || add.isPending} onClick={() => add.mutate()}><Plus className="h-3.5 w-3.5" /> Lägg till</Button>
+          <Input
+            placeholder="Lägg till universitet…"
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            className="rounded-xl"
+          />
+          <Button
+            size="sm"
+            className="gap-1 rounded-xl"
+            disabled={!newName.trim() || add.isPending}
+            onClick={() => add.mutate()}
+          >
+            <Plus className="h-3.5 w-3.5" /> Lägg till
+          </Button>
         </div>
       </CardContent>
     </Card>
@@ -352,7 +491,11 @@ function TermsCard() {
   const { data: terms = [] } = useQuery({
     queryKey: ["term_dates"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("term_dates").select("id,year,term,start_date,end_date").order("year", { ascending: false }).order("term");
+      const { data, error } = await supabase
+        .from("term_dates")
+        .select("id,year,term,start_date,end_date")
+        .order("year", { ascending: false })
+        .order("term");
       if (error) throw error;
       return (data ?? []) as TermRow[];
     },
@@ -367,40 +510,86 @@ function TermsCard() {
     mutationFn: async () => {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) throw new Error("no user");
-      const { error } = await supabase.from("term_dates").upsert({
-        user_id: u.user.id, year: Number(year), term, start_date: start, end_date: end,
-      }, { onConflict: "user_id,year,term" });
+      const { error } = await supabase.from("term_dates").upsert(
+        {
+          user_id: u.user.id,
+          year: Number(year),
+          term,
+          start_date: start,
+          end_date: end,
+        },
+        { onConflict: "user_id,year,term" },
+      );
       if (error) throw error;
     },
-    onSuccess: () => { setStart(""); setEnd(""); qc.invalidateQueries({ queryKey: ["term_dates"] }); toast.success("Sparat"); },
+    onSuccess: () => {
+      setStart("");
+      setEnd("");
+      qc.invalidateQueries({ queryKey: ["term_dates"] });
+      toast.success("Sparat");
+    },
     onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Fel"),
   });
   const del = useMutation({
-    mutationFn: async (id: string) => { const { error } = await supabase.from("term_dates").delete().eq("id", id); if (error) throw error; },
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("term_dates").delete().eq("id", id);
+      if (error) throw error;
+    },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["term_dates"] }),
   });
 
-  const termName = (t: string) => t === "host" ? "Höst" : t === "var" ? "Vår" : "Sommar";
+  const termName = (t: string) => (t === "host" ? "Höst" : t === "var" ? "Vår" : "Sommar");
 
   return (
     <Card className="border-border/60 bg-surface/60 backdrop-blur-md rounded-2xl">
-      <CardHeader><CardTitle className="font-display text-base flex items-center gap-2"><CalIcon className="h-4 w-4" /> Terminsdatum</CardTitle></CardHeader>
+      <CardHeader>
+        <CardTitle className="font-display text-base flex items-center gap-2">
+          <CalIcon className="h-4 w-4" /> Terminsdatum
+        </CardTitle>
+      </CardHeader>
       <CardContent className="space-y-3">
         <div className="space-y-1">
-          {terms.length === 0 && <div className="text-xs text-muted-foreground">Inga terminer inlagda än.</div>}
+          {terms.length === 0 && (
+            <div className="text-xs text-muted-foreground">Inga terminer inlagda än.</div>
+          )}
           {terms.map((t) => (
-            <div key={t.id} className="flex items-center gap-2 rounded-xl border border-border/60 bg-background/40 px-3 py-2 text-sm">
-              <span className="font-medium">{termName(t.term)} {t.year}</span>
-              <span className="text-muted-foreground text-xs">{t.start_date} → {t.end_date}</span>
-              <Button size="icon" variant="ghost" className="ml-auto rounded-xl text-destructive" onClick={() => del.mutate(t.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
+            <div
+              key={t.id}
+              className="flex items-center gap-2 rounded-xl border border-border/60 bg-background/40 px-3 py-2 text-sm"
+            >
+              <span className="font-medium">
+                {termName(t.term)} {t.year}
+              </span>
+              <span className="text-muted-foreground text-xs">
+                {t.start_date} → {t.end_date}
+              </span>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="ml-auto rounded-xl text-destructive"
+                onClick={() => del.mutate(t.id)}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
             </div>
           ))}
         </div>
         <div className="grid gap-2 sm:grid-cols-5 items-end pt-3 border-t border-border/60">
-          <div className="space-y-1"><Label className="text-xs">År</Label><Input type="number" value={year} onChange={(e) => setYear(e.target.value)} className="rounded-xl" /></div>
-          <div className="space-y-1"><Label className="text-xs">Termin</Label>
+          <div className="space-y-1">
+            <Label className="text-xs">År</Label>
+            <Input
+              type="number"
+              value={year}
+              onChange={(e) => setYear(e.target.value)}
+              className="rounded-xl"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Termin</Label>
             <Select value={term} onValueChange={(v) => setTerm(v as "host" | "var" | "sommar")}>
-              <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="rounded-xl">
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="host">Höst</SelectItem>
                 <SelectItem value="var">Vår</SelectItem>
@@ -408,9 +597,32 @@ function TermsCard() {
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-1"><Label className="text-xs">Start</Label><Input type="date" value={start} onChange={(e) => setStart(e.target.value)} className="rounded-xl" /></div>
-          <div className="space-y-1"><Label className="text-xs">Slut</Label><Input type="date" value={end} onChange={(e) => setEnd(e.target.value)} className="rounded-xl" /></div>
-          <Button size="sm" className="rounded-xl" disabled={!start || !end || upsert.isPending} onClick={() => upsert.mutate()}>Spara</Button>
+          <div className="space-y-1">
+            <Label className="text-xs">Start</Label>
+            <Input
+              type="date"
+              value={start}
+              onChange={(e) => setStart(e.target.value)}
+              className="rounded-xl"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Slut</Label>
+            <Input
+              type="date"
+              value={end}
+              onChange={(e) => setEnd(e.target.value)}
+              className="rounded-xl"
+            />
+          </div>
+          <Button
+            size="sm"
+            className="rounded-xl"
+            disabled={!start || !end || upsert.isPending}
+            onClick={() => upsert.mutate()}
+          >
+            Spara
+          </Button>
         </div>
       </CardContent>
     </Card>
@@ -477,9 +689,7 @@ function GoogleCard() {
   });
 
   function updateLocal(id: string, patch: Partial<CalPref>) {
-    setCalendars((prev) =>
-      prev ? prev.map((c) => (c.id === id ? { ...c, ...patch } : c)) : prev,
-    );
+    setCalendars((prev) => (prev ? prev.map((c) => (c.id === id ? { ...c, ...patch } : c)) : prev));
   }
 
   const sync = useMutation({
@@ -508,9 +718,9 @@ function GoogleCard() {
       <CardContent className="space-y-4">
         <div className="rounded-xl border border-border/60 bg-background/40 px-3 py-2.5 text-xs text-muted-foreground space-y-1">
           <p>
-            Skriv <code className="rounded bg-surface px-1">[KURSKOD]</code> i eventtiteln
-            (t.ex. <code className="rounded bg-surface px-1">[SG1140] Föreläsning kap 3</code>)
-            så kopplas eventet automatiskt till rätt kurs.
+            Skriv <code className="rounded bg-surface px-1">[KURSKOD]</code> i eventtiteln (t.ex.{" "}
+            <code className="rounded bg-surface px-1">[SG1140] Föreläsning kap 3</code>) så kopplas
+            eventet automatiskt till rätt kurs.
           </p>
           <p>
             Kurskoderna hämtas från fältet <em>Kurskod</em> på respektive kurs. Prefix
@@ -531,7 +741,11 @@ function GoogleCard() {
               onClick={() => fetchCalendars.mutate()}
               disabled={fetchCalendars.isPending}
             >
-              {fetchCalendars.isPending ? "Hämtar…" : calendars ? "Uppdatera lista" : "Hämta kalendrar"}
+              {fetchCalendars.isPending
+                ? "Hämtar…"
+                : calendars
+                  ? "Uppdatera lista"
+                  : "Hämta kalendrar"}
             </Button>
           </div>
           {calendars && calendars.length === 0 && (
@@ -591,7 +805,8 @@ function GoogleCard() {
           </Button>
           {status && (
             <div className="text-xs text-muted-foreground">
-              {status.imported} händelser · {status.mapped} kopplade · {status.unmapped} okopplade · {status.sessions} studiepass · {status.calendars} kalender(-rar)
+              {status.imported} händelser · {status.mapped} kopplade · {status.unmapped} okopplade ·{" "}
+              {status.sessions} studiepass · {status.calendars} kalender(-rar)
             </div>
           )}
         </div>

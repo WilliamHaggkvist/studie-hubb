@@ -90,7 +90,7 @@ export async function syncGoogleCalendarForUser(
 
   for (const t of targets) {
     let pageToken: string | undefined = undefined;
-    
+
     do {
       const url = new URL(
         `${GATEWAY_URL}/calendars/${encodeURIComponent(t.google_calendar_id)}/events`,
@@ -103,13 +103,13 @@ export async function syncGoogleCalendarForUser(
       if (pageToken) {
         url.searchParams.set("pageToken", pageToken);
       }
-      
+
       const res = await fetch(url.toString(), { headers });
       if (!res.ok) {
         fetchFailed = true;
         break; // Avbryt denna kalender
       }
-      
+
       const json = (await res.json()) as { items?: GEvent[]; nextPageToken?: string };
       const items = json.items ?? [];
       totalItems += items.length;
@@ -128,7 +128,7 @@ export async function syncGoogleCalendarForUser(
         if (isSession) {
           seenSessionIds.add(ev.id);
           const code = parseCourseCode(title);
-          const courseId = code ? codeMap.get(code) ?? null : null;
+          const courseId = code ? (codeMap.get(code) ?? null) : null;
           // Scope by user_id — annars kan sync (som service_role via cron)
           // matcha en annan användares rad med samma google_event_id.
           const { data: existingRecords } = await supabase
@@ -141,9 +141,7 @@ export async function syncGoogleCalendarForUser(
             user_id: userId,
             planned_start: new Date(startsRaw).toISOString(),
             planned_end: new Date(endsRaw).toISOString(),
-            notes: isTaggedSession
-              ? title.replace("[Studiepass]", "").trim() || null
-              : title,
+            notes: isTaggedSession ? title.replace("[Studiepass]", "").trim() || null : title,
             source: "google",
             google_event_id: ev.id,
           };
@@ -152,7 +150,7 @@ export async function syncGoogleCalendarForUser(
             const existing = existingRecords[0];
 
             if (existingRecords.length > 1) {
-              const duplicateIds = existingRecords.slice(1).map(r => r.id);
+              const duplicateIds = existingRecords.slice(1).map((r) => r.id);
               await supabase
                 .from("study_sessions")
                 .delete()
@@ -175,10 +173,9 @@ export async function syncGoogleCalendarForUser(
           continue;
         }
 
-
         seenEventIds.add(ev.id);
         const code = parseCourseCode(title);
-        const courseId = code ? codeMap.get(code) ?? null : null;
+        const courseId = code ? (codeMap.get(code) ?? null) : null;
         if (courseId) mapped++;
         else unmapped++;
 
@@ -214,8 +211,7 @@ export async function syncGoogleCalendarForUser(
   //  * Bara rader med google_event_id/external_id satt raderas
   //  * Studiepass som användaren redan har startat/genomfört behålls oavsett
   if (!fetchFailed && totalItems > 0) {
-    const inList = (ids: string[]) =>
-      `(${ids.map((id) => `"${id.replace(/"/g, "")}"`).join(",")})`;
+    const inList = (ids: string[]) => `(${ids.map((id) => `"${id.replace(/"/g, "")}"`).join(",")})`;
 
     {
       let q = supabase
@@ -248,7 +244,6 @@ export async function syncGoogleCalendarForUser(
       await q;
     }
   }
-
 
   return {
     imported,

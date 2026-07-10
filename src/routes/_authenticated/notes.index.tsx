@@ -4,7 +4,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Plus, Star, Search, Trash2, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -33,7 +39,10 @@ function NotesList() {
   const { data: allCourses = [] } = useQuery({
     queryKey: ["courses", "all-for-notes"],
     queryFn: async () => {
-      const { data } = await supabase.from("courses").select("id,name,color,archived,completed").order("name", { ascending: true });
+      const { data } = await supabase
+        .from("courses")
+        .select("id,name,color,archived,completed")
+        .order("name", { ascending: true });
       return (data ?? []) as (Course & { archived: boolean; completed: boolean })[];
     },
   });
@@ -105,7 +114,11 @@ function NotesList() {
           <h1 className="font-display text-3xl font-bold tracking-tight">Anteckningar</h1>
           <p className="text-sm text-muted-foreground">Alla dina anteckningar på ett ställe.</p>
         </div>
-        <Button size="sm" className="gap-1 gradient-sunset text-white hover:opacity-90" onClick={() => create.mutate()}>
+        <Button
+          size="sm"
+          className="gap-1 gradient-sunset text-white hover:opacity-90"
+          onClick={() => create.mutate()}
+        >
           <Plus className="h-3.5 w-3.5" /> Ny anteckning
         </Button>
       </div>
@@ -113,14 +126,25 @@ function NotesList() {
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <div className="relative flex-1 min-w-[16rem]">
           <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-          <Input placeholder="Sök titel…" value={q} onChange={(e) => setQ(e.target.value)} className="pl-8" />
+          <Input
+            placeholder="Sök titel…"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            className="pl-8"
+          />
         </div>
         <Select value={courseFilter} onValueChange={setCourseFilter}>
-          <SelectTrigger className="w-[12rem]"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="w-[12rem]">
+            <SelectValue />
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Alla kurser</SelectItem>
             <SelectItem value="none">Utan kurs</SelectItem>
-            {activeCourses.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+            {activeCourses.map((c) => (
+              <SelectItem key={c.id} value={c.id}>
+                {c.name}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>
@@ -150,7 +174,9 @@ function NotesList() {
                     {n.title || "Utan titel"}
                   </h3>
                   <div className="flex items-center gap-1.5 shrink-0">
-                    {n.is_favorite && <Star className="h-3 w-3 fill-sunset-amber text-sunset-amber" />}
+                    {n.is_favorite && (
+                      <Star className="h-3 w-3 fill-sunset-amber text-sunset-amber" />
+                    )}
                     <Button
                       variant="ghost"
                       size="icon"

@@ -51,7 +51,10 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
         </p>
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <button
-            onClick={() => { router.invalidate(); reset(); }}
+            onClick={() => {
+              router.invalidate();
+              reset();
+            }}
             className="inline-flex items-center justify-center rounded-md gradient-sunset px-4 py-2 text-sm font-medium text-white hover:opacity-90"
           >
             Försök igen
@@ -74,16 +77,36 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "StudieHubb" },
-      { name: "description", content: "Study Flow Studio is a web application for organizing academic life, managing tasks, and tracking study progress." },
+      {
+        name: "description",
+        content:
+          "Study Flow Studio is a web application for organizing academic life, managing tasks, and tracking study progress.",
+      },
       { name: "theme-color", content: "#0F0F12" },
       { property: "og:title", content: "StudieHubb" },
-      { property: "og:description", content: "Study Flow Studio is a web application for organizing academic life, managing tasks, and tracking study progress." },
+      {
+        property: "og:description",
+        content:
+          "Study Flow Studio is a web application for organizing academic life, managing tasks, and tracking study progress.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:title", content: "StudieHubb" },
-      { name: "twitter:description", content: "Study Flow Studio is a web application for organizing academic life, managing tasks, and tracking study progress." },
-      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/ab319619-93fb-4e01-9869-265fac14c442/id-preview-3edb142f--fb391e39-2e69-4130-9e5e-697fd9657d91.lovable.app-1783097879887.png" },
-      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/ab319619-93fb-4e01-9869-265fac14c442/id-preview-3edb142f--fb391e39-2e69-4130-9e5e-697fd9657d91.lovable.app-1783097879887.png" },
+      {
+        name: "twitter:description",
+        content:
+          "Study Flow Studio is a web application for organizing academic life, managing tasks, and tracking study progress.",
+      },
+      {
+        property: "og:image",
+        content:
+          "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/ab319619-93fb-4e01-9869-265fac14c442/id-preview-3edb142f--fb391e39-2e69-4130-9e5e-697fd9657d91.lovable.app-1783097879887.png",
+      },
+      {
+        name: "twitter:image",
+        content:
+          "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/ab319619-93fb-4e01-9869-265fac14c442/id-preview-3edb142f--fb391e39-2e69-4130-9e5e-697fd9657d91.lovable.app-1783097879887.png",
+      },
     ],
     links: [
       { rel: "stylesheet", href: appCss },

@@ -6,8 +6,21 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Trash2, Calendar as CalIcon, Inbox, Pencil } from "lucide-react";
 import { format, parseISO, differenceInCalendarDays } from "date-fns";
@@ -92,7 +105,9 @@ function TasksPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("tasks")
-        .select("id,title,description,status,due_at,course_id,task_type,task_kind,grade,points,pending_review")
+        .select(
+          "id,title,description,status,due_at,course_id,task_type,task_kind,grade,points,pending_review",
+        )
         .order("due_at", { ascending: true, nullsFirst: false })
         .order("title", { ascending: true });
       if (error) throw error;
@@ -178,7 +193,13 @@ function TasksPage() {
       return;
     }
     const wasPending = t.pending_review || t.status === "done";
-    const patch: Partial<Task> & { id: string; completed_at?: string | null; grade?: string | null; points?: string | null; pending_review?: boolean } = {
+    const patch: Partial<Task> & {
+      id: string;
+      completed_at?: string | null;
+      grade?: string | null;
+      points?: string | null;
+      pending_review?: boolean;
+    } = {
       id: t.id,
       status: s,
       completed_at: null,
@@ -204,21 +225,35 @@ function TasksPage() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Select value={filterCourse} onValueChange={setFilterCourse}>
-            <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="w-44">
+              <SelectValue />
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Alla kurser</SelectItem>
-              {courses.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+              {courses.map((c) => (
+                <SelectItem key={c.id} value={c.id}>
+                  {c.name}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
           <Select value={filterType} onValueChange={setFilterType}>
-            <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="w-40">
+              <SelectValue />
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Alla typer</SelectItem>
-              {TYPES_ALPHA.map((t) => <SelectItem key={t} value={t}>{TYPE_LABELS[t]}</SelectItem>)}
+              {TYPES_ALPHA.map((t) => (
+                <SelectItem key={t} value={t}>
+                  {TYPE_LABELS[t]}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
           <Select value={filterDue} onValueChange={setFilterDue}>
-            <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="w-36">
+              <SelectValue />
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Alla deadlines</SelectItem>
               <SelectItem value="overdue">Försenade</SelectItem>
@@ -227,7 +262,10 @@ function TasksPage() {
               <SelectItem value="month">Denna månad</SelectItem>
             </SelectContent>
           </Select>
-          <Button onClick={() => setCreateOpen(true)} className="gap-1 gradient-sunset text-white hover:opacity-90">
+          <Button
+            onClick={() => setCreateOpen(true)}
+            className="gap-1 gradient-sunset text-white hover:opacity-90"
+          >
             <Plus className="h-4 w-4" /> Ny
           </Button>
         </div>
@@ -237,7 +275,13 @@ function TasksPage() {
         <DndContext sensors={sensors} onDragEnd={onDragEnd}>
           <div className="grid gap-3 md:grid-cols-3">
             {COLUMNS.map((col) => (
-              <Column key={col.key} col={col} tasks={board.filter((t) => t.status === col.key)} courses={courses} onOpen={setQuickActionFor} />
+              <Column
+                key={col.key}
+                col={col}
+                tasks={board.filter((t) => t.status === col.key)}
+                courses={courses}
+                onOpen={setQuickActionFor}
+              />
             ))}
           </div>
 
@@ -245,7 +289,9 @@ function TasksPage() {
             <div className="rounded-2xl border border-border/60 bg-surface/40 p-3">
               <div className="mb-2 flex items-center gap-2 px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 <Inbox className="h-3.5 w-3.5" /> Väntar på bedömning
-                <span className="ml-auto rounded-full bg-surface-2 px-2 py-0.5 text-[10px]">{pending.length}</span>
+                <span className="ml-auto rounded-full bg-surface-2 px-2 py-0.5 text-[10px]">
+                  {pending.length}
+                </span>
               </div>
               <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
                 {pending.map((t) => (
@@ -267,7 +313,6 @@ function TasksPage() {
         open={createOpen}
         onOpenChange={setCreateOpen}
         courses={courses}
-        
         onSave={(v) => {
           upsert.mutate(v, {
             onSuccess: () => {
@@ -282,18 +327,34 @@ function TasksPage() {
         onOpenChange={(o) => !o && setEditing(null)}
         courses={courses}
         task={editing ?? undefined}
-        onDelete={editing ? () => { remove.mutate(editing.id); setEditing(null); } : undefined}
+        onDelete={
+          editing
+            ? () => {
+                remove.mutate(editing.id);
+                setEditing(null);
+              }
+            : undefined
+        }
         onSave={(v) => {
-          upsert.mutate({ ...v, id: editing!.id }, {
-            onSuccess: () => { setEditing(null); toast.success("Sparat"); },
-          });
+          upsert.mutate(
+            { ...v, id: editing!.id },
+            {
+              onSuccess: () => {
+                setEditing(null);
+                toast.success("Sparat");
+              },
+            },
+          );
         }}
       />
       <CompleteDialog
         task={completeFor}
         onClose={() => setCompleteFor(null)}
         onPending={(t) => {
-          upsert.mutate({ id: t.id, pending_review: true }, { onSuccess: () => setCompleteFor(null) });
+          upsert.mutate(
+            { id: t.id, pending_review: true },
+            { onSuccess: () => setCompleteFor(null) },
+          );
         }}
         onDone={(t, grade, points) => {
           const patch: Record<string, unknown> = { id: t.id, grade, points, pending_review: false };
@@ -301,7 +362,9 @@ function TasksPage() {
             patch.status = "done";
             patch.completed_at = new Date().toISOString();
           }
-          upsert.mutate(patch as Partial<Task> & { id: string }, { onSuccess: () => setCompleteFor(null) });
+          upsert.mutate(patch as Partial<Task> & { id: string }, {
+            onSuccess: () => setCompleteFor(null),
+          });
         }}
       />
       <QuickStatusDialog
@@ -321,7 +384,10 @@ function TasksPage() {
 }
 
 function Column({
-  col, tasks, courses, onOpen,
+  col,
+  tasks,
+  courses,
+  onOpen,
 }: {
   col: { key: TaskStatus; label: string; accent: string };
   tasks: Task[];
@@ -330,61 +396,117 @@ function Column({
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: col.key });
   return (
-    <div ref={setNodeRef} className={cn("rounded-2xl border border-border/60 bg-surface/40 p-2 transition", isOver && "ring-2 ring-primary/50")}>
+    <div
+      ref={setNodeRef}
+      className={cn(
+        "rounded-2xl border border-border/60 bg-surface/40 p-2 transition",
+        isOver && "ring-2 ring-primary/50",
+      )}
+    >
       <div className="mb-2 flex items-center gap-2 px-2 py-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
         <span className="inline-block h-2 w-2 rounded-full" style={{ background: col.accent }} />
         {col.label}
-        <span className="ml-auto rounded-full bg-surface-2 px-2 py-0.5 text-[10px]">{tasks.length}</span>
+        <span className="ml-auto rounded-full bg-surface-2 px-2 py-0.5 text-[10px]">
+          {tasks.length}
+        </span>
       </div>
       <div className="space-y-2 min-h-[80px]">
-        {tasks.map((t) => <DraggableCard key={t.id} task={t} courses={courses} onOpen={onOpen} />)}
+        {tasks.map((t) => (
+          <DraggableCard key={t.id} task={t} courses={courses} onOpen={onOpen} />
+        ))}
       </div>
     </div>
   );
 }
 
-function DraggableCard({ task, courses, onOpen }: { task: Task; courses: Course[]; onOpen: (t: Task) => void }) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: task.id });
-  const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` } : undefined;
+function DraggableCard({
+  task,
+  courses,
+  onOpen,
+}: {
+  task: Task;
+  courses: Course[];
+  onOpen: (t: Task) => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: task.id,
+  });
+  const style = transform
+    ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` }
+    : undefined;
   return (
-    <div ref={setNodeRef} style={style} {...listeners} {...attributes} className={cn("touch-none", isDragging && "opacity-50")}>
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...listeners}
+      {...attributes}
+      className={cn("touch-none", isDragging && "opacity-50")}
+    >
       <Card task={task} courses={courses} onOpen={onOpen} />
     </div>
   );
 }
 
-function Card({ task, courses, onOpen }: { task: Task; courses: Course[]; onOpen: (t: Task) => void }) {
+function Card({
+  task,
+  courses,
+  onOpen,
+}: {
+  task: Task;
+  courses: Course[];
+  onOpen: (t: Task) => void;
+}) {
   const c = courses.find((x) => x.id === task.course_id);
-  const overdue = task.due_at && parseISO(task.due_at).getTime() < Date.now() && task.status !== "done";
+  const overdue =
+    task.due_at && parseISO(task.due_at).getTime() < Date.now() && task.status !== "done";
   return (
     <button
       onClick={() => onOpen(task)}
       className="w-full rounded-xl border border-border/60 bg-surface p-3 text-left shadow-sm hover:border-primary/40"
     >
-      <div className={cn("mb-1 text-sm font-medium", task.status === "done" && "line-through text-muted-foreground")}>
+      <div
+        className={cn(
+          "mb-1 text-sm font-medium",
+          task.status === "done" && "line-through text-muted-foreground",
+        )}
+      >
         {task.title}
       </div>
       <div className="flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground">
         {c && (
           <span className="inline-flex items-center gap-1">
-            <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ background: c.color }} />
+            <span
+              className="inline-block h-1.5 w-1.5 rounded-full"
+              style={{ background: c.color }}
+            />
             {c.name}
           </span>
         )}
-        <span className={`rounded-full px-1.5 py-0.5 ${TYPE_COLORS[task.task_type]}`}>{TYPE_LABELS[task.task_type]}</span>
+        <span className={`rounded-full px-1.5 py-0.5 ${TYPE_COLORS[task.task_type]}`}>
+          {TYPE_LABELS[task.task_type]}
+        </span>
         {task.due_at && (
           <span className={cn("inline-flex items-center gap-1", overdue && "text-sunset-rose")}>
-            <CalIcon className="h-2.5 w-2.5" /> {format(parseISO(task.due_at), "d MMM", { locale: sv })} · {daysLeftLabel(task.due_at)}
+            <CalIcon className="h-2.5 w-2.5" />{" "}
+            {format(parseISO(task.due_at), "d MMM", { locale: sv })} · {daysLeftLabel(task.due_at)}
           </span>
         )}
-        {task.grade && task.task_type !== "annat" && task.task_type !== "modul" && <span className="rounded-full bg-surface-2 px-1.5 py-0.5">Betyg: {task.grade}</span>}
+        {task.grade && task.task_type !== "annat" && task.task_type !== "modul" && (
+          <span className="rounded-full bg-surface-2 px-1.5 py-0.5">Betyg: {task.grade}</span>
+        )}
       </div>
     </button>
   );
 }
 
 function TaskDialog({
-  open, onOpenChange, courses, task, defaultKind, onSave, onDelete,
+  open,
+  onOpenChange,
+  courses,
+  task,
+  defaultKind,
+  onSave,
+  onDelete,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
@@ -425,35 +547,82 @@ function TaskDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
-        <DialogHeader><DialogTitle className="font-display">{task ? "Redigera" : "Ny"} {kind === "exam" ? "examination" : "uppgift"}</DialogTitle></DialogHeader>
+        <DialogHeader>
+          <DialogTitle className="font-display">
+            {task ? "Redigera" : "Ny"} {kind === "exam" ? "examination" : "uppgift"}
+          </DialogTitle>
+        </DialogHeader>
         <div className="space-y-3">
-          <div className="space-y-1.5"><Label>Titel</Label><Input value={title} onChange={(e) => setTitle(e.target.value)} autoFocus /></div>
-          <div className="space-y-1.5"><Label>Beskrivning</Label><Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} /></div>
+          <div className="space-y-1.5">
+            <Label>Titel</Label>
+            <Input value={title} onChange={(e) => setTitle(e.target.value)} autoFocus />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Beskrivning</Label>
+            <Textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={3}
+            />
+          </div>
           <div className="space-y-1.5">
             <Label>Typ</Label>
             <Select value={type} onValueChange={(v) => setType(v as TaskType)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>{TYPES_ALPHA.map((t) => <SelectItem key={t} value={t}>{TYPE_LABELS[t]}</SelectItem>)}</SelectContent>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {TYPES_ALPHA.map((t) => (
+                  <SelectItem key={t} value={t}>
+                    {TYPE_LABELS[t]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
             </Select>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5"><Label>Deadline</Label><Input type="datetime-local" value={dueAt} onChange={(e) => setDueAt(e.target.value)} /></div>
+            <div className="space-y-1.5">
+              <Label>Deadline</Label>
+              <Input
+                type="datetime-local"
+                value={dueAt}
+                onChange={(e) => setDueAt(e.target.value)}
+              />
+            </div>
             <div className="space-y-1.5">
               <Label>Kurs</Label>
               <Select value={courseId} onValueChange={setCourseId}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">Ingen kurs</SelectItem>
-                  {courses.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                  {courses.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
           </div>
         </div>
         <DialogFooter className="gap-2">
-          {onDelete && <Button variant="ghost" className="mr-auto text-destructive" onClick={onDelete}><Trash2 className="mr-1 h-4 w-4" /> Ta bort</Button>}
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>Avbryt</Button>
-          <Button disabled={!title.trim()} onClick={submit} className="gradient-sunset text-white hover:opacity-90">Spara</Button>
+          {onDelete && (
+            <Button variant="ghost" className="mr-auto text-destructive" onClick={onDelete}>
+              <Trash2 className="mr-1 h-4 w-4" /> Ta bort
+            </Button>
+          )}
+          <Button variant="ghost" onClick={() => onOpenChange(false)}>
+            Avbryt
+          </Button>
+          <Button
+            disabled={!title.trim()}
+            onClick={submit}
+            className="gradient-sunset text-white hover:opacity-90"
+          >
+            Spara
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -461,7 +630,10 @@ function TaskDialog({
 }
 
 function QuickStatusDialog({
-  task, onClose, onChangeStatus, onEdit,
+  task,
+  onClose,
+  onChangeStatus,
+  onEdit,
 }: {
   task: Task | null;
   onClose: () => void;
@@ -486,10 +658,13 @@ function QuickStatusDialog({
                   "rounded-lg border px-2 py-2.5 text-xs font-medium transition-all",
                   task.status === col.key && !task.pending_review
                     ? "border-primary bg-primary/10 text-primary"
-                    : "border-border/60 hover:border-primary/40 hover:bg-white/5"
+                    : "border-border/60 hover:border-primary/40 hover:bg-white/5",
                 )}
               >
-                <span className="inline-block h-1.5 w-1.5 rounded-full mb-1" style={{ background: col.accent }} />
+                <span
+                  className="inline-block h-1.5 w-1.5 rounded-full mb-1"
+                  style={{ background: col.accent }}
+                />
                 <br />
                 {col.label}
               </button>
@@ -512,7 +687,10 @@ function QuickStatusDialog({
 }
 
 function CompleteDialog({
-  task, onClose, onPending, onDone,
+  task,
+  onClose,
+  onPending,
+  onDone,
 }: {
   task: Task | null;
   onClose: () => void;
@@ -521,28 +699,64 @@ function CompleteDialog({
 }) {
   const [grade, setGrade] = useState("");
   const [points, setPoints] = useState("");
-  useEffect(() => { setGrade(task?.grade ?? ""); setPoints(task?.points ?? ""); }, [task]);
+  useEffect(() => {
+    setGrade(task?.grade ?? "");
+    setPoints(task?.points ?? "");
+  }, [task]);
   if (!task) return null;
   const noGrade = task.task_type === "annat" || task.task_type === "modul";
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-sm">
-        <DialogHeader><DialogTitle className="font-display">Markera som klar</DialogTitle></DialogHeader>
+        <DialogHeader>
+          <DialogTitle className="font-display">Markera som klar</DialogTitle>
+        </DialogHeader>
         {noGrade ? (
-          <p className="text-sm text-muted-foreground">Uppgiften markeras som klar utan betyg eller poäng.</p>
+          <p className="text-sm text-muted-foreground">
+            Uppgiften markeras som klar utan betyg eller poäng.
+          </p>
         ) : (
           <>
-            <p className="text-sm text-muted-foreground">Fyll i betyg och poäng. Använd <code>-</code> om det inte gäller. När båda är ifyllda markeras uppgiften som klar.</p>
+            <p className="text-sm text-muted-foreground">
+              Fyll i betyg och poäng. Använd <code>-</code> om det inte gäller. När båda är ifyllda
+              markeras uppgiften som klar.
+            </p>
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5"><Label>Betyg</Label><Input autoFocus value={grade} onChange={(e) => setGrade(e.target.value)} placeholder="A / 5 / -" /></div>
-              <div className="space-y-1.5"><Label>Poäng</Label><Input value={points} onChange={(e) => setPoints(e.target.value)} placeholder="18/20 / -" /></div>
+              <div className="space-y-1.5">
+                <Label>Betyg</Label>
+                <Input
+                  autoFocus
+                  value={grade}
+                  onChange={(e) => setGrade(e.target.value)}
+                  placeholder="A / 5 / -"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Poäng</Label>
+                <Input
+                  value={points}
+                  onChange={(e) => setPoints(e.target.value)}
+                  placeholder="18/20 / -"
+                />
+              </div>
             </div>
           </>
         )}
         <DialogFooter className="gap-2">
-          <Button variant="ghost" onClick={onClose}>Avbryt</Button>
-          {!noGrade && <Button variant="outline" onClick={() => onPending(task)}>Väntar på bedömning</Button>}
-          <Button onClick={() => onDone(task, grade, points)} className="gradient-sunset text-white hover:opacity-90">Spara</Button>
+          <Button variant="ghost" onClick={onClose}>
+            Avbryt
+          </Button>
+          {!noGrade && (
+            <Button variant="outline" onClick={() => onPending(task)}>
+              Väntar på bedömning
+            </Button>
+          )}
+          <Button
+            onClick={() => onDone(task, grade, points)}
+            className="gradient-sunset text-white hover:opacity-90"
+          >
+            Spara
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

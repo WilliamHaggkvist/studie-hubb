@@ -2,11 +2,38 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Bar, BarChart, CartesianGrid, Cell, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis, Legend } from "recharts";
-import { format, subDays, startOfDay, endOfDay, differenceInCalendarDays, startOfWeek } from "date-fns";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Line,
+  LineChart,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+  Legend,
+} from "recharts";
+import {
+  format,
+  subDays,
+  startOfDay,
+  endOfDay,
+  differenceInCalendarDays,
+  startOfWeek,
+} from "date-fns";
 import { sv } from "date-fns/locale";
 import { formatHoursCompact } from "@/lib/timer-store";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useMemo, useState } from "react";
 import { coursesQuery, tasksQuery, termsQuery, type TermRow } from "@/lib/queries";
 import { cn } from "@/lib/utils";
@@ -15,7 +42,14 @@ export const Route = createFileRoute("/_authenticated/stats")({
   component: StatsPage,
 });
 
-type Entry = { id: string; started_at: string; duration_seconds: number | null; course_id: string | null; task_id: string | null; source?: string };
+type Entry = {
+  id: string;
+  started_at: string;
+  duration_seconds: number | null;
+  course_id: string | null;
+  task_id: string | null;
+  source?: string;
+};
 
 function termLabel(t: TermRow) {
   const term = t.term === "host" ? "Hösttermin" : t.term === "var" ? "Vårtermin" : "Sommar";
@@ -54,7 +88,12 @@ function StatsPage() {
         .eq("needs_review", false)
         .gte("planned_start", heatmapStart.toISOString())
         .lte("planned_start", heatmapEnd.toISOString());
-      return (data ?? []) as Array<{ planned_start: string; planned_end: string; actual_start: string | null; actual_end: string | null }>;
+      return (data ?? []) as Array<{
+        planned_start: string;
+        planned_end: string;
+        actual_start: string | null;
+        actual_end: string | null;
+      }>;
     },
   });
 
@@ -63,7 +102,7 @@ function StatsPage() {
 
     const addHours = (isoString: string, seconds: number) => {
       const dayKey = format(new Date(isoString), "yyyy-MM-dd");
-      dailyHours[dayKey] = (dailyHours[dayKey] ?? 0) + (seconds / 3600);
+      dailyHours[dayKey] = (dailyHours[dayKey] ?? 0) + seconds / 3600;
     };
 
     for (const e of heatmapEntries) {
@@ -75,7 +114,10 @@ function StatsPage() {
     for (const s of heatmapSessions) {
       const start = s.actual_start ?? s.planned_start;
       const end = s.actual_end ?? s.planned_end;
-      const dur = Math.max(0, Math.floor((new Date(end).getTime() - new Date(start).getTime()) / 1000));
+      const dur = Math.max(
+        0,
+        Math.floor((new Date(end).getTime() - new Date(start).getTime()) / 1000),
+      );
       addHours(start, dur);
     }
 
@@ -86,7 +128,7 @@ function StatsPage() {
     const arr = [];
     const curr = new Date(startOfWeek(heatmapStart, { weekStartsOn: 1 }));
     const end = heatmapEnd;
-    
+
     while (curr <= end) {
       const dayKey = format(curr, "yyyy-MM-dd");
       const hours = heatmapData[dayKey] ?? 0;
@@ -116,10 +158,10 @@ function StatsPage() {
     return weeks;
   }, [heatmapDays]);
 
-
   const range = useMemo(() => {
     if (period === "7") return { start: subDays(new Date(), 6), end: new Date(), label: "7 dagar" };
-    if (period === "30") return { start: subDays(new Date(), 29), end: new Date(), label: "30 dagar" };
+    if (period === "30")
+      return { start: subDays(new Date(), 29), end: new Date(), label: "30 dagar" };
     if (period === "week") {
       const s = startOfWeek(new Date(), { weekStartsOn: 1 });
       return { start: s, end: new Date(), label: "Denna vecka" };
@@ -127,7 +169,8 @@ function StatsPage() {
     if (period.startsWith("term:")) {
       const id = period.slice(5);
       const t = terms.find((x) => x.id === id);
-      if (t) return { start: new Date(t.start_date), end: new Date(t.end_date), label: termLabel(t) };
+      if (t)
+        return { start: new Date(t.start_date), end: new Date(t.end_date), label: termLabel(t) };
     }
     return { start: subDays(new Date(), 29), end: new Date(), label: "30 dagar" };
   }, [period, terms]);
@@ -154,7 +197,15 @@ function StatsPage() {
         .eq("needs_review", false)
         .gte("planned_start", range.start.toISOString())
         .lte("planned_start", range.end.toISOString());
-      return (data ?? []) as { id: string; course_id: string | null; planned_start: string; planned_end: string; actual_start: string | null; actual_end: string | null; completed: boolean }[];
+      return (data ?? []) as {
+        id: string;
+        course_id: string | null;
+        planned_start: string;
+        planned_end: string;
+        actual_start: string | null;
+        actual_end: string | null;
+        completed: boolean;
+      }[];
     },
   });
 
@@ -188,22 +239,40 @@ function StatsPage() {
     for (const s of filteredSessionRows) {
       const start = s.actual_start ?? s.planned_start;
       const end = s.actual_end ?? s.planned_end;
-      const dur = Math.max(0, Math.floor((new Date(end).getTime() - new Date(start).getTime()) / 1000));
+      const dur = Math.max(
+        0,
+        Math.floor((new Date(end).getTime() - new Date(start).getTime()) / 1000),
+      );
       const tids = sessionTaskRows.filter((st) => st.session_id === s.id).map((st) => st.task_id);
       if (tids.length === 0) {
-        out.push({ id: `sess:${s.id}`, started_at: start, duration_seconds: dur, course_id: s.course_id, task_id: null });
+        out.push({
+          id: `sess:${s.id}`,
+          started_at: start,
+          duration_seconds: dur,
+          course_id: s.course_id,
+          task_id: null,
+        });
       } else {
         // Fördela passets tid jämnt mellan kopplade uppgifter så byTask får rätt tal.
         const per = Math.floor(dur / tids.length);
         tids.forEach((task_id, i) => {
-          out.push({ id: `sess:${s.id}:${i}`, started_at: start, duration_seconds: per, course_id: s.course_id, task_id });
+          out.push({
+            id: `sess:${s.id}:${i}`,
+            started_at: start,
+            duration_seconds: per,
+            course_id: s.course_id,
+            task_id,
+          });
         });
       }
     }
     return out;
   }, [filteredSessionRows, sessionTaskRows]);
 
-  const combined = useMemo(() => [...filteredEntries, ...derivedEntries], [filteredEntries, derivedEntries]);
+  const combined = useMemo(
+    () => [...filteredEntries, ...derivedEntries],
+    [filteredEntries, derivedEntries],
+  );
 
   const { data: allTasks = [] } = useQuery(tasksQuery);
   const tasks = useMemo(() => {
@@ -222,8 +291,15 @@ function StatsPage() {
     const row: Record<string, number | string> = { day: format(d, "d/M", { locale: sv }) };
     let total = 0;
     for (const c of courses) {
-      const h = combined.filter((e) => e.course_id === c.id && e.started_at >= startOfDay(d).toISOString() && e.started_at <= endOfDay(d).toISOString())
-        .reduce((s, e) => s + (e.duration_seconds ?? 0), 0) / 3600;
+      const h =
+        combined
+          .filter(
+            (e) =>
+              e.course_id === c.id &&
+              e.started_at >= startOfDay(d).toISOString() &&
+              e.started_at <= endOfDay(d).toISOString(),
+          )
+          .reduce((s, e) => s + (e.duration_seconds ?? 0), 0) / 3600;
       row[c.id] = +h.toFixed(2);
       total += h;
     }
@@ -231,12 +307,20 @@ function StatsPage() {
     return row;
   });
 
-  const perCourse = courses.map((c) => ({
-    name: c.name,
-    color: c.color,
-    value: +(combined.filter((e) => e.course_id === c.id).reduce((s, e) => s + (e.duration_seconds ?? 0), 0) / 3600).toFixed(2),
-  })).filter((r) => r.value > 0);
-  const noCourseHours = +(combined.filter((e) => !e.course_id).reduce((s, e) => s + (e.duration_seconds ?? 0), 0) / 3600).toFixed(2);
+  const perCourse = courses
+    .map((c) => ({
+      name: c.name,
+      color: c.color,
+      value: +(
+        combined
+          .filter((e) => e.course_id === c.id)
+          .reduce((s, e) => s + (e.duration_seconds ?? 0), 0) / 3600
+      ).toFixed(2),
+    }))
+    .filter((r) => r.value > 0);
+  const noCourseHours = +(
+    combined.filter((e) => !e.course_id).reduce((s, e) => s + (e.duration_seconds ?? 0), 0) / 3600
+  ).toFixed(2);
   if (noCourseHours > 0) perCourse.push({ name: "Övrigt", color: "#94A3B8", value: noCourseHours });
 
   const perTask = (() => {
@@ -249,7 +333,12 @@ function StatsPage() {
       .map(([id, sec]) => {
         const t = tasks.find((x) => x.id === id);
         const c = courses.find((c) => c.id === t?.course_id);
-        return { id, title: t?.title ?? "Okänd", hours: +(sec / 3600).toFixed(2), color: c?.color ?? "#94A3B8" };
+        return {
+          id,
+          title: t?.title ?? "Okänd",
+          hours: +(sec / 3600).toFixed(2),
+          color: c?.color ?? "#94A3B8",
+        };
       })
       .sort((a, b) => b.hours - a.hours)
       .slice(0, 10);
@@ -257,7 +346,6 @@ function StatsPage() {
 
   const totalSec = combined.reduce((s, e) => s + (e.duration_seconds ?? 0), 0);
   const avgPerDay = totalSec / totalDays;
-
 
   const statusCounts = {
     todo: tasks.filter((t) => t.status === "todo").length,
@@ -278,12 +366,18 @@ function StatsPage() {
           <p className="text-sm text-muted-foreground">{range.label}</p>
         </div>
         <Select value={period} onValueChange={setPeriod}>
-          <SelectTrigger className="w-[14rem]"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="w-[14rem]">
+            <SelectValue />
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value="week">Denna vecka</SelectItem>
             <SelectItem value="7">Senaste 7 dagarna</SelectItem>
             <SelectItem value="30">Senaste 30 dagarna</SelectItem>
-            {terms.map((t) => <SelectItem key={t.id} value={`term:${t.id}`}>{termLabel(t)}</SelectItem>)}
+            {terms.map((t) => (
+              <SelectItem key={t.id} value={`term:${t.id}`}>
+                {termLabel(t)}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>
@@ -292,13 +386,19 @@ function StatsPage() {
         <Card className="border-border/60 bg-surface/60">
           <CardContent className="pt-5">
             <div className="text-xs uppercase tracking-wider text-muted-foreground">Total tid</div>
-            <div className="mt-2 font-display text-3xl font-bold tabular-nums">{formatHoursCompact(totalSec)}</div>
+            <div className="mt-2 font-display text-3xl font-bold tabular-nums">
+              {formatHoursCompact(totalSec)}
+            </div>
           </CardContent>
         </Card>
         <Card className="border-border/60 bg-surface/60">
           <CardContent className="pt-5">
-            <div className="text-xs uppercase tracking-wider text-muted-foreground">Snitt per dag</div>
-            <div className="mt-2 font-display text-3xl font-bold tabular-nums">{formatHoursCompact(avgPerDay)}</div>
+            <div className="text-xs uppercase tracking-wider text-muted-foreground">
+              Snitt per dag
+            </div>
+            <div className="mt-2 font-display text-3xl font-bold tabular-nums">
+              {formatHoursCompact(avgPerDay)}
+            </div>
           </CardContent>
         </Card>
         <Card className="border-border/60 bg-surface/60">
@@ -326,21 +426,31 @@ function StatsPage() {
               <div className="h-[10px] flex items-center justify-end">Lör</div>
               <div className="h-[10px] flex items-center justify-end">Sön</div>
             </div>
-            
+
             {/* Weeks */}
             {heatmapWeeks.map((week, wIdx) => (
               <div key={wIdx} className="grid grid-rows-7 gap-[3px]">
                 {week.map((day) => {
                   let colorClass = "bg-white/5 border border-white/5 hover:border-white/20";
-                  if (day.hours > 0 && day.hours <= 1) colorClass = "bg-indigo-500/20 border border-indigo-500/30 hover:border-indigo-400";
-                  else if (day.hours > 1 && day.hours <= 3) colorClass = "bg-indigo-500/40 border border-indigo-500/50 hover:border-indigo-300";
-                  else if (day.hours > 3 && day.hours <= 6) colorClass = "bg-indigo-500 border border-indigo-400 hover:border-indigo-300";
-                  else if (day.hours > 6) colorClass = "bg-indigo-300 border border-indigo-200 hover:border-white text-indigo-950";
+                  if (day.hours > 0 && day.hours <= 1)
+                    colorClass =
+                      "bg-indigo-500/20 border border-indigo-500/30 hover:border-indigo-400";
+                  else if (day.hours > 1 && day.hours <= 3)
+                    colorClass =
+                      "bg-indigo-500/40 border border-indigo-500/50 hover:border-indigo-300";
+                  else if (day.hours > 3 && day.hours <= 6)
+                    colorClass = "bg-indigo-500 border border-indigo-400 hover:border-indigo-300";
+                  else if (day.hours > 6)
+                    colorClass =
+                      "bg-indigo-300 border border-indigo-200 hover:border-white text-indigo-950";
 
                   return (
                     <div
                       key={day.dayKey}
-                      className={cn("w-[10px] h-[10px] rounded-[1.5px] transition-all cursor-pointer", colorClass)}
+                      className={cn(
+                        "w-[10px] h-[10px] rounded-[1.5px] transition-all cursor-pointer",
+                        colorClass,
+                      )}
                       title={`${format(day.date, "d MMMM yyyy", { locale: sv })}: ${day.hours.toFixed(2)} h`}
                     />
                   );
@@ -362,18 +472,48 @@ function StatsPage() {
 
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="border-border/60 bg-surface/60 lg:col-span-2">
-          <CardHeader className="pb-2"><CardTitle className="font-display text-base">Studietid per kurs över tid</CardTitle></CardHeader>
+          <CardHeader className="pb-2">
+            <CardTitle className="font-display text-base">Studietid per kurs över tid</CardTitle>
+          </CardHeader>
           <CardContent>
             <div className="h-72">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={days}>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-                  <XAxis dataKey="day" stroke="var(--muted-foreground)" fontSize={10} tickLine={false} axisLine={false} />
-                  <YAxis stroke="var(--muted-foreground)" fontSize={10} tickLine={false} axisLine={false} width={28} />
-                  <Tooltip contentStyle={{ background: "var(--popover)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }} formatter={(v: number) => [`${v} h`, ""]} />
+                  <XAxis
+                    dataKey="day"
+                    stroke="var(--muted-foreground)"
+                    fontSize={10}
+                    tickLine={false}
+                    axisLine={false}
+                  />
+                  <YAxis
+                    stroke="var(--muted-foreground)"
+                    fontSize={10}
+                    tickLine={false}
+                    axisLine={false}
+                    width={28}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      background: "var(--popover)",
+                      border: "1px solid var(--border)",
+                      borderRadius: 8,
+                      fontSize: 12,
+                    }}
+                    formatter={(v: number) => [`${v} h`, ""]}
+                  />
                   <Legend wrapperStyle={{ fontSize: 11 }} />
                   {courses.map((c) => (
-                    <Line key={c.id} type="monotone" dataKey={c.id} name={c.name} stroke={c.color} strokeWidth={2} dot={false} />
+                    <Line
+                      key={c.id}
+                      type="monotone"
+                      dataKey={c.id}
+                      name={c.name}
+                      stroke={c.color}
+                      strokeWidth={2}
+                      dot={false}
+                    />
                   ))}
                 </LineChart>
               </ResponsiveContainer>
@@ -382,17 +522,39 @@ function StatsPage() {
         </Card>
 
         <Card className="border-border/60 bg-surface/60">
-          <CardHeader className="pb-2"><CardTitle className="font-display text-base">Tid per kurs</CardTitle></CardHeader>
+          <CardHeader className="pb-2">
+            <CardTitle className="font-display text-base">Tid per kurs</CardTitle>
+          </CardHeader>
           <CardContent>
-            {perCourse.length === 0 && <div className="p-6 text-center text-xs text-muted-foreground">Ingen tid loggad än.</div>}
+            {perCourse.length === 0 && (
+              <div className="p-6 text-center text-xs text-muted-foreground">
+                Ingen tid loggad än.
+              </div>
+            )}
             {perCourse.length > 0 && (
               <div className="h-72">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
-                    <Pie data={perCourse} dataKey="value" innerRadius={50} outerRadius={90} paddingAngle={2}>
-                      {perCourse.map((r) => <Cell key={r.name} fill={r.color} />)}
+                    <Pie
+                      data={perCourse}
+                      dataKey="value"
+                      innerRadius={50}
+                      outerRadius={90}
+                      paddingAngle={2}
+                    >
+                      {perCourse.map((r) => (
+                        <Cell key={r.name} fill={r.color} />
+                      ))}
                     </Pie>
-                    <Tooltip contentStyle={{ background: "var(--popover)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }} formatter={(v: number, n: string) => [`${v} h`, n]} />
+                    <Tooltip
+                      contentStyle={{
+                        background: "var(--popover)",
+                        border: "1px solid var(--border)",
+                        borderRadius: 8,
+                        fontSize: 12,
+                      }}
+                      formatter={(v: number, n: string) => [`${v} h`, n]}
+                    />
                   </PieChart>
                 </ResponsiveContainer>
               </div>
@@ -401,18 +563,36 @@ function StatsPage() {
         </Card>
 
         <Card className="border-border/60 bg-surface/60 lg:col-span-2">
-          <CardHeader className="pb-2"><CardTitle className="font-display text-base">Topp uppgifter</CardTitle></CardHeader>
+          <CardHeader className="pb-2">
+            <CardTitle className="font-display text-base">Topp uppgifter</CardTitle>
+          </CardHeader>
           <CardContent>
-            {perTask.length === 0 && <div className="p-6 text-center text-xs text-muted-foreground">Ingen tid loggad på uppgifter än.</div>}
+            {perTask.length === 0 && (
+              <div className="p-6 text-center text-xs text-muted-foreground">
+                Ingen tid loggad på uppgifter än.
+              </div>
+            )}
             <div className="space-y-2">
               {perTask.map((t) => (
                 <div key={t.id}>
                   <div className="mb-1 flex items-center justify-between text-xs">
-                    <span className="flex items-center gap-2 min-w-0"><span className="inline-block h-2 w-2 shrink-0 rounded-full" style={{ background: t.color }} /><span className="truncate">{t.title}</span></span>
+                    <span className="flex items-center gap-2 min-w-0">
+                      <span
+                        className="inline-block h-2 w-2 shrink-0 rounded-full"
+                        style={{ background: t.color }}
+                      />
+                      <span className="truncate">{t.title}</span>
+                    </span>
                     <span className="font-mono tabular-nums text-muted-foreground">{t.hours}h</span>
                   </div>
                   <div className="h-1.5 overflow-hidden rounded-full bg-surface-2">
-                    <div className="h-full rounded-full" style={{ width: `${Math.min(100, (t.hours / (perTask[0]?.hours || 1)) * 100)}%`, background: t.color }} />
+                    <div
+                      className="h-full rounded-full"
+                      style={{
+                        width: `${Math.min(100, (t.hours / (perTask[0]?.hours || 1)) * 100)}%`,
+                        background: t.color,
+                      }}
+                    />
                   </div>
                 </div>
               ))}
@@ -421,16 +601,41 @@ function StatsPage() {
         </Card>
 
         <Card className="border-border/60 bg-surface/60">
-          <CardHeader className="pb-2"><CardTitle className="font-display text-base">Uppgiftsstatus</CardTitle></CardHeader>
+          <CardHeader className="pb-2">
+            <CardTitle className="font-display text-base">Uppgiftsstatus</CardTitle>
+          </CardHeader>
           <CardContent>
             <div className="h-56">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={statusData} layout="vertical">
-                  <XAxis type="number" stroke="var(--muted-foreground)" fontSize={11} tickLine={false} axisLine={false} />
-                  <YAxis type="category" dataKey="name" stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} width={80} />
-                  <Tooltip contentStyle={{ background: "var(--popover)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }} />
+                  <XAxis
+                    type="number"
+                    stroke="var(--muted-foreground)"
+                    fontSize={11}
+                    tickLine={false}
+                    axisLine={false}
+                  />
+                  <YAxis
+                    type="category"
+                    dataKey="name"
+                    stroke="var(--muted-foreground)"
+                    fontSize={12}
+                    tickLine={false}
+                    axisLine={false}
+                    width={80}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      background: "var(--popover)",
+                      border: "1px solid var(--border)",
+                      borderRadius: 8,
+                      fontSize: 12,
+                    }}
+                  />
                   <Bar dataKey="value" radius={[4, 4, 4, 4]}>
-                    {statusData.map((r) => <Cell key={r.name} fill={r.color} />)}
+                    {statusData.map((r) => (
+                      <Cell key={r.name} fill={r.color} />
+                    ))}
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>

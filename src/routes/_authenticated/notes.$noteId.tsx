@@ -114,20 +114,23 @@ function PageDetail() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["pages"] });
       qc.invalidateQueries({ queryKey: ["notes-list"] });
-      
+
       toast.success("Anteckning borttagen", {
         action: {
           label: "Ångra",
           onClick: async () => {
-            const { error } = await supabase.from("pages").update({ archived: false }).eq("id", noteId);
+            const { error } = await supabase
+              .from("pages")
+              .update({ archived: false })
+              .eq("id", noteId);
             if (!error) {
               qc.invalidateQueries({ queryKey: ["pages"] });
               qc.invalidateQueries({ queryKey: ["notes-list"] });
               qc.invalidateQueries({ queryKey: ["page", noteId] });
               toast.success("Återställd");
             }
-          }
-        }
+          },
+        },
       });
       navigate({ to: "/notes" });
     },
@@ -169,12 +172,18 @@ function PageDetail() {
             onClick={() => save.mutate({ is_favorite: !page.is_favorite })}
             className="gap-1 text-xs h-8"
           >
-            <Star className={page.is_favorite ? "h-3.5 w-3.5 fill-sunset-amber text-sunset-amber" : "h-3.5 w-3.5"} />
+            <Star
+              className={
+                page.is_favorite ? "h-3.5 w-3.5 fill-sunset-amber text-sunset-amber" : "h-3.5 w-3.5"
+              }
+            />
             {page.is_favorite ? "Favorit" : "Favorisera"}
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button>
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuSub>
@@ -189,19 +198,24 @@ function PageDetail() {
                       save.mutate({ course_id: nextCourseId });
                     }}
                   >
-                    <DropdownMenuRadioItem value="none">
-                      Ingen kurs
-                    </DropdownMenuRadioItem>
-                    {courses.filter((c) => !c.completed || c.id === page?.course_id).map((c) => (
-                      <DropdownMenuRadioItem key={c.id} value={c.id}>
-                        <span className="truncate">{c.name}</span>
-                      </DropdownMenuRadioItem>
-                    ))}
+                    <DropdownMenuRadioItem value="none">Ingen kurs</DropdownMenuRadioItem>
+                    {courses
+                      .filter((c) => !c.completed || c.id === page?.course_id)
+                      .map((c) => (
+                        <DropdownMenuRadioItem key={c.id} value={c.id}>
+                          <span className="truncate">{c.name}</span>
+                        </DropdownMenuRadioItem>
+                      ))}
                   </DropdownMenuRadioGroup>
                 </DropdownMenuSubContent>
               </DropdownMenuSub>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => { if (confirm("Ta bort sidan?")) deletePage.mutate(); }} className="text-destructive">
+              <DropdownMenuItem
+                onClick={() => {
+                  if (confirm("Ta bort sidan?")) deletePage.mutate();
+                }}
+                className="text-destructive"
+              >
                 <Trash2 className="mr-2 h-4 w-4" /> Ta bort
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -223,15 +237,18 @@ function PageDetail() {
         </div>
         <div className="flex items-center gap-2 pl-[52px]">
           {connectedCourse ? (
-            <span 
+            <span
               className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium border"
-              style={{ 
-                borderColor: `${connectedCourse.color}40`, 
-                backgroundColor: `${connectedCourse.color}15`, 
-                color: connectedCourse.color 
+              style={{
+                borderColor: `${connectedCourse.color}40`,
+                backgroundColor: `${connectedCourse.color}15`,
+                color: connectedCourse.color,
               }}
             >
-              <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: connectedCourse.color }} />
+              <span
+                className="h-1.5 w-1.5 rounded-full"
+                style={{ backgroundColor: connectedCourse.color }}
+              />
               {connectedCourse.name}
             </span>
           ) : (
