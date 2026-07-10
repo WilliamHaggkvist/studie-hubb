@@ -24,9 +24,8 @@ function SettingsPage() {
     <div className="mx-auto max-w-4xl px-4 py-8 lg:px-8 space-y-6">
       <div>
         <h1 className="font-display text-3xl font-bold tracking-tight">Inställningar</h1>
-        <p className="text-sm text-muted-foreground">Anpassa StudyOS efter dina studier.</p>
+        <p className="text-sm text-muted-foreground">Anpassa StudieHubb efter dina studier.</p>
       </div>
-      <ProfileCard />
       <StudySettingsCard />
       <NotificationsCard />
       <UniversitiesCard />
@@ -272,44 +271,11 @@ function NotificationsCard() {
   );
 }
 
-function ProfileCard() {
-  const qc = useQueryClient();
-  const [name, setName] = useState("");
-  const [loaded, setLoaded] = useState(false);
-  useEffect(() => {
-    (async () => {
-      const { data: u } = await supabase.auth.getUser();
-      if (!u.user) return;
-      const { data } = await supabase.from("profiles").select("display_name").eq("id", u.user.id).maybeSingle();
-      setName(data?.display_name ?? "");
-      setLoaded(true);
-    })();
-  }, []);
-  async function save() {
-    const { data: u } = await supabase.auth.getUser();
-    if (!u.user) return;
-    const { error } = await supabase.from("profiles").update({ display_name: name.trim() || null }).eq("id", u.user.id);
-    if (error) toast.error(error.message);
-    else { toast.success("Sparat"); qc.invalidateQueries({ queryKey: ["profile"] }); }
-  }
-  return (
-    <Card className="border-border/60 bg-surface/60 backdrop-blur-md rounded-2xl">
-      <CardHeader><CardTitle className="font-display text-base">Profil</CardTitle></CardHeader>
-      <CardContent className="space-y-3">
-        <div className="space-y-1.5"><Label>Visningsnamn</Label>
-          <Input value={name} onChange={(e) => setName(e.target.value)} disabled={!loaded} className="rounded-xl" />
-        </div>
-        <Button size="sm" className="gap-1 rounded-xl" onClick={save}><Save className="h-3.5 w-3.5" /> Spara</Button>
-      </CardContent>
-    </Card>
-  );
-}
-
 function StudySettingsCard() {
   const { data: s } = useUserSettings();
   const qc = useQueryClient();
   const save = useMutation({
-    mutationFn: async (patch: { current_year?: number; density?: string; translucent?: boolean }) => {
+    mutationFn: async (patch: { current_year?: number }) => {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) throw new Error("no user");
       const { error } = await supabase.from("user_settings").update(patch).eq("user_id", u.user.id);
@@ -319,34 +285,15 @@ function StudySettingsCard() {
   });
   return (
     <Card className="border-border/60 bg-surface/60 backdrop-blur-md rounded-2xl">
-      <CardHeader><CardTitle className="font-display text-base">Studier & utseende</CardTitle></CardHeader>
+      <CardHeader><CardTitle className="font-display text-base">Studier</CardTitle></CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className="space-y-1.5">
-            <Label>Aktuell årskurs</Label>
-            <Select value={String(s?.current_year ?? 1)} onValueChange={(v) => save.mutate({ current_year: Number(v) })}>
-              <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
-              <SelectContent>{ARSKURS_OPTIONS.map((a) => <SelectItem key={a} value={String(a)}>Årskurs {a}</SelectItem>)}</SelectContent>
-            </Select>
-            <p className="text-[11px] text-muted-foreground">Styr vilka kurser som visas som "aktiva" på översikten.</p>
-          </div>
-          <div className="space-y-1.5">
-            <Label>Densitet</Label>
-            <Select value={s?.density ?? "comfortable"} onValueChange={(v) => save.mutate({ density: v })}>
-              <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="comfortable">Bekväm</SelectItem>
-                <SelectItem value="compact">Kompakt</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-        <div className="flex items-center justify-between rounded-xl border border-border/60 bg-background/40 px-4 py-3">
-          <div>
-            <div className="text-sm font-medium">Translucent design</div>
-            <div className="text-[11px] text-muted-foreground">Frostade paneler med lätt oskärpa.</div>
-          </div>
-          <Switch checked={!!s?.translucent} onCheckedChange={(v) => save.mutate({ translucent: v })} />
+        <div className="space-y-1.5 max-w-sm">
+          <Label>Aktuell årskurs</Label>
+          <Select value={String(s?.current_year ?? 1)} onValueChange={(v) => save.mutate({ current_year: Number(v) })}>
+            <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
+            <SelectContent>{ARSKURS_OPTIONS.map((a) => <SelectItem key={a} value={String(a)}>Årskurs {a}</SelectItem>)}</SelectContent>
+          </Select>
+          <p className="text-[11px] text-muted-foreground">Styr vilka kurser som visas som "aktiva" på översikten.</p>
         </div>
       </CardContent>
     </Card>

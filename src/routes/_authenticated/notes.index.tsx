@@ -33,12 +33,12 @@ function NotesList() {
   const { data: allCourses = [] } = useQuery({
     queryKey: ["courses", "all-for-notes"],
     queryFn: async () => {
-      const { data } = await supabase.from("courses").select("id,name,color,archived");
-      return (data ?? []) as (Course & { archived: boolean })[];
+      const { data } = await supabase.from("courses").select("id,name,color,archived,completed");
+      return (data ?? []) as (Course & { archived: boolean; completed: boolean })[];
     },
   });
 
-  const activeCourses = allCourses.filter((c) => !c.archived);
+  const activeCourses = allCourses.filter((c) => !c.archived && !c.completed);
 
   const { data: notes = [] } = useQuery({
     queryKey: ["notes-list"],

@@ -66,9 +66,9 @@ function PageDetail() {
     queryFn: async () => {
       const { data } = await supabase
         .from("courses")
-        .select("id,name,color")
+        .select("id,name,color,completed")
         .eq("archived", false);
-      return (data ?? []) as { id: string; name: string; color: string }[];
+      return (data ?? []) as { id: string; name: string; color: string; completed: boolean }[];
     },
   });
 
@@ -192,7 +192,7 @@ function PageDetail() {
                     <DropdownMenuRadioItem value="none">
                       Ingen kurs
                     </DropdownMenuRadioItem>
-                    {courses.map((c) => (
+                    {courses.filter((c) => !c.completed || c.id === page?.course_id).map((c) => (
                       <DropdownMenuRadioItem key={c.id} value={c.id}>
                         <span className="truncate">{c.name}</span>
                       </DropdownMenuRadioItem>

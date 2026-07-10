@@ -169,7 +169,7 @@ function SidebarContent() {
           S
         </div>
         <div className="min-w-0">
-          <div className="font-display text-sm font-bold tracking-tight">StudyOS</div>
+          <div className="font-display text-sm font-bold tracking-tight">StudieHubb</div>
           <div className="truncate text-xs text-muted-foreground">Din arbetsyta</div>
         </div>
       </div>
@@ -377,6 +377,7 @@ function GlobalSearch() {
     type: "note" | "task" | "course";
     courseColor?: string;
     archived?: boolean;
+    completed?: boolean;
   };
 
   const { data: results = [] } = useQuery({
@@ -387,7 +388,7 @@ function GlobalSearch() {
       const [pagesRes, tasksRes, coursesRes] = await Promise.all([
         supabase.from("pages").select("id,title,icon").ilike("title", `%${q}%`).eq("archived", false).limit(5),
         supabase.from("tasks").select("id,title,course_id").ilike("title", `%${q}%`).limit(5),
-        supabase.from("courses").select("id,name,code,color,icon,archived").or(`name.ilike.%${q}%,code.ilike.%${q}%`).limit(5),
+        supabase.from("courses").select("id,name,code,color,icon,archived,completed").or(`name.ilike.%${q}%,code.ilike.%${q}%`).limit(5),
       ]);
 
       const list: SearchResult[] = [];
@@ -401,6 +402,7 @@ function GlobalSearch() {
             type: "course",
             courseColor: c.color,
             archived: c.archived,
+            completed: c.completed,
           });
         }
       }
@@ -474,11 +476,11 @@ function GlobalSearch() {
                 <span className="truncate">{r.title}</span>
               </div>
               <span className={`text-[9px] uppercase font-bold px-2 py-0.5 rounded-full shrink-0 ${
-                r.type === "course" ? (r.archived ? "bg-muted text-muted-foreground" : "bg-primary/10 text-primary") :
+                r.type === "course" ? (r.archived ? "bg-muted text-muted-foreground" : r.completed ? "bg-c-7/15 text-c-7 border border-c-7/30" : "bg-primary/10 text-primary") :
                 r.type === "task" ? "bg-sunset-amber/10 text-sunset-amber" :
                 "bg-purple-500/10 text-purple-400"
               }`}>
-                {r.type === "course" ? (r.archived ? "Kurs (Arkiv)" : "Kurs") : r.type === "task" ? "Uppgift" : "Anteckning"}
+                {r.type === "course" ? (r.archived ? "Kurs (Arkiv)" : r.completed ? "Kurs (Avklarad)" : "Kurs") : r.type === "task" ? "Uppgift" : "Anteckning"}
               </span>
             </button>
           ))}

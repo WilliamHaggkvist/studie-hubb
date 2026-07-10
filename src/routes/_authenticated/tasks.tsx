@@ -120,7 +120,7 @@ function TasksPage() {
   const [completeFor, setCompleteFor] = useState<Task | null>(null);
 
   const { data: allCourses = [] } = useQuery(coursesQuery);
-  const courses = allCourses.filter((c) => !c.archived);
+  const courses = allCourses.filter((c) => !c.archived && !c.completed);
 
   const { data: allTasks = [] } = useQuery({
     queryKey: ["tasks"],
@@ -141,7 +141,7 @@ function TasksPage() {
     return allTasks.filter((t) => {
       if (t.course_id) {
         const course = coursesMap.get(t.course_id);
-        if (course?.archived) return false;
+        if (course?.archived || course?.completed) return false;
       }
       if (filterCourse !== "all" && t.course_id !== filterCourse) return false;
       if (filterType !== "all" && t.task_type !== filterType) return false;

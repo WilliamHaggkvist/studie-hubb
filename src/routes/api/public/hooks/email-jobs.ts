@@ -193,7 +193,7 @@ export const Route = createFileRoute('/api/public/hooks/email-jobs')({
                     dueLabel: fmtDue(t.due_at, tz),
                     timeLeftLabel: daysLeftLabel(dueDate, now),
                     taskType: t.task_type ?? '',
-                    appUrl: 'https://studiehubb.lovable.app/tasks',
+                    appUrl: 'https://studiehubb-xyz.lovable.app/tasks',
                   },
                 })
                 if (res.success) results.reminders++
@@ -230,7 +230,7 @@ export const Route = createFileRoute('/api/public/hooks/email-jobs')({
                 templateName: 'daily-summary',
                 recipientEmail: recipientEmail,
                 idempotencyKey: dedupeKey,
-                templateData: { displayName, dateLabel, tasks: dayTasks, sessions: todaySessions, appUrl: 'https://studiehubb.lovable.app' },
+                templateData: { displayName, dateLabel, tasks: dayTasks, sessions: todaySessions, appUrl: 'https://studiehubb-xyz.lovable.app' },
               })
               if (res.success) results.daily++
             }
@@ -267,7 +267,7 @@ export const Route = createFileRoute('/api/public/hooks/email-jobs')({
                 templateName: 'weekly-summary',
                 recipientEmail: recipientEmail,
                 idempotencyKey: dedupeKey,
-                templateData: { displayName, weekLabel: wk, tasks: weekTasks, studyHours: hours, appUrl: 'https://studiehubb.lovable.app' },
+                templateData: { displayName, weekLabel: wk, tasks: weekTasks, studyHours: hours, appUrl: 'https://studiehubb-xyz.lovable.app' },
               })
               if (res.success) results.weekly++
             }

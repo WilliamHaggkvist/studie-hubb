@@ -16,7 +16,7 @@ const Email = ({
   weekLabel = '',
   tasks = [],
   studyHours = 0,
-  appUrl = 'https://studiehubb.lovable.app',
+  appUrl = 'https://studiehubb-xyz.lovable.app',
 }: Props) => (
   <Html lang="sv" dir="ltr">
     <Head />

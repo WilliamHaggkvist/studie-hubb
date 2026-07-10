@@ -152,7 +152,7 @@ export const sendTestReminderEmail = createServerFn({ method: "POST" })
         dueLabel: new Intl.DateTimeFormat("sv-SE", { dateStyle: "short", timeStyle: "short" }).format(new Date(now.getTime() + 2 * 3600_000)),
         timeLeftLabel: "2 timmar kvar",
         taskType: "Övning",
-        appUrl: "https://studiehubb.lovable.app",
+        appUrl: "https://studiehubb-xyz.lovable.app",
       },
     });
 

@@ -17,7 +17,7 @@ const Email = ({
   dueLabel = '',
   timeLeftLabel = '',
   taskType = '',
-  appUrl = 'https://studiehubb.lovable.app/tasks',
+  appUrl = 'https://studiehubb-xyz.lovable.app/tasks',
 }: Props) => (
   <Html lang="sv" dir="ltr">
     <Head />
@@ -52,7 +52,7 @@ export const template = {
     dueLabel: 'imorgon 23:59',
     timeLeftLabel: '1 dag kvar',
     taskType: 'Inlämning',
-    appUrl: 'https://studiehubb.lovable.app/tasks',
+    appUrl: 'https://studiehubb-xyz.lovable.app/tasks',
   },
 } satisfies TemplateEntry
 

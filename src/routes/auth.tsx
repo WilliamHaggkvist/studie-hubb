@@ -41,7 +41,6 @@ function AuthPage() {
   const [signInCode, setSignInCode] = useState("");
   const [signUpCode, setSignUpCode] = useState("");
   const [confirmCode, setConfirmCode] = useState("");
-  const [name, setName] = useState("");
 
   useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
@@ -81,7 +80,6 @@ function AuthPage() {
       password: toInternalPassword(code),
       options: {
         emailRedirectTo: `${window.location.origin}/dashboard`,
-        data: { display_name: name.trim() || `Användare` },
       },
     });
     setLoading(false);
@@ -109,7 +107,7 @@ function AuthPage() {
             Din studiearbetsyta
           </div>
           <h1 className="font-display text-5xl font-bold tracking-tight">
-            <span className="gradient-text">StudyOS</span>
+            <span className="gradient-text">StudieHubb</span>
           </h1>
           <p className="mt-3 max-w-md text-sm text-muted-foreground">
             Sidor, kurser, uppgifter, kalender och tidsstatistik — allt organiserat på ett ställe.
@@ -148,10 +146,6 @@ function AuthPage() {
               </TabsContent>
               <TabsContent value="signup">
                 <form onSubmit={handleSignUp} className="space-y-4 pt-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="su-name">Namn (visas i appen)</Label>
-                    <Input id="su-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ditt namn" />
-                  </div>
                   <div className="space-y-2">
                     <Label htmlFor="su-code">Välj en kod</Label>
                     <Input

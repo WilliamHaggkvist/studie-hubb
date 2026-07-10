@@ -323,7 +323,14 @@ function CourseDetail() {
             >
               <Archive className="h-3.5 w-3.5" /> {course.archived ? "Markera som aktiv" : "Markera som inaktiv"}
             </Button>
-            <Button size="sm" variant="ghost" className="rounded-xl" onClick={() => setEditOpen(true)}>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="rounded-xl"
+              onClick={() => setEditOpen(true)}
+              disabled={course.completed}
+              title={course.completed ? "Inställningar är låsta för en avklarad kurs" : undefined}
+            >
               <Pencil className="mr-1 h-3.5 w-3.5" /> Redigera
             </Button>
             <Button size="sm" variant="ghost" className="text-destructive rounded-xl" onClick={() => { if (confirm("Ta bort kursen?")) remove.mutate(); }}>
