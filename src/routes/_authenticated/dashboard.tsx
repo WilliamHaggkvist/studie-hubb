@@ -685,7 +685,7 @@ function Dashboard() {
 
       <div className="grid gap-4 lg:grid-cols-3">
         {/* Idag */}
-        <Card className="glass border-white/5 shadow-lg">
+        <Card className="glass border-white/5 shadow-lg lg:col-span-2">
           <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="font-display text-base flex items-center gap-2">
               <Clock className="h-4 w-4" style={{ color: "var(--c-7)" }} /> Idag
