@@ -208,8 +208,12 @@ export async function syncGoogleCalendarForUser(
   }
 
   // Google är källan – ta bort pass/event som inte längre finns där inom synkfönstret.
-  // Men bara om vi lyckades hämta alla kalendrar utan fel, annars riskerar vi att radera pass felaktigt.
-  if (!fetchFailed) {
+  // Skydd:
+  //  * fetchFailed = någon kalender-sida gav fel → hoppa över radering (undvik dataförlust)
+  //  * totalItems === 0 = Google returnerade inget alls → misstänkt tomt svar, hoppa över
+  //  * Bara rader med google_event_id/external_id satt raderas
+  //  * Studiepass som användaren redan har startat/genomfört behålls oavsett
+  if (!fetchFailed && totalItems > 0) {
     const inList = (ids: string[]) =>
       `(${ids.map((id) => `"${id.replace(/"/g, "")}"`).join(",")})`;
 
@@ -219,6 +223,9 @@ export async function syncGoogleCalendarForUser(
         .delete()
         .eq("user_id", userId)
         .eq("source", "google")
+        .not("google_event_id", "is", null)
+        .is("actual_start", null)
+        .eq("completed", false)
         .gte("planned_start", timeMin)
         .lte("planned_start", timeMax);
       if (seenSessionIds.size > 0) {
@@ -232,6 +239,7 @@ export async function syncGoogleCalendarForUser(
         .delete()
         .eq("user_id", userId)
         .eq("source", "google")
+        .not("external_id", "is", null)
         .gte("starts_at", timeMin)
         .lte("starts_at", timeMax);
       if (seenEventIds.size > 0) {
@@ -240,6 +248,7 @@ export async function syncGoogleCalendarForUser(
       await q;
     }
   }
+
 
   return {
     imported,
