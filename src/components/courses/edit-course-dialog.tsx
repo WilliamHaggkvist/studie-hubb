@@ -41,6 +41,7 @@ type CourseRow = {
   teacher_contact: string | null;
   completed: boolean;
   final_grade: string | null;
+  is_standalone: boolean;
 };
 
 export function EditCourseDialog({
@@ -66,6 +67,7 @@ export function EditCourseDialog({
     literature: course.literature ?? "",
     teacher_name: course.teacher_name ?? "",
     teacher_contact: course.teacher_contact ?? "",
+    is_standalone: course.is_standalone,
   });
 
   const save = useMutation({
@@ -84,6 +86,7 @@ export function EditCourseDialog({
           literature: form.literature.trim() || null,
           teacher_name: form.teacher_name.trim() || null,
           teacher_contact: form.teacher_contact.trim() || null,
+          is_standalone: form.is_standalone,
         })
         .eq("id", course.id);
       if (error) throw error;
@@ -182,15 +185,32 @@ export function EditCourseDialog({
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-1.5">
-            <Label>Veckomål (h)</Label>
-            <Input
-              type="number"
-              step="0.5"
-              value={form.weekly_goal_hours}
-              onChange={(e) => setForm({ ...form, weekly_goal_hours: e.target.value })}
-              className="rounded-xl"
-            />
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>Kurstyp</Label>
+              <Select
+                value={form.is_standalone ? "standalone" : "program"}
+                onValueChange={(v) => setForm({ ...form, is_standalone: v === "standalone" })}
+              >
+                <SelectTrigger className="rounded-xl">
+                  <SelectValue placeholder="Välj" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="program">Programkurs</SelectItem>
+                  <SelectItem value="standalone">Fristående kurs</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Veckomål (h)</Label>
+              <Input
+                type="number"
+                step="0.5"
+                value={form.weekly_goal_hours}
+                onChange={(e) => setForm({ ...form, weekly_goal_hours: e.target.value })}
+                className="rounded-xl"
+              />
+            </div>
           </div>
           <div className="space-y-1.5">
             <Label>Lärare (namn)</Label>

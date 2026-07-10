@@ -18,6 +18,7 @@ export type Course = {
   weekly_goal_hours: number | null;
   completed: boolean;
   final_grade: string | null;
+  is_standalone: boolean;
 };
 
 export const coursesQuery = queryOptions({
@@ -26,7 +27,7 @@ export const coursesQuery = queryOptions({
     const { data, error } = await supabase
       .from("courses")
       .select(
-        "id,name,code,color,icon,archived,hp,period,arskurs,university_id,weekly_goal_hours,completed,final_grade",
+        "id,name,code,color,icon,archived,hp,period,arskurs,university_id,weekly_goal_hours,completed,final_grade,is_standalone",
       )
       .order("name", { ascending: true });
     if (error) throw error;

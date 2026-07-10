@@ -130,6 +130,7 @@ export type Database = {
           updated_at: string;
           user_id: string;
           weekly_goal_hours: number;
+          is_standalone: boolean;
         };
         Insert: {
           archived?: boolean;
@@ -152,6 +153,7 @@ export type Database = {
           updated_at?: string;
           user_id: string;
           weekly_goal_hours?: number;
+          is_standalone?: boolean;
         };
         Update: {
           archived?: boolean;
@@ -174,6 +176,7 @@ export type Database = {
           updated_at?: string;
           user_id?: string;
           weekly_goal_hours?: number;
+          is_standalone?: boolean;
         };
         Relationships: [
           {

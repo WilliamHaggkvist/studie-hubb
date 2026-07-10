@@ -1,0 +1,2 @@
+ALTER TABLE public.courses
+  ADD COLUMN IF NOT EXISTS is_standalone BOOLEAN NOT NULL DEFAULT false;

@@ -84,6 +84,7 @@ type CourseRow = {
   teacher_contact: string | null;
   completed: boolean;
   final_grade: string | null;
+  is_standalone: boolean;
 };
 
 type CourseFile = {
@@ -106,7 +107,7 @@ function CourseDetail() {
       const { data, error } = await supabase
         .from("courses")
         .select(
-          "id,name,code,color,icon,archived,hp,period,arskurs,university_id,weekly_goal_hours,literature,teacher_name,teacher_contact,completed,final_grade",
+          "id,name,code,color,icon,archived,hp,period,arskurs,university_id,weekly_goal_hours,literature,teacher_name,teacher_contact,completed,final_grade,is_standalone",
         )
         .eq("id", courseId)
         .maybeSingle();
@@ -435,6 +436,11 @@ function CourseDetail() {
                 {course.arskurs != null && <Chip>Årskurs {course.arskurs}</Chip>}
                 {universityName && <Chip>{universityName}</Chip>}
                 {goalHours > 0 && <Chip>Mål {goalHours} h/v</Chip>}
+                {course.is_standalone ? (
+                  <Chip highlight>Fristående kurs</Chip>
+                ) : (
+                  <Chip>Programkurs</Chip>
+                )}
                 {!course.archived && course.completed && course.final_grade && (
                   <Chip highlight>Slutbetyg: {course.final_grade}</Chip>
                 )}

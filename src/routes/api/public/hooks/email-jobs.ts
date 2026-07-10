@@ -233,14 +233,12 @@ export const Route = createFileRoute("/api/public/hooks/email-jobs")({
                 if (diff < 0 || diff > 20 * 60_000) continue;
 
                 const dedupeKey = `reminder:${t.id}:${offsetMin}`;
-                const { error: dupErr } = await supabase
-                  .from("email_reminders_sent")
-                  .insert({
-                    user_id: settings.user_id,
-                    task_id: t.id,
-                    kind: "reminder",
-                    dedupe_key: dedupeKey,
-                  });
+                const { error: dupErr } = await supabase.from("email_reminders_sent").insert({
+                  user_id: settings.user_id,
+                  task_id: t.id,
+                  kind: "reminder",
+                  dedupe_key: dedupeKey,
+                });
                 if (dupErr) continue; // already sent
 
                 const courseName = t.course_id ? (courseMap.get(t.course_id) ?? null) : null;

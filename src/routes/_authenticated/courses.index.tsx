@@ -56,6 +56,7 @@ type CourseRow = {
   weekly_goal_hours: number | null;
   completed: boolean;
   final_grade: string | null;
+  is_standalone: boolean;
 };
 
 function CoursesPage() {
@@ -72,6 +73,7 @@ function CoursesPage() {
   const [arskurs, setArskurs] = useState<string>("");
   const [universityId, setUniversityId] = useState<string>("");
   const [weeklyGoal, setWeeklyGoal] = useState<string>("");
+  const [isStandalone, setIsStandalone] = useState(false);
 
   function resetForm() {
     setName("");
@@ -81,6 +83,7 @@ function CoursesPage() {
     setArskurs("");
     setUniversityId("");
     setWeeklyGoal("");
+    setIsStandalone(false);
   }
 
   const { data: courses = [] } = useQuery(coursesQuery);
@@ -107,6 +110,7 @@ function CoursesPage() {
           arskurs: arskurs ? Number(arskurs) : null,
           university_id: universityId || null,
           weekly_goal_hours: weeklyGoal ? Number(weeklyGoal) : 0,
+          is_standalone: isStandalone,
         })
         .select("id")
         .single();
@@ -260,16 +264,33 @@ function CoursesPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-1.5">
-                <Label>Veckomål (h)</Label>
-                <Input
-                  type="number"
-                  step="0.5"
-                  value={weeklyGoal}
-                  onChange={(e) => setWeeklyGoal(e.target.value)}
-                  placeholder="ex. 8"
-                  className="rounded-xl"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>Kurstyp</Label>
+                  <Select
+                    value={isStandalone ? "standalone" : "program"}
+                    onValueChange={(v) => setIsStandalone(v === "standalone")}
+                  >
+                    <SelectTrigger className="rounded-xl">
+                      <SelectValue placeholder="Välj typ" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="program">Programkurs</SelectItem>
+                      <SelectItem value="standalone">Fristående kurs</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Veckomål (h)</Label>
+                  <Input
+                    type="number"
+                    step="0.5"
+                    value={weeklyGoal}
+                    onChange={(e) => setWeeklyGoal(e.target.value)}
+                    placeholder="ex. 8"
+                    className="rounded-xl"
+                  />
+                </div>
               </div>
             </div>
             <DialogFooter>
