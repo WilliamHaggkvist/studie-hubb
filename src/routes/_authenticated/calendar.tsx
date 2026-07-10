@@ -255,7 +255,7 @@ function CalendarPage() {
               return (
                 <div key={t.id} className="rounded-lg border border-dashed border-sunset-amber/60 bg-surface p-3 text-sm">
                   <div className="flex items-center gap-1 text-xs uppercase tracking-wider text-sunset-amber">
-                    <Flag className="h-3 w-3" /> Deadline {t.task_kind === "exam" ? "· Examination" : ""}
+                    <Flag className="h-3 w-3" /> Deadline
                   </div>
                   <div>{t.title}</div>
                   <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">

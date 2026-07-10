@@ -9,12 +9,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Trash2, Calendar as CalIcon, Inbox } from "lucide-react";
+import { Plus, Trash2, Calendar as CalIcon, Inbox, Pencil } from "lucide-react";
 import { format, parseISO, differenceInCalendarDays } from "date-fns";
 import { sv } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { coursesQuery } from "@/lib/queries";
+import { coursesQuery, type TaskType, TYPE_LABELS, TYPE_COLORS, TYPES_ALPHA } from "@/lib/queries";
 import {
   DndContext,
   type DragEndEvent,
@@ -28,18 +28,6 @@ import {
 export const Route = createFileRoute("/_authenticated/tasks")({
   component: TasksPage,
 });
-
-type TaskType =
-  | "annat"
-  | "inlamningsuppgift"
-  | "kontrollskrivning"
-  | "laboration"
-  | "modul"
-  | "quiz"
-  | "redovisning"
-  | "seminarie"
-  | "tenta"
-  | "ovning";
 
 type TaskStatus = "todo" | "doing" | "done";
 type TaskKind = "task" | "exam";
@@ -59,30 +47,6 @@ type Task = {
 };
 type Course = { id: string; name: string; color: string };
 
-const TYPE_LABELS: Record<TaskType, string> = {
-  annat: "Annat",
-  inlamningsuppgift: "Inlämning",
-  kontrollskrivning: "Kontrollskrivning",
-  laboration: "Laboration",
-  modul: "Modul",
-  quiz: "Quiz",
-  redovisning: "Redovisning",
-  seminarie: "Seminarie",
-  tenta: "Tenta",
-  ovning: "Övning",
-};
-const TYPES_ALPHA: TaskType[] = [
-  "annat",
-  "inlamningsuppgift",
-  "kontrollskrivning",
-  "laboration",
-  "modul",
-  "quiz",
-  "redovisning",
-  "seminarie",
-  "tenta",
-  "ovning",
-];
 const EXAM_TYPES = new Set<TaskType>([
   "inlamningsuppgift",
   "kontrollskrivning",
@@ -118,6 +82,7 @@ function TasksPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [editing, setEditing] = useState<Task | null>(null);
   const [completeFor, setCompleteFor] = useState<Task | null>(null);
+  const [quickActionFor, setQuickActionFor] = useState<Task | null>(null);
 
   const { data: allCourses = [] } = useQuery(coursesQuery);
   const courses = allCourses.filter((c) => !c.archived && !c.completed);
@@ -211,12 +176,12 @@ function TasksPage() {
       }
       return;
     }
-    const wasCompleted = t.status === "done";
+    const wasPending = t.pending_review || t.status === "done";
     const patch: Partial<Task> & { id: string; completed_at?: string | null; grade?: string | null; points?: string | null; pending_review?: boolean } = {
       id: t.id,
       status: s,
       completed_at: null,
-      ...(wasCompleted && { grade: null, points: null, pending_review: false }),
+      ...(wasPending && { grade: null, points: null, pending_review: false }),
     };
     upsert.mutate(patch);
   };
@@ -271,7 +236,7 @@ function TasksPage() {
         <DndContext sensors={sensors} onDragEnd={onDragEnd}>
           <div className="grid gap-3 md:grid-cols-3">
             {COLUMNS.map((col) => (
-              <Column key={col.key} col={col} tasks={board.filter((t) => t.status === col.key)} courses={courses} onOpen={setEditing} />
+              <Column key={col.key} col={col} tasks={board.filter((t) => t.status === col.key)} courses={courses} onOpen={setQuickActionFor} />
             ))}
           </div>
 
@@ -283,7 +248,7 @@ function TasksPage() {
               </div>
               <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
                 {pending.map((t) => (
-                  <DraggableCard key={t.id} task={t} courses={courses} onOpen={setCompleteFor} />
+                  <DraggableCard key={t.id} task={t} courses={courses} onOpen={setQuickActionFor} />
                 ))}
               </div>
             </div>
@@ -336,6 +301,18 @@ function TasksPage() {
             patch.completed_at = new Date().toISOString();
           }
           upsert.mutate(patch as Partial<Task> & { id: string }, { onSuccess: () => setCompleteFor(null) });
+        }}
+      />
+      <QuickStatusDialog
+        task={quickActionFor}
+        onClose={() => setQuickActionFor(null)}
+        onChangeStatus={(t, s) => {
+          setQuickActionFor(null);
+          setStatus(t, s);
+        }}
+        onEdit={(t) => {
+          setQuickActionFor(null);
+          setEditing(t);
         }}
       />
     </div>
@@ -393,7 +370,7 @@ function Card({ task, courses, onOpen }: { task: Task; courses: Course[]; onOpen
             {c.name}
           </span>
         )}
-        <span className="rounded-full border border-border/60 px-1.5 py-0.5">{TYPE_LABELS[task.task_type]}</span>
+        <span className={`rounded-full px-1.5 py-0.5 ${TYPE_COLORS[task.task_type]}`}>{TYPE_LABELS[task.task_type]}</span>
         {task.due_at && (
           <span className={cn("inline-flex items-center gap-1", overdue && "text-sunset-rose")}>
             <CalIcon className="h-2.5 w-2.5" /> {format(parseISO(task.due_at), "d MMM", { locale: sv })} · {daysLeftLabel(task.due_at)}
@@ -476,6 +453,57 @@ function TaskDialog({
           {onDelete && <Button variant="ghost" className="mr-auto text-destructive" onClick={onDelete}><Trash2 className="mr-1 h-4 w-4" /> Ta bort</Button>}
           <Button variant="ghost" onClick={() => onOpenChange(false)}>Avbryt</Button>
           <Button disabled={!title.trim()} onClick={submit} className="gradient-sunset text-white hover:opacity-90">Spara</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function QuickStatusDialog({
+  task, onClose, onChangeStatus, onEdit,
+}: {
+  task: Task | null;
+  onClose: () => void;
+  onChangeStatus: (t: Task, s: TaskStatus) => void;
+  onEdit: (t: Task) => void;
+}) {
+  if (!task) return null;
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-xs">
+        <DialogHeader>
+          <DialogTitle className="font-display text-base">{task.title}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <p className="text-xs text-muted-foreground">Ändra status</p>
+          <div className="grid grid-cols-3 gap-2">
+            {COLUMNS.map((col) => (
+              <button
+                key={col.key}
+                onClick={() => onChangeStatus(task, col.key)}
+                className={cn(
+                  "rounded-lg border px-2 py-2.5 text-xs font-medium transition-all",
+                  task.status === col.key && !task.pending_review
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border/60 hover:border-primary/40 hover:bg-white/5"
+                )}
+              >
+                <span className="inline-block h-1.5 w-1.5 rounded-full mb-1" style={{ background: col.accent }} />
+                <br />
+                {col.label}
+              </button>
+            ))}
+          </div>
+          {task.pending_review && (
+            <div className="rounded-md bg-amber-500/10 border border-amber-500/20 px-3 py-2 text-xs text-amber-400 text-center">
+              Väntar på bedömning
+            </div>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" className="w-full gap-1.5" onClick={() => onEdit(task)}>
+            <Pencil className="h-3.5 w-3.5" /> Redigera uppgift
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

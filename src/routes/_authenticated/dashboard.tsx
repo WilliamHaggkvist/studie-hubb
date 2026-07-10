@@ -15,7 +15,7 @@ import { Clock, ListTodo, Calendar as CalendarIcon, GraduationCap, AlertCircle, 
 import { format, startOfWeek, endOfWeek, startOfDay, endOfDay, addDays, isSameDay, differenceInCalendarDays, parseISO } from "date-fns";
 import { sv } from "date-fns/locale";
 import { useUserSettings } from "@/lib/settings";
-import { coursesQuery, tasksQuery, termsQuery, type TermRow } from "@/lib/queries";
+import { coursesQuery, tasksQuery, termsQuery, type TermRow, type TaskType, type Task, TYPE_LABELS, TYPE_COLORS, TYPES_ALPHA } from "@/lib/queries";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
@@ -271,61 +271,10 @@ function QuickLinksCard() {
   );
 }
 
-type TaskType =
-  | "annat"
-  | "inlamningsuppgift"
-  | "kontrollskrivning"
-  | "laboration"
-  | "modul"
-  | "quiz"
-  | "redovisning"
-  | "seminarie"
-  | "tenta"
-  | "ovning";
-
 type TaskStatus = "todo" | "doing" | "done";
 type TaskKind = "task" | "exam";
-
-type Task = {
-  id: string;
-  title: string;
-  description: string | null;
-  status: TaskStatus;
-  due_at: string | null;
-  course_id: string | null;
-  task_type: TaskType;
-  task_kind: TaskKind;
-  grade: string | null;
-  points: string | null;
-  pending_review: boolean;
-};
-
 type Course = { id: string; name: string; color: string };
 
-const TYPE_LABELS: Record<TaskType, string> = {
-  annat: "Annat",
-  inlamningsuppgift: "Inlämning",
-  kontrollskrivning: "Kontrollskrivning",
-  laboration: "Laboration",
-  modul: "Modul",
-  quiz: "Quiz",
-  redovisning: "Redovisning",
-  seminarie: "Seminarie",
-  tenta: "Tenta",
-  ovning: "Övning",
-};
-const TYPES_ALPHA: TaskType[] = [
-  "annat",
-  "inlamningsuppgift",
-  "kontrollskrivning",
-  "laboration",
-  "modul",
-  "quiz",
-  "redovisning",
-  "seminarie",
-  "tenta",
-  "ovning",
-];
 const EXAM_TYPES = new Set<TaskType>([
   "inlamningsuppgift",
   "kontrollskrivning",
@@ -430,7 +379,7 @@ function Dashboard() {
         description: patch.description ?? null,
         due_at: patch.due_at ?? null,
         course_id: patch.course_id ?? null,
-        task_type: patch.task_type ?? "annat",
+        task_type: (patch.task_type ?? "annat") as TaskType,
         task_kind: patch.task_kind ?? "task",
         status: patch.status ?? "todo",
         pending_review: false,
@@ -452,7 +401,7 @@ function Dashboard() {
       const { id, ...rest } = patch;
       const { error } = await supabase
         .from("tasks")
-        .update(rest)
+        .update(rest as any)
         .eq("id", id);
       if (error) throw error;
     },
@@ -481,6 +430,17 @@ function Dashboard() {
   });
   const pendingReview = allTasks.filter((t) => {
     if (!t.pending_review || t.status === "done") return false;
+    if (t.course_id) {
+      const course = coursesMap.get(t.course_id);
+      if (course?.archived) return false;
+    }
+    return true;
+  });
+  const weekOpenTasks = allTasks.filter((t) => {
+    if (t.status === "done" || t.pending_review) return false;
+    if (!t.due_at) return false;
+    const due = parseISO(t.due_at);
+    if (due < weekStart || due > weekEnd) return false;
     if (t.course_id) {
       const course = coursesMap.get(t.course_id);
       if (course?.archived) return false;
@@ -627,10 +587,24 @@ function Dashboard() {
   });
   const maxDayH = Math.max(1, ...perDay.map((p) => p.hours));
 
+  const weekPlannedSeconds = useMemo(() => {
+    return weekSessions.reduce((acc, s) => {
+      const start = new Date(s.planned_start).getTime();
+      const end = new Date(s.planned_end).getTime();
+      const diff = (end - start) / 1000;
+      return acc + (diff > 0 ? diff : 0);
+    }, 0);
+  }, [weekSessions]);
+
+  const weekCompletedSeconds = useMemo(() => {
+    return weekCombinedEntries.reduce((s, e) => s + e.duration_seconds, 0);
+  }, [weekCombinedEntries]);
+
   const now = new Date();
   const hour = now.getHours();
   const greeting = hour < 6 ? "God natt" : hour < 12 ? "God morgon" : hour < 18 ? "God dag" : "God kväll";
-  return (
+
+  return (
     <div className="mx-auto max-w-6xl px-4 py-8 lg:px-8">
       <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -802,7 +776,7 @@ function Dashboard() {
               {todayTasks.length === 0 && <div className="text-sm text-muted-foreground">Inga deadlines idag.</div>}
               {todayTasks.map((t) => {
                 const c = courses.find((x) => x.id === t.course_id);
-                
+
                 const statusConfig: Record<TaskStatus, { label: string; style: string }> = {
                   todo: { label: "Ej startad", style: "border-sunset-rose/30 text-sunset-rose bg-sunset-rose/10 hover:bg-sunset-rose/20" },
                   doing: { label: "Pågår", style: "border-sunset-amber/30 text-sunset-amber bg-sunset-amber/10 hover:bg-sunset-amber/20" },
@@ -837,8 +811,8 @@ function Dashboard() {
                     <span className="tabular-nums text-xs text-muted-foreground shrink-0">
                       {t.due_at ? format(parseISO(t.due_at), "HH:mm") : "--:--"}
                     </span>
-                    <span className="rounded-full border border-white/5 bg-white/10 px-1.5 py-0.5 text-[9px] uppercase tracking-wider text-muted-foreground shrink-0">
-                      {TYPE_LABELS[t.task_type]}
+                    <span className={`rounded-full px-1.5 py-0.5 text-[9px] uppercase tracking-wider shrink-0 ${TYPE_COLORS[t.task_type as TaskType]}`}>
+                      {TYPE_LABELS[t.task_type as TaskType]}
                     </span>
                     <button
                       type="button"
@@ -888,18 +862,24 @@ function Dashboard() {
             </div>
             <div className="flex items-center justify-between rounded-md border border-white/5 bg-white/5 px-3 py-2 text-sm">
               <span className="flex items-center gap-2"><ListTodo className="h-3.5 w-3.5 text-sunset-amber" /> Uppgifter kvar</span>
-              <span className="tabular-nums font-semibold">{openTasks.length}</span>
+              <span className="tabular-nums font-semibold">{weekOpenTasks.length}</span>
             </div>
-            <div className="flex items-center justify-between rounded-md border border-white/5 bg-white/5 px-3 py-2 text-sm">
-              <span className="flex items-center gap-2"><Clock className="h-3.5 w-3.5" style={{ color: "var(--c-10)" }} /> Total studietid</span>
-              <span className="tabular-nums font-semibold">{formatHoursCompact(weekCombinedEntries.reduce((s, e) => s + e.duration_seconds, 0))}</span>
+            <div className="rounded-md border border-white/5 bg-white/5 px-3 py-2 text-sm space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-2"><Clock className="h-3.5 w-3.5" style={{ color: "var(--c-10)" }} /> Studietid</span>
+                <span className="tabular-nums font-semibold">{formatHoursCompact(weekCompletedSeconds)} <span className="text-muted-foreground font-normal">/ {formatHoursCompact(weekPlannedSeconds)}</span></span>
+              </div>
+              <div className="h-1.5 w-full rounded-full bg-white/5 overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-[var(--c-10)] to-[var(--c-6)] transition-all duration-500"
+                  style={{ width: `${weekPlannedSeconds > 0 ? Math.min(100, (weekCompletedSeconds / weekPlannedSeconds) * 100) : 0}%` }}
+                />
+              </div>
             </div>
           </CardContent>
         </Card>
-
-        {/* Snabblänkar */}
-        <QuickLinksCard />
       </div>
+
 
 
       {/* Kommande uppgifter */}
@@ -911,22 +891,41 @@ function Dashboard() {
           <Link to="/tasks" className="text-xs text-muted-foreground hover:text-foreground">Se alla →</Link>
         </CardHeader>
         <CardContent>
-          {openTasks.length === 0 && <div className="rounded-md border border-dashed border-border/60 p-6 text-center text-sm text-muted-foreground">Inga öppna uppgifter. Bra jobbat!</div>}
-          <div className="space-y-1">
-            {openTasks.slice(0, 8).map((t) => {
-              return (
-                <Link key={t.id} to="/tasks" className="flex items-center gap-3 rounded-md px-2 py-2 text-sm hover:bg-white/5">
-                  <span className="min-w-0 flex-1 truncate">{t.title}</span>
-                  {t.task_kind === "exam" && <span className="rounded-full bg-sunset-rose/20 px-1.5 py-0.5 text-[9px] uppercase text-sunset-rose">Exam</span>}
-                  {t.due_at && (
-                    <span className="text-xs text-muted-foreground">{format(new Date(t.due_at), "d MMM", { locale: sv })}</span>
-                  )}
-                </Link>
+          {(() => {
+            const upcomingTasks = openTasks.filter((t) => !t.due_at || !isSameDay(parseISO(t.due_at), new Date()));
+            return upcomingTasks.length === 0
+              ? <div className="rounded-md border border-dashed border-border/60 p-6 text-center text-sm text-muted-foreground">Inga kommande uppgifter. Bra jobbat!</div>
+              : (
+                <div className="space-y-1">
+                  {upcomingTasks.slice(0, 8).map((t) => {
+                    const c = t.course_id ? coursesMap.get(t.course_id) : null;
+                    const daysLeft = t.due_at ? differenceInCalendarDays(parseISO(t.due_at), new Date()) : null;
+                    return (
+                      <Link key={t.id} to="/tasks" className="flex items-center gap-3 rounded-md px-2 py-2 text-sm hover:bg-white/5">
+                        <span className="min-w-0 flex-1 truncate">{t.title}</span>
+                        <span className={`rounded-full px-1.5 py-0.5 text-[9px] uppercase shrink-0 ${TYPE_COLORS[t.task_type]}`}>{TYPE_LABELS[t.task_type]}</span>
+                        {c && <span className="text-[10px] text-muted-foreground/60 truncate max-w-[80px] shrink-0 font-medium">{c.name}</span>}
+                        {t.due_at && (
+                          <span className={`text-xs shrink-0 ${daysLeft !== null && daysLeft < 0 ? "text-sunset-rose" : "text-muted-foreground"}`}>
+                            {format(parseISO(t.due_at), "d MMM", { locale: sv })}
+                            {daysLeft !== null && (
+                              <span className="ml-1">({daysLeft < 0 ? `${Math.abs(daysLeft)}d sen` : `${daysLeft}d`})</span>
+                            )}
+                          </span>
+                        )}
+                      </Link>
+                    );
+                  })}
+                </div>
               );
-            })}
-          </div>
+          })()}
         </CardContent>
       </Card>
+
+      {/* Snabblänkar */}
+      <div className="mt-6">
+        <QuickLinksCard />
+      </div>
       <TaskDialog
         open={createOpen}
         onOpenChange={setCreateOpen}

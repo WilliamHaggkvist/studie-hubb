@@ -41,7 +41,7 @@ export type Task = {
   status: "todo" | "doing" | "done";
   due_at: string | null;
   course_id: string | null;
-  task_type: string;
+  task_type: TaskType;
   task_kind: "task" | "exam";
   grade: string | null;
   points: string | null;
@@ -86,3 +86,54 @@ export const termsQuery = queryOptions({
 /** Sekunder mellan två ISO-tider (aldrig negativt). */
 export const durationSeconds = (start: string, end: string): number =>
   Math.max(0, Math.floor((new Date(end).getTime() - new Date(start).getTime()) / 1000));
+
+export type TaskType =
+  | "annat"
+  | "inlamningsuppgift"
+  | "kontrollskrivning"
+  | "laboration"
+  | "modul"
+  | "quiz"
+  | "redovisning"
+  | "seminarie"
+  | "tenta"
+  | "ovning";
+
+export const TYPE_LABELS: Record<TaskType, string> = {
+  annat: "Annat",
+  inlamningsuppgift: "Inlämning",
+  kontrollskrivning: "Kontrollskrivning",
+  laboration: "Laboration",
+  modul: "Modul",
+  quiz: "Quiz",
+  redovisning: "Redovisning",
+  seminarie: "Seminarie",
+  tenta: "Tenta",
+  ovning: "Övning",
+};
+
+export const TYPE_COLORS: Record<TaskType, string> = {
+  annat: "bg-zinc-500/20 text-zinc-400",
+  inlamningsuppgift: "bg-sky-500/20 text-sky-400",
+  kontrollskrivning: "bg-amber-500/20 text-amber-400",
+  laboration: "bg-emerald-500/20 text-emerald-400",
+  modul: "bg-violet-500/20 text-violet-400",
+  quiz: "bg-pink-500/20 text-pink-400",
+  redovisning: "bg-orange-500/20 text-orange-400",
+  seminarie: "bg-teal-500/20 text-teal-400",
+  tenta: "bg-rose-500/20 text-rose-400",
+  ovning: "bg-indigo-500/20 text-indigo-400",
+};
+
+export const TYPES_ALPHA: TaskType[] = [
+  "annat",
+  "inlamningsuppgift",
+  "kontrollskrivning",
+  "laboration",
+  "modul",
+  "quiz",
+  "redovisning",
+  "seminarie",
+  "tenta",
+  "ovning",
+];
