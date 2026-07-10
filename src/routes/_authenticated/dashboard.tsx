@@ -752,7 +752,7 @@ function Dashboard() {
                   e.preventDefault();
                   e.stopPropagation();
                   if (t.pending_review) {
-                    updateTaskStatus.mutate({ id: t.id, status: "todo", pending_review: false, grade: null, points: null });
+                    setCompleteFor(t);
                   } else if (t.status === "todo") {
                     updateTaskStatus.mutate({ id: t.id, status: "doing", pending_review: false });
                   } else if (t.status === "doing") {
