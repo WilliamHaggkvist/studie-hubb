@@ -33,7 +33,7 @@ function NotesList() {
   const { data: allCourses = [] } = useQuery({
     queryKey: ["courses", "all-for-notes"],
     queryFn: async () => {
-      const { data } = await supabase.from("courses").select("id,name,color,archived,completed");
+      const { data } = await supabase.from("courses").select("id,name,color,archived,completed").order("name", { ascending: true });
       return (data ?? []) as (Course & { archived: boolean; completed: boolean })[];
     },
   });

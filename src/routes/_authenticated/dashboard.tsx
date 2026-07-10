@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { formatHoursCompact } from "@/lib/timer-store";
-import { Clock, ListTodo, Calendar as CalendarIcon, GraduationCap, AlertCircle, ExternalLink, Plus, Trash2, Globe, Link as LinkIcon, MessageSquare, Mail, FileText, Play, BookOpen, Settings } from "lucide-react";
+import { Clock, ListTodo, Calendar as CalendarIcon, GraduationCap, AlertCircle, ExternalLink, Plus, Trash2, Globe, Link as LinkIcon, MessageSquare, Mail, FileText, Play, BookOpen, Settings, Flame } from "lucide-react";
 import { format, startOfWeek, endOfWeek, startOfDay, endOfDay, addDays, isSameDay, differenceInCalendarDays, parseISO } from "date-fns";
 import { sv } from "date-fns/locale";
 import { useUserSettings } from "@/lib/settings";
@@ -419,6 +419,66 @@ function Dashboard() {
   const courses = allCourses.filter((c) => !c.archived);
   const coursesMap = new Map(allCourses.map((c) => [c.id, c]));
   const { data: terms = [] } = useQuery(termsQuery);
+
+  const { data: recentStudyDays = [] } = useQuery({
+    queryKey: ["recent_study_days"],
+    queryFn: async () => {
+      const limitDate = subDays(new Date(), 90).toISOString();
+      const { data: entries } = await supabase
+        .from("time_entries")
+        .select("started_at")
+        .neq("source", "session")
+        .gte("started_at", limitDate);
+      
+      const { data: sessions } = await supabase
+        .from("study_sessions")
+        .select("planned_start,planned_end,actual_start,actual_end")
+        .eq("needs_review", false)
+        .gte("planned_start", limitDate);
+
+      const dates = new Set<string>();
+      (entries ?? []).forEach(e => {
+        dates.add(format(parseISO(e.started_at), "yyyy-MM-dd"));
+      });
+      (sessions ?? []).forEach(s => {
+        const start = s.actual_start ?? s.planned_start;
+        dates.add(format(parseISO(start), "yyyy-MM-dd"));
+      });
+
+      return Array.from(dates).sort((a, b) => b.localeCompare(a));
+    }
+  });
+
+  const currentStreak = useMemo(() => {
+    if (recentStudyDays.length === 0) return 0;
+    
+    const todayStr = format(new Date(), "yyyy-MM-dd");
+    const yesterday = subDays(new Date(), 1);
+    const yesterdayStr = format(yesterday, "yyyy-MM-dd");
+
+    const studyDates = new Set(recentStudyDays);
+    
+    let streak = 0;
+    let checkDate = new Date();
+    let checkStr = format(checkDate, "yyyy-MM-dd");
+
+    if (!studyDates.has(todayStr)) {
+      if (studyDates.has(yesterdayStr)) {
+        checkDate = yesterday;
+        checkStr = yesterdayStr;
+      } else {
+        return 0;
+      }
+    }
+
+    while (studyDates.has(checkStr)) {
+      streak++;
+      checkDate.setDate(checkDate.getDate() - 1);
+      checkStr = format(checkDate, "yyyy-MM-dd");
+    }
+
+    return streak;
+  }, [recentStudyDays]);
   const { data: allTasks = [] } = useQuery(tasksQuery);
   const openTasks = allTasks.filter((t) => {
     if (t.status === "done") return false;
@@ -447,6 +507,21 @@ function Dashboard() {
     }
     return true;
   });
+
+  const weekTasks = allTasks.filter((t) => {
+    if (!t.due_at) return false;
+    const due = parseISO(t.due_at);
+    if (due < weekStart || due > weekEnd) return false;
+    if (t.course_id) {
+      const course = coursesMap.get(t.course_id);
+      if (course?.archived) return false;
+    }
+    return true;
+  });
+
+  const weekTodoCount = weekTasks.filter((t) => t.status === "todo" && !t.pending_review).length;
+  const weekDoingCount = weekTasks.filter((t) => t.status === "doing" && !t.pending_review).length;
+  const weekDoneCount = weekTasks.filter((t) => t.status === "done" || t.pending_review).length;
 
   const activePeriod = todayPeriod(terms);
   const activeCourses = courses.filter((c) =>
@@ -599,6 +674,51 @@ function Dashboard() {
   const weekCompletedSeconds = useMemo(() => {
     return weekCombinedEntries.reduce((s, e) => s + e.duration_seconds, 0);
   }, [weekCombinedEntries]);
+
+  const totalWeeklyGoalSeconds = useMemo(() => {
+    const sumHours = activeCourses.reduce((acc, c) => acc + (c.weekly_goal_hours ?? 0), 0);
+    return sumHours > 0 ? sumHours * 3600 : 10 * 3600;
+  }, [activeCourses]);
+
+  const timeBeadsCount = Math.floor(weekCompletedSeconds / 1800);
+  const totalBeads = weekDoneCount + timeBeadsCount;
+
+  const [displayedBeadCount, setDisplayedBeadCount] = useState(totalBeads);
+
+  useEffect(() => {
+    if (totalBeads !== displayedBeadCount) {
+      setDisplayedBeadCount(totalBeads);
+    }
+  }, [totalBeads]);
+
+  const beads = useMemo(() => {
+    const list = [];
+    const colors = [
+      "bg-pink-500", "bg-rose-500", "bg-amber-500", "bg-emerald-500", "bg-teal-500", "bg-sky-500", "bg-indigo-500", "bg-violet-500"
+    ];
+    for (let i = 0; i < displayedBeadCount; i++) {
+      const row = Math.floor(i / 6);
+      const col = i % 6;
+      const left = 12 + col * 13 + (Math.sin(i * 1.7) * 3);
+      const bottom = 6 + row * 8 + (Math.cos(i * 2.3) * 1.5);
+      const color = colors[i % colors.length];
+      const isNew = i >= (displayedBeadCount - (totalBeads - displayedBeadCount));
+      list.push({
+        id: i,
+        left: `${left}%`,
+        bottom: `${bottom}%`,
+        color,
+        isNew
+      });
+    }
+    return list;
+  }, [displayedBeadCount, totalBeads]);
+
+  const isJarFull = useMemo(() => {
+    const timeGoalMet = weekCompletedSeconds >= totalWeeklyGoalSeconds;
+    const tasksGoalMet = weekTasks.length === 0 || weekDoneCount === weekTasks.length;
+    return timeGoalMet && tasksGoalMet;
+  }, [weekCompletedSeconds, totalWeeklyGoalSeconds, weekTasks.length, weekDoneCount]);
 
   const now = new Date();
   const hour = now.getHours();
@@ -827,7 +947,7 @@ function Dashboard() {
                     </button>
                     <span className={cn("min-w-0 flex-1 truncate", t.status === "done" && "line-through text-muted-foreground")}>{t.title}</span>
                     {c && (
-                      <span className="text-[10px] text-muted-foreground/60 truncate max-w-[80px] shrink-0 font-medium">
+                      <span className="text-[10px] text-muted-foreground/60 shrink-0 font-medium">
                         {c.name}
                       </span>
                     )}
@@ -844,9 +964,29 @@ function Dashboard() {
             <CardTitle className="font-display text-base flex items-center gap-2">
               <CalendarIcon className="h-4 w-4" style={{ color: "var(--c-10)" }} /> Denna vecka
             </CardTitle>
-            <Link to="/stats" className="text-xs text-muted-foreground hover:text-foreground">Statistik →</Link>
+            <div className="flex items-center gap-3">
+              <Link to="/tasks" className="text-xs text-muted-foreground hover:text-foreground">Uppgifter →</Link>
+              <Link to="/stats" className="text-xs text-muted-foreground hover:text-foreground">Statistik →</Link>
+            </div>
           </CardHeader>
           <CardContent className="space-y-3">
+            <style>{`
+              @keyframes flicker-orange {
+                0%, 100% { transform: scale(1) rotate(-1deg); filter: drop-shadow(0 0 3px rgba(245, 158, 11, 0.4)); }
+                50% { transform: scale(1.1) rotate(1deg); filter: drop-shadow(0 0 7px rgba(245, 158, 11, 0.7)); }
+              }
+              @keyframes flicker-indigo {
+                0%, 100% { transform: scale(1) rotate(-2deg); filter: drop-shadow(0 0 4px rgba(139, 92, 246, 0.5)); }
+                50% { transform: scale(1.15) rotate(2deg); filter: drop-shadow(0 0 10px rgba(139, 92, 246, 0.9)); }
+              }
+              .animate-flicker-orange {
+                animation: flicker-orange 0.6s ease-in-out infinite;
+              }
+              .animate-flicker-indigo {
+                animation: flicker-indigo 0.35s ease-in-out infinite;
+              }
+            `}</style>
+            
             <div>
               <div className="mb-2 text-xs uppercase tracking-wider text-muted-foreground">Studietid</div>
               <div className="flex items-end gap-1.5">
@@ -860,10 +1000,67 @@ function Dashboard() {
                 ))}
               </div>
             </div>
-            <div className="flex items-center justify-between rounded-md border border-white/5 bg-white/5 px-3 py-2 text-sm">
-              <span className="flex items-center gap-2"><ListTodo className="h-3.5 w-3.5 text-sunset-amber" /> Uppgifter kvar</span>
-              <span className="tabular-nums font-semibold">{weekOpenTasks.length}</span>
+
+            {/* Streakvisare */}
+            <div className="flex items-center gap-3 rounded-md border border-white/5 bg-white/5 px-3 py-2 text-sm">
+              <div className="relative w-8 h-8 flex items-center justify-center shrink-0">
+                {currentStreak > 0 ? (
+                  <>
+                    <Flame
+                      className={cn(
+                        "w-6 h-6 transition-all duration-500",
+                        currentStreak <= 3 && "text-amber-500 opacity-80 animate-pulse scale-75",
+                        currentStreak > 3 && currentStreak <= 7 && "text-orange-500 animate-flicker-orange",
+                        currentStreak > 7 && "text-violet-400 animate-flicker-indigo"
+                      )}
+                      style={{
+                        fill: currentStreak > 7 ? "var(--color-sunset-rose)" : "currentColor",
+                      }}
+                    />
+                    {currentStreak > 7 && (
+                      <div className="absolute inset-0 bg-violet-500/10 rounded-full blur-md animate-pulse" />
+                    )}
+                  </>
+                ) : (
+                  <Flame className="w-6 h-6 text-muted-foreground/30" />
+                )}
+              </div>
+              <div className="flex flex-col">
+                <span className="font-semibold text-white">
+                  {currentStreak} {currentStreak === 1 ? "dag" : "dagar"} i rad
+                </span>
+                <span className="text-[10px] text-muted-foreground">
+                  {currentStreak === 0
+                    ? "Studera idag för att påbörja din streak!"
+                    : currentStreak <= 3
+                    ? "En bra start! Håll glöden levande! ⚡"
+                    : currentStreak <= 7
+                    ? "Stabil flamma! Riktigt bra jobbat! 🔥"
+                    : "Intensiv flamma! Du är ostoppbar! 💜✨"}
+                </span>
+              </div>
             </div>
+
+            <Link to="/tasks" className="block rounded-md border border-white/5 bg-white/5 p-3 text-sm space-y-2 hover:bg-white/10 transition-colors">
+              <div className="flex items-center justify-between font-medium text-[11px] text-muted-foreground uppercase tracking-wider">
+                <span className="flex items-center gap-2"><ListTodo className="h-3.5 w-3.5 text-sunset-amber" /> Uppgifter med deadline</span>
+                <span className="tabular-nums font-semibold text-foreground">{weekTasks.length} totalt</span>
+              </div>
+              <div className="grid grid-cols-3 gap-1.5 text-center text-xs">
+                <div className="rounded-lg bg-white/5 p-1.5">
+                  <div className="text-muted-foreground text-[9px] uppercase font-bold">Ej startad</div>
+                  <div className="text-sm font-semibold mt-0.5 tabular-nums text-sunset-rose">{weekTodoCount}</div>
+                </div>
+                <div className="rounded-lg bg-white/5 p-1.5">
+                  <div className="text-muted-foreground text-[9px] uppercase font-bold">Pågår</div>
+                  <div className="text-sm font-semibold mt-0.5 tabular-nums text-sunset-amber">{weekDoingCount}</div>
+                </div>
+                <div className="rounded-lg bg-white/5 p-1.5">
+                  <div className="text-muted-foreground text-[9px] uppercase font-bold">Klar</div>
+                  <div className="text-sm font-semibold mt-0.5 tabular-nums text-emerald-400">{weekDoneCount}</div>
+                </div>
+              </div>
+            </Link>
             <div className="rounded-md border border-white/5 bg-white/5 px-3 py-2 text-sm space-y-1.5">
               <div className="flex items-center justify-between">
                 <span className="flex items-center gap-2"><Clock className="h-3.5 w-3.5" style={{ color: "var(--c-10)" }} /> Studietid</span>
@@ -882,45 +1079,141 @@ function Dashboard() {
 
 
 
-      {/* Kommande uppgifter */}
-      <Card className="mt-6 glass border-white/5 shadow-lg">
-        <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="font-display text-base flex items-center gap-2">
-            <ListTodo className="h-4 w-4" style={{ color: "var(--c-4)" }} /> Kommande uppgifter
-          </CardTitle>
-          <Link to="/tasks" className="text-xs text-muted-foreground hover:text-foreground">Se alla →</Link>
-        </CardHeader>
-        <CardContent>
-          {(() => {
-            const upcomingTasks = openTasks.filter((t) => !t.due_at || !isSameDay(parseISO(t.due_at), new Date()));
-            return upcomingTasks.length === 0
-              ? <div className="rounded-md border border-dashed border-border/60 p-6 text-center text-sm text-muted-foreground">Inga kommande uppgifter. Bra jobbat!</div>
-              : (
-                <div className="space-y-1">
-                  {upcomingTasks.slice(0, 8).map((t) => {
-                    const c = t.course_id ? coursesMap.get(t.course_id) : null;
-                    const daysLeft = t.due_at ? differenceInCalendarDays(parseISO(t.due_at), new Date()) : null;
-                    return (
-                      <Link key={t.id} to="/tasks" className="flex items-center gap-3 rounded-md px-2 py-2 text-sm hover:bg-white/5">
-                        <span className="min-w-0 flex-1 truncate">{t.title}</span>
-                        <span className={`rounded-full px-1.5 py-0.5 text-[9px] uppercase shrink-0 ${TYPE_COLORS[t.task_type]}`}>{TYPE_LABELS[t.task_type]}</span>
-                        {c && <span className="text-[10px] text-muted-foreground/60 truncate max-w-[80px] shrink-0 font-medium">{c.name}</span>}
-                        {t.due_at && (
-                          <span className={`text-xs shrink-0 ${daysLeft !== null && daysLeft < 0 ? "text-sunset-rose" : "text-muted-foreground"}`}>
-                            {format(parseISO(t.due_at), "d MMM", { locale: sv })}
-                            {daysLeft !== null && (
-                              <span className="ml-1">({daysLeft < 0 ? `${Math.abs(daysLeft)}d sen` : `${daysLeft}d`})</span>
+      {/* Grid för Kommande uppgifter & Belöningsburken */}
+      <div className="mt-6 grid gap-4 lg:grid-cols-3">
+        {/* Kommande uppgifter */}
+        <Card className="glass border-white/5 shadow-lg lg:col-span-2 flex flex-col justify-between">
+          <div>
+            <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="font-display text-base flex items-center gap-2">
+                <ListTodo className="h-4 w-4" style={{ color: "var(--c-4)" }} /> Kommande uppgifter
+              </CardTitle>
+              <Link to="/tasks" className="text-xs text-muted-foreground hover:text-foreground">Se alla →</Link>
+            </CardHeader>
+            <CardContent>
+              {(() => {
+                const upcomingTasks = openTasks.filter((t) => !t.due_at || !isSameDay(parseISO(t.due_at), new Date()));
+                return upcomingTasks.length === 0
+                  ? <div className="rounded-md border border-dashed border-border/60 p-6 text-center text-sm text-muted-foreground">Inga kommande uppgifter. Bra jobbat!</div>
+                  : (
+                    <div className="space-y-1">
+                      {upcomingTasks.slice(0, 8).map((t) => {
+                        const c = t.course_id ? coursesMap.get(t.course_id) : null;
+                        const daysLeft = t.due_at ? differenceInCalendarDays(parseISO(t.due_at), new Date()) : null;
+                        return (
+                          <Link key={t.id} to="/tasks" className="flex items-center gap-3 rounded-md px-2 py-2 text-sm hover:bg-white/5">
+                            <span className="min-w-0 flex-1 truncate">{t.title}</span>
+                            <span className={`rounded-full px-1.5 py-0.5 text-[9px] uppercase shrink-0 ${TYPE_COLORS[t.task_type]}`}>{TYPE_LABELS[t.task_type]}</span>
+                            {c && <span className="text-[10px] text-muted-foreground/60 shrink-0 font-medium">{c.name}</span>}
+                            {t.due_at && (
+                              <span className={`text-xs shrink-0 ${daysLeft !== null && daysLeft < 0 ? "text-sunset-rose" : "text-muted-foreground"}`}>
+                                {format(parseISO(t.due_at), "d MMM", { locale: sv })}
+                                {daysLeft !== null && (
+                                  <span className="ml-1">({daysLeft < 0 ? `${Math.abs(daysLeft)}d sen` : `${daysLeft}d`})</span>
+                                )}
+                              </span>
                             )}
-                          </span>
-                        )}
-                      </Link>
-                    );
-                  })}
-                </div>
-              );
-          })()}
-        </CardContent>
-      </Card>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  );
+              })()}
+            </CardContent>
+          </div>
+        </Card>
+
+        {/* Belöningsburken */}
+        <Card className="glass border-white/5 shadow-lg flex flex-col h-full min-h-[350px]">
+          <style>{`
+            @keyframes drop-bead {
+              0% {
+                transform: translateY(-240px);
+                opacity: 0;
+              }
+              65% {
+                transform: translateY(0);
+                opacity: 1;
+              }
+              82% {
+                transform: translateY(-12px);
+              }
+              100% {
+                transform: translateY(0);
+              }
+            }
+            .animate-drop-bead {
+              animation: drop-bead 0.7s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+            }
+          `}</style>
+          <CardHeader className="pb-2">
+            <CardTitle className="font-display text-base flex items-center gap-2">
+              <span className="text-lg">🫙</span> Belöningsburken
+            </CardTitle>
+            <p className="text-[11px] text-muted-foreground leading-normal">Fyll burken genom att studera och bocka av veckans uppgifter!</p>
+          </CardHeader>
+          <CardContent className="flex-1 flex flex-col items-center justify-between pb-6 pt-2">
+            {/* The Jar Container */}
+            <div className="relative w-44 h-56 flex flex-col items-center">
+              {/* Lid / Cork */}
+              <div className="w-16 h-4 bg-amber-800/80 rounded-t-md border-b border-amber-950/40 shadow-md shrink-0 z-10" />
+              <div className="w-20 h-2 bg-amber-900/60 rounded-sm shrink-0 z-10" />
+
+              {/* Jar Body */}
+              <div className="relative w-full flex-1 rounded-b-[40px] rounded-t-[16px] border-2 border-white/10 bg-white/5 shadow-[inset_0_4px_12px_rgba(255,255,255,0.05),0_8px_32px_rgba(0,0,0,0.3)] backdrop-blur-xs overflow-hidden flex items-end justify-center">
+                {/* Glass reflections */}
+                <div className="absolute inset-y-2 left-2 w-1.5 bg-white/10 rounded-full pointer-events-none" />
+                <div className="absolute inset-y-2 right-2 w-1.5 bg-white/5 rounded-full pointer-events-none" />
+                <div className="absolute top-2 inset-x-4 h-1.5 bg-white/10 rounded-full opacity-50 pointer-events-none" />
+
+                {/* Golden glow when jar is full */}
+                {isJarFull && (
+                  <div className="absolute inset-0 bg-yellow-500/10 animate-pulse pointer-events-none z-0" />
+                )}
+
+                {/* Beads / Coins */}
+                {beads.map((bead) => (
+                  <div
+                    key={bead.id}
+                    className={cn(
+                      "absolute rounded-full shadow-[inset_0_2px_4px_rgba(255,255,255,0.2),0_1.5px_3px_rgba(0,0,0,0.2)] z-5",
+                      bead.color,
+                      bead.isNew && "animate-drop-bead",
+                      isJarFull && "bg-gradient-to-r from-yellow-300 to-amber-500 shadow-[0_0_8px_rgba(251,191,36,0.6)]" // Turn all gold when full!
+                    )}
+                    style={{
+                      left: bead.left,
+                      bottom: bead.bottom,
+                      width: "16px",
+                      height: "16px"
+                    }}
+                  />
+                ))}
+
+                {/* Success celebration text inside the jar */}
+                {isJarFull && (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 backdrop-blur-xs z-10 animate-fade-in p-4 text-center">
+                    <span className="text-3xl animate-bounce">🏆</span>
+                    <span className="text-xs font-bold text-yellow-400 tracking-wider uppercase mt-1">Burken är full!</span>
+                    <span className="text-[10px] text-white/90 mt-0.5 font-medium leading-normal">Målet uppnått! ✨</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Status explanation */}
+            <div className="w-full text-center space-y-1 mt-4">
+              <div className="text-[11px] font-semibold text-white">
+                Framsteg: {beads.length} {beads.length === 1 ? "kula" : "kulor"} i burken
+              </div>
+              <p className="text-[10px] text-muted-foreground leading-normal">
+                Studietid: {formatHoursCompact(weekCompletedSeconds)} / {formatHoursCompact(totalWeeklyGoalSeconds)} <br />
+                Uppgifter med deadline: {weekDoneCount} av {weekTasks.length} klara
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Snabblänkar */}
       <div className="mt-6">

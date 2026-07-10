@@ -28,7 +28,7 @@ export const coursesQuery = queryOptions({
       .select(
         "id,name,code,color,icon,archived,hp,period,arskurs,university_id,weekly_goal_hours,completed,final_grade",
       )
-      .order("created_at");
+      .order("name", { ascending: true });
     if (error) throw error;
     return (data ?? []) as Course[];
   },
@@ -56,7 +56,8 @@ export const tasksQuery = queryOptions({
       .select(
         "id,title,description,status,due_at,course_id,task_type,task_kind,grade,points,pending_review",
       )
-      .order("due_at", { ascending: true, nullsFirst: false });
+      .order("due_at", { ascending: true, nullsFirst: false })
+      .order("title", { ascending: true });
     if (error) throw error;
     return (data ?? []) as Task[];
   },

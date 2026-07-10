@@ -93,7 +93,8 @@ function TasksPage() {
       const { data, error } = await supabase
         .from("tasks")
         .select("id,title,description,status,due_at,course_id,task_type,task_kind,grade,points,pending_review")
-        .order("due_at", { ascending: true, nullsFirst: false });
+        .order("due_at", { ascending: true, nullsFirst: false })
+        .order("title", { ascending: true });
       if (error) throw error;
       return (data ?? []) as Task[];
     },

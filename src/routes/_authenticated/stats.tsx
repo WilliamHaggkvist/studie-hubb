@@ -9,6 +9,7 @@ import { formatHoursCompact } from "@/lib/timer-store";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useMemo, useState } from "react";
 import { coursesQuery, tasksQuery, termsQuery, type TermRow } from "@/lib/queries";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/stats")({
   component: StatsPage,
@@ -27,6 +28,93 @@ function StatsPage() {
   const { data: allCourses = [] } = useQuery(coursesQuery);
   const courses = allCourses.filter((c) => !c.archived);
   const { data: terms = [] } = useQuery(termsQuery);
+
+  const heatmapStart = useMemo(() => subDays(new Date(), 364), []);
+  const heatmapEnd = useMemo(() => new Date(), []);
+
+  const { data: heatmapEntries = [] } = useQuery({
+    queryKey: ["stats", "heatmap-entries", heatmapStart.toISOString(), heatmapEnd.toISOString()],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("time_entries")
+        .select("started_at,duration_seconds")
+        .neq("source", "session")
+        .gte("started_at", heatmapStart.toISOString())
+        .lte("started_at", heatmapEnd.toISOString());
+      return (data ?? []) as Array<{ started_at: string; duration_seconds: number | null }>;
+    },
+  });
+
+  const { data: heatmapSessions = [] } = useQuery({
+    queryKey: ["stats", "heatmap-sessions", heatmapStart.toISOString(), heatmapEnd.toISOString()],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("study_sessions")
+        .select("planned_start,planned_end,actual_start,actual_end")
+        .eq("needs_review", false)
+        .gte("planned_start", heatmapStart.toISOString())
+        .lte("planned_start", heatmapEnd.toISOString());
+      return (data ?? []) as Array<{ planned_start: string; planned_end: string; actual_start: string | null; actual_end: string | null }>;
+    },
+  });
+
+  const heatmapData = useMemo(() => {
+    const dailyHours: Record<string, number> = {};
+
+    const addHours = (isoString: string, seconds: number) => {
+      const dayKey = format(new Date(isoString), "yyyy-MM-dd");
+      dailyHours[dayKey] = (dailyHours[dayKey] ?? 0) + (seconds / 3600);
+    };
+
+    for (const e of heatmapEntries) {
+      if (e.duration_seconds) {
+        addHours(e.started_at, e.duration_seconds);
+      }
+    }
+
+    for (const s of heatmapSessions) {
+      const start = s.actual_start ?? s.planned_start;
+      const end = s.actual_end ?? s.planned_end;
+      const dur = Math.max(0, Math.floor((new Date(end).getTime() - new Date(start).getTime()) / 1000));
+      addHours(start, dur);
+    }
+
+    return dailyHours;
+  }, [heatmapEntries, heatmapSessions]);
+
+  const heatmapDays = useMemo(() => {
+    const arr = [];
+    const curr = new Date(startOfWeek(heatmapStart, { weekStartsOn: 1 }));
+    const end = heatmapEnd;
+    
+    while (curr <= end) {
+      const dayKey = format(curr, "yyyy-MM-dd");
+      const hours = heatmapData[dayKey] ?? 0;
+      arr.push({
+        date: new Date(curr),
+        dayKey,
+        hours,
+      });
+      curr.setDate(curr.getDate() + 1);
+    }
+    return arr;
+  }, [heatmapStart, heatmapEnd, heatmapData]);
+
+  const heatmapWeeks = useMemo(() => {
+    const weeks = [];
+    let currentWeek = [];
+    for (const d of heatmapDays) {
+      currentWeek.push(d);
+      if (currentWeek.length === 7) {
+        weeks.push(currentWeek);
+        currentWeek = [];
+      }
+    }
+    if (currentWeek.length > 0) {
+      weeks.push(currentWeek);
+    }
+    return weeks;
+  }, [heatmapDays]);
 
 
   const range = useMemo(() => {
@@ -220,6 +308,57 @@ function StatsPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Studie-Heatmap */}
+      <Card className="mb-6 border-border/60 bg-surface/60">
+        <CardHeader className="pb-2">
+          <CardTitle className="font-display text-base">Studieaktivitet senaste året</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex gap-[3px] overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
+            {/* Day labels (Mån - Sön) */}
+            <div className="grid grid-rows-7 gap-[3px] pr-2 text-[8px] text-muted-foreground select-none font-medium">
+              <div className="h-[10px] flex items-center justify-end">Mån</div>
+              <div className="h-[10px] flex items-center justify-end">Tis</div>
+              <div className="h-[10px] flex items-center justify-end">Ons</div>
+              <div className="h-[10px] flex items-center justify-end">Tor</div>
+              <div className="h-[10px] flex items-center justify-end">Fre</div>
+              <div className="h-[10px] flex items-center justify-end">Lör</div>
+              <div className="h-[10px] flex items-center justify-end">Sön</div>
+            </div>
+            
+            {/* Weeks */}
+            {heatmapWeeks.map((week, wIdx) => (
+              <div key={wIdx} className="grid grid-rows-7 gap-[3px]">
+                {week.map((day) => {
+                  let colorClass = "bg-white/5 border border-white/5 hover:border-white/20";
+                  if (day.hours > 0 && day.hours <= 1) colorClass = "bg-indigo-500/20 border border-indigo-500/30 hover:border-indigo-400";
+                  else if (day.hours > 1 && day.hours <= 3) colorClass = "bg-indigo-500/40 border border-indigo-500/50 hover:border-indigo-300";
+                  else if (day.hours > 3 && day.hours <= 6) colorClass = "bg-indigo-500 border border-indigo-400 hover:border-indigo-300";
+                  else if (day.hours > 6) colorClass = "bg-indigo-300 border border-indigo-200 hover:border-white text-indigo-950";
+
+                  return (
+                    <div
+                      key={day.dayKey}
+                      className={cn("w-[10px] h-[10px] rounded-[1.5px] transition-all cursor-pointer", colorClass)}
+                      title={`${format(day.date, "d MMMM yyyy", { locale: sv })}: ${day.hours.toFixed(2)} h`}
+                    />
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+          <div className="mt-3 flex items-center justify-end gap-1.5 text-[10px] text-muted-foreground">
+            <span>Mindre</span>
+            <div className="w-[10px] h-[10px] rounded-[1.5px] bg-white/5 border border-white/5" />
+            <div className="w-[10px] h-[10px] rounded-[1.5px] bg-indigo-500/20 border border-indigo-500/30" />
+            <div className="w-[10px] h-[10px] rounded-[1.5px] bg-indigo-500/40 border border-indigo-500/50" />
+            <div className="w-[10px] h-[10px] rounded-[1.5px] bg-indigo-500 border border-indigo-400" />
+            <div className="w-[10px] h-[10px] rounded-[1.5px] bg-indigo-300 border border-indigo-200" />
+            <span>Mer</span>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="border-border/60 bg-surface/60 lg:col-span-2">
