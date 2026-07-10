@@ -65,7 +65,7 @@ function TimePage() {
   const [period, setPeriod] = useState<"week" | "30">("week");
 
   const { data: allCourses = [] } = useQuery(coursesQuery);
-  const courses = allCourses.filter((c) => !c.archived);
+  const courses = allCourses.filter((c) => !c.archived && !c.completed);
   const { data: allTasks = [] } = useQuery(tasksQuery);
 
   const { data: entries = [] } = useQuery({

@@ -71,7 +71,7 @@ function CalendarPage() {
   const rangeEnd = addDays(gridStart, cellCount).toISOString();
 
   const { data: allCourses = [] } = useQuery(coursesQuery);
-  const courses = allCourses.filter((c) => !c.archived);
+  const courses = allCourses.filter((c) => !c.archived && !c.completed);
 
   const { data: events = [] } = useQuery({
     queryKey: ["events", view, rangeStart],

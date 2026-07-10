@@ -174,7 +174,7 @@ function Dashboard() {
   const weekEnd = endOfWeek(new Date(), { weekStartsOn: 1 });
 
   const { data: allCourses = [] } = useQuery(coursesQuery);
-  const courses = allCourses.filter((c) => !c.archived);
+  const courses = allCourses.filter((c) => !c.archived && !c.completed);
   const coursesMap = new Map(allCourses.map((c) => [c.id, c]));
   const { data: terms = [] } = useQuery(termsQuery);
 

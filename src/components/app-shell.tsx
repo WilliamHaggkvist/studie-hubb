@@ -651,7 +651,8 @@ function TimerWidget() {
       const { data, error } = await supabase
         .from("courses")
         .select("id,name,color,completed")
-        .eq("archived", false);
+        .eq("archived", false)
+        .eq("completed", false);
       if (error) throw error;
       return data ?? [];
     },
