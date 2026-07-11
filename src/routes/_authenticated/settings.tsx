@@ -64,6 +64,11 @@ function NotificationsCard() {
   const [showVerificationInput, setShowVerificationInput] = useState(false);
   const [verificationCode, setVerificationCode] = useState("");
   const [webNotificationsEnabled, setWebNotificationsEnabled] = useState(false);
+  
+  const [notifyTasksEnabled, setNotifyTasksEnabled] = useState(true);
+  const [notifyTasksMinutes, setNotifyTasksMinutes] = useState("60");
+  const [notifySessionsEnabled, setNotifySessionsEnabled] = useState(true);
+  const [notifySessionsMinutes, setNotifySessionsMinutes] = useState("10");
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -77,33 +82,49 @@ function NotificationsCard() {
         localStorage.getItem("web_notifications_enabled") === "true" &&
         Notification.permission === "granted"
       );
+      
+      const tasksEnabled = localStorage.getItem("web_notify_tasks_enabled");
+      setNotifyTasksEnabled(tasksEnabled !== "false");
+      
+      const tasksMins = localStorage.getItem("web_notify_tasks_minutes");
+      setNotifyTasksMinutes(tasksMins || "60");
+      
+      const sessionsEnabled = localStorage.getItem("web_notify_sessions_enabled");
+      setNotifySessionsEnabled(sessionsEnabled !== "false");
+      
+      const sessionsMins = localStorage.getItem("web_notify_sessions_minutes");
+      setNotifySessionsMinutes(sessionsMins || "10");
     }
   }, []);
 
   const toggleWebNotifications = async (checked: boolean) => {
-    if (checked) {
-      if (!("Notification" in window)) {
-        toast.error("Denna webbläsare stöder inte skrivbordsnotiser.");
-        return;
-      }
-      const permission = await Notification.requestPermission();
-      if (permission === "granted") {
-        localStorage.setItem("web_notifications_enabled", "true");
-        setWebNotificationsEnabled(true);
-        toast.success("Skrivbordsnotiser har aktiverats!");
-        new Notification("StudieHubb", {
-          body: "Skrivbordsnotiser är nu aktiverade!",
-          icon: "/favicon.ico"
-        });
+    try {
+      if (checked) {
+        if (!("Notification" in window)) {
+          toast.error("Denna webbläsare stöder inte skrivbordsnotiser.");
+          return;
+        }
+        
+        toast.info("Försöker aktivera notiser...");
+        
+        const permission = await Notification.requestPermission();
+        if (permission === "granted") {
+          localStorage.setItem("web_notifications_enabled", "true");
+          setWebNotificationsEnabled(true);
+          toast.success("Skrivbordsnotiser har aktiverats! Du kan skicka en testnotis nedan.");
+        } else {
+          localStorage.setItem("web_notifications_enabled", "false");
+          setWebNotificationsEnabled(false);
+          toast.error("Tillåtelse nekades. Aktivera dem i webbläsarens inställningar eller klicka på hänglåset i adressfältet.");
+        }
       } else {
         localStorage.setItem("web_notifications_enabled", "false");
         setWebNotificationsEnabled(false);
-        toast.error("Tillåtelse för notiser nekades. Aktivera dem i webbläsarens inställningar.");
+        toast.success("Skrivbordsnotiser har inaktiverats.");
       }
-    } else {
-      localStorage.setItem("web_notifications_enabled", "false");
-      setWebNotificationsEnabled(false);
-      toast.success("Skrivbordsnotiser har inaktiverats.");
+    } catch (err) {
+      console.error(err);
+      toast.error("Det gick inte att aktivera notiser. Om du är i en förhandsgranskning (iframe), prova att öppna appen i en egen flik.");
     }
   };
 
@@ -416,20 +437,84 @@ function NotificationsCard() {
             />
           </div>
           {webNotificationsEnabled && (
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-sm font-medium">Skicka testnotis</div>
-                <div className="text-[11px] text-muted-foreground">
-                  Skicka en omedelbar testnotis till din dator för att bekräfta att det fungerar.
+            <div className="space-y-4 pt-2">
+              <div className="flex items-center justify-between rounded-xl border border-border/60 bg-background/40 px-4 py-3">
+                <div>
+                  <div className="text-sm font-medium">Uppgifter & Deadlines</div>
+                  <div className="text-[11px] text-muted-foreground">
+                    Få notis när en deadline närmar sig.
+                  </div>
+                </div>
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <Input 
+                      type="number" 
+                      value={notifyTasksMinutes} 
+                      onChange={(e) => {
+                        setNotifyTasksMinutes(e.target.value);
+                        localStorage.setItem("web_notify_tasks_minutes", e.target.value);
+                      }}
+                      className="w-16 h-8 text-center"
+                      disabled={!notifyTasksEnabled}
+                    />
+                    <span className="text-xs text-muted-foreground">minuter före</span>
+                  </div>
+                  <Switch
+                    checked={notifyTasksEnabled}
+                    onCheckedChange={(v) => {
+                      setNotifyTasksEnabled(v);
+                      localStorage.setItem("web_notify_tasks_enabled", v ? "true" : "false");
+                    }}
+                  />
                 </div>
               </div>
-              <Button
-                size="sm"
-                onClick={sendTestWebNotification}
-                className="rounded-xl bg-surface hover:bg-surface-2 border border-border/60 text-foreground text-xs"
-              >
-                Skicka testnotis
-              </Button>
+
+              <div className="flex items-center justify-between rounded-xl border border-border/60 bg-background/40 px-4 py-3">
+                <div>
+                  <div className="text-sm font-medium">Planerade studiepass</div>
+                  <div className="text-[11px] text-muted-foreground">
+                    Få notis när ditt studiepass ska börja.
+                  </div>
+                </div>
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <Input 
+                      type="number" 
+                      value={notifySessionsMinutes} 
+                      onChange={(e) => {
+                        setNotifySessionsMinutes(e.target.value);
+                        localStorage.setItem("web_notify_sessions_minutes", e.target.value);
+                      }}
+                      className="w-16 h-8 text-center"
+                      disabled={!notifySessionsEnabled}
+                    />
+                    <span className="text-xs text-muted-foreground">minuter före</span>
+                  </div>
+                  <Switch
+                    checked={notifySessionsEnabled}
+                    onCheckedChange={(v) => {
+                      setNotifySessionsEnabled(v);
+                      localStorage.setItem("web_notify_sessions_enabled", v ? "true" : "false");
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between pt-2 border-t border-border/60">
+                <div>
+                  <div className="text-sm font-medium">Skicka testnotis</div>
+                  <div className="text-[11px] text-muted-foreground">
+                    Skicka en omedelbar testnotis till din dator för att bekräfta att det fungerar.
+                  </div>
+                </div>
+                <Button
+                  size="sm"
+                  onClick={sendTestWebNotification}
+                  className="rounded-xl bg-surface hover:bg-surface-2 border border-border/60 text-foreground text-xs"
+                >
+                  Skicka testnotis
+                </Button>
+              </div>
             </div>
           )}
         </div>
