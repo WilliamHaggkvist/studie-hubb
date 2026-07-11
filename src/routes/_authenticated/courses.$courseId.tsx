@@ -377,8 +377,6 @@ function CourseDetail() {
 
   const universityName = universities.find((u) => u.id === course?.university_id)?.name;
 
-  if (!course) return <div className="p-8 text-sm text-muted-foreground">Laddar…</div>;
-
   const assignments = tasks;
 
   const examTasks = useMemo(() => {
@@ -391,6 +389,8 @@ function CourseDetail() {
 
   const examProgressPct =
     examTasks.length > 0 ? (completedExamTasks.length / examTasks.length) * 100 : 0;
+
+  if (!course) return <div className="p-8 text-sm text-muted-foreground">Laddar…</div>;
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-6 lg:px-8">
