@@ -228,6 +228,7 @@ function CourseDetail() {
     const out: Array<{ started_at: string; duration_seconds: number }> = [];
     for (const e of allTime) {
       if (e.source === "session") continue;
+      if (!e.started_at) continue;
       out.push({
         started_at: e.started_at,
         duration_seconds: e.duration_seconds ?? 0,
@@ -236,13 +237,14 @@ function CourseDetail() {
     for (const s of allSessions) {
       const start = s.actual_start ?? s.planned_start;
       const end = s.actual_end ?? s.planned_end;
-      const dur = Math.max(
-        0,
-        Math.floor((new Date(end).getTime() - new Date(start).getTime()) / 1000),
-      );
+      if (!start) continue;
+      const startMs = new Date(start).getTime();
+      const endMs = end ? new Date(end).getTime() : startMs;
+      if (isNaN(startMs)) continue;
+      const dur = Math.max(0, Math.floor((endMs - startMs) / 1000));
       out.push({
         started_at: start,
-        duration_seconds: dur,
+        duration_seconds: dur || 0,
       });
     }
     return out;
@@ -254,7 +256,9 @@ function CourseDetail() {
     let weekSec = 0;
     const byWeek = new Map<string, { start: Date; sec: number }>();
     for (const e of combinedTime) {
+      if (!e.started_at) continue;
       const d = new Date(e.started_at);
+      if (isNaN(d.getTime())) continue;
       const sec = e.duration_seconds;
       if (d >= ws && d <= we) weekSec += sec;
       const wkStart = startOfWeek(d, { weekStartsOn: 1 });
@@ -561,12 +565,12 @@ function CourseDetail() {
         <StatBox
           label="Max vecka"
           value={stats.maxW ? `${(stats.maxW.sec / 3600).toFixed(2)} h` : "—"}
-          sub={stats.maxW ? format(stats.maxW.start, "'v.'w", { locale: sv }) : ""}
+          sub={stats.maxW && !isNaN(stats.maxW.start.getTime()) ? format(stats.maxW.start, "'v.'I", { locale: sv }) : ""}
         />
         <StatBox
           label="Min vecka"
           value={stats.minW ? `${(stats.minW.sec / 3600).toFixed(2)} h` : "—"}
-          sub={stats.minW ? format(stats.minW.start, "'v.'w", { locale: sv }) : ""}
+          sub={stats.minW && !isNaN(stats.minW.start.getTime()) ? format(stats.minW.start, "'v.'I", { locale: sv }) : ""}
         />
       </div>
 
@@ -627,10 +631,10 @@ function CourseDetail() {
                         <Clock className="h-3.5 w-3.5 text-muted-foreground" />
                       )}
                       <span className="truncate">
-                        {start ? format(new Date(start), "EEE d MMM", { locale: sv }) : "—"}
+                        {start && !isNaN(new Date(start).getTime()) ? format(new Date(start), "EEE d MMM", { locale: sv }) : "—"}
                       </span>
                       <span className="ml-auto text-[11px] text-muted-foreground tabular-nums">
-                        {start && end
+                        {start && end && !isNaN(new Date(start).getTime()) && !isNaN(new Date(end).getTime())
                           ? `${format(new Date(start), "HH:mm")}–${format(new Date(end), "HH:mm")}`
                           : ""}
                       </span>
@@ -680,7 +684,7 @@ function CourseDetail() {
                     <span className="text-base leading-none">{n.icon ?? "📝"}</span>
                     <span className="truncate">{n.title || "Utan titel"}</span>
                     <span className="ml-auto text-[10px] text-muted-foreground">
-                      {format(new Date(n.updated_at), "d MMM", { locale: sv })}
+                      {n.updated_at && !isNaN(new Date(n.updated_at).getTime()) ? format(new Date(n.updated_at), "d MMM", { locale: sv }) : ""}
                     </span>
                   </Link>
                 ))}
@@ -774,6 +778,8 @@ function StatBox({ label, value, sub }: { label: string; value: string; sub?: st
 }
 
 function TaskRow({ title, due, done }: { title: string; due: string | null; done: boolean }) {
+  const d = due ? new Date(due) : null;
+  const validDue = d && !isNaN(d.getTime());
   return (
     <div className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm">
       <span
@@ -781,7 +787,7 @@ function TaskRow({ title, due, done }: { title: string; due: string | null; done
       />
       <span className={cn("truncate", done && "line-through text-muted-foreground")}>{title}</span>
       <span className="ml-auto text-[10px] text-muted-foreground">
-        {due ? format(new Date(due), "d MMM", { locale: sv }) : "—"}
+        {validDue ? format(d, "d MMM", { locale: sv }) : "—"}
       </span>
     </div>
   );
