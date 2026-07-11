@@ -63,6 +63,7 @@ function NotificationsCard() {
   const [newEmail, setNewEmail] = useState("");
   const [showVerificationInput, setShowVerificationInput] = useState(false);
   const [verificationCode, setVerificationCode] = useState("");
+  const [webNotificationsEnabled, setWebNotificationsEnabled] = useState(false);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -70,7 +71,52 @@ function NotificationsCard() {
         setPrimaryEmail(data.user.email);
       }
     });
+
+    if (typeof window !== "undefined") {
+      setWebNotificationsEnabled(
+        localStorage.getItem("web_notifications_enabled") === "true" &&
+        Notification.permission === "granted"
+      );
+    }
   }, []);
+
+  const toggleWebNotifications = async (checked: boolean) => {
+    if (checked) {
+      if (!("Notification" in window)) {
+        toast.error("Denna webbläsare stöder inte skrivbordsnotiser.");
+        return;
+      }
+      const permission = await Notification.requestPermission();
+      if (permission === "granted") {
+        localStorage.setItem("web_notifications_enabled", "true");
+        setWebNotificationsEnabled(true);
+        toast.success("Skrivbordsnotiser har aktiverats!");
+        new Notification("StudieHubb", {
+          body: "Skrivbordsnotiser är nu aktiverade!",
+          icon: "/favicon.ico"
+        });
+      } else {
+        localStorage.setItem("web_notifications_enabled", "false");
+        setWebNotificationsEnabled(false);
+        toast.error("Tillåtelse för notiser nekades. Aktivera dem i webbläsarens inställningar.");
+      }
+    } else {
+      localStorage.setItem("web_notifications_enabled", "false");
+      setWebNotificationsEnabled(false);
+      toast.success("Skrivbordsnotiser har inaktiverats.");
+    }
+  };
+
+  const sendTestWebNotification = () => {
+    if (Notification.permission === "granted") {
+      new Notification("StudieHubb Testnotis", {
+        body: "Detta är en testnotis från StudieHubb! Det fungerar perfekt.",
+        icon: "/favicon.ico"
+      });
+    } else {
+      toast.error("Notiser är inte tillåtna av webbläsaren.");
+    }
+  };
 
   const save = useMutation({
     mutationFn: async (patch: Record<string, unknown>) => {
@@ -353,6 +399,39 @@ function NotificationsCard() {
             checked={!!s?.weekly_summary_enabled}
             onCheckedChange={(v) => save.mutate({ weekly_summary_enabled: v })}
           />
+        </div>
+
+        <div className="pt-4 border-t border-border/60 space-y-4">
+          <Label className="text-xs uppercase tracking-wide text-muted-foreground">Webbnotiser (Webbläsare/Skrivbord)</Label>
+          <div className="flex items-center justify-between rounded-xl border border-border/60 bg-background/40 px-4 py-3">
+            <div>
+              <div className="text-sm font-medium">Skrivbordsnotiser</div>
+              <div className="text-[11px] text-muted-foreground">
+                Få notiser direkt på datorskärmen när studiepass startar eller deadlines närmar sig.
+              </div>
+            </div>
+            <Switch
+              checked={webNotificationsEnabled}
+              onCheckedChange={toggleWebNotifications}
+            />
+          </div>
+          {webNotificationsEnabled && (
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-sm font-medium">Skicka testnotis</div>
+                <div className="text-[11px] text-muted-foreground">
+                  Skicka en omedelbar testnotis till din dator för att bekräfta att det fungerar.
+                </div>
+              </div>
+              <Button
+                size="sm"
+                onClick={sendTestWebNotification}
+                className="rounded-xl bg-surface hover:bg-surface-2 border border-border/60 text-foreground text-xs"
+              >
+                Skicka testnotis
+              </Button>
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>

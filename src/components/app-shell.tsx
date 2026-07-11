@@ -69,6 +69,73 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   useEffect(() => setMobileOpen(false), [pathname]);
 
+  useEffect(() => {
+    if (typeof window === "undefined" || !("Notification" in window)) return;
+
+    const checkNotifications = async () => {
+      if (localStorage.getItem("web_notifications_enabled") !== "true") return;
+      if (Notification.permission !== "granted") return;
+
+      const now = new Date();
+
+      // Check for study sessions starting in the next 10 minutes
+      try {
+        const { data: sessions } = await supabase
+          .from("study_sessions")
+          .select("id, planned_start, completed")
+          .eq("completed", false)
+          .eq("needs_review", false)
+          .gte("planned_start", now.toISOString())
+          .lte("planned_start", new Date(now.getTime() + 10 * 60 * 1000).toISOString());
+
+        if (sessions && sessions.length > 0) {
+          for (const session of sessions) {
+            const key = `notified_session_${session.id}`;
+            if (!localStorage.getItem(key)) {
+              new Notification("Studiepass startar snart!", {
+                body: `Ett av dina planerade studiepass startar om mindre än 10 minuter.`,
+                icon: "/favicon.ico"
+              });
+              localStorage.setItem(key, "true");
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Error checking sessions for notifications:", err);
+      }
+
+      // Check for tasks due in the next 1 hour
+      try {
+        const { data: tasks } = await supabase
+          .from("tasks")
+          .select("id, title, due_at, status")
+          .neq("status", "done")
+          .gte("due_at", now.toISOString())
+          .lte("due_at", new Date(now.getTime() + 60 * 60 * 1000).toISOString());
+
+        if (tasks && tasks.length > 0) {
+          for (const task of tasks) {
+            const key = `notified_task_${task.id}`;
+            if (!localStorage.getItem(key)) {
+              new Notification("Deadline närmar sig!", {
+                body: `Uppgiften "${task.title}" har deadline om mindre än en timme.`,
+                icon: "/favicon.ico"
+              });
+              localStorage.setItem(key, "true");
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Error checking tasks for notifications:", err);
+      }
+    };
+
+    // Run immediately and then every 2 minutes
+    checkNotifications();
+    const interval = setInterval(checkNotifications, 2 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <div className="relative flex min-h-screen w-full overflow-hidden bg-background text-foreground">
       {/* Ambient background blobs for liquid glass feel */}
