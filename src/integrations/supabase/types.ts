@@ -126,6 +126,7 @@ export type Database = {
           hp: number | null
           icon: string | null
           id: string
+          is_standalone: boolean
           literature: string | null
           name: string
           period: Database["public"]["Enums"]["course_period"] | null
@@ -148,6 +149,7 @@ export type Database = {
           hp?: number | null
           icon?: string | null
           id?: string
+          is_standalone?: boolean
           literature?: string | null
           name: string
           period?: Database["public"]["Enums"]["course_period"] | null
@@ -170,6 +172,7 @@ export type Database = {
           hp?: number | null
           icon?: string | null
           id?: string
+          is_standalone?: boolean
           literature?: string | null
           name?: string
           period?: Database["public"]["Enums"]["course_period"] | null
