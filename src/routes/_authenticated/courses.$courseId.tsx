@@ -50,8 +50,12 @@ import {
 import { toast } from "sonner";
 import { formatHoursCompact } from "@/lib/timer-store";
 import { timerStore } from "@/lib/timer-store";
-import { format, startOfWeek, endOfWeek } from "date-fns";
+import { format, startOfWeek, endOfWeek, differenceInCalendarDays, parseISO } from "date-fns";
 import { sv } from "date-fns/locale";
+import { TaskDialog } from "@/components/tasks/task-dialog";
+import { QuickStatusDialog } from "@/components/tasks/quick-status-dialog";
+import { CompleteDialog } from "@/components/tasks/complete-dialog";
+import { type Task, type TaskStatus, TYPE_LABELS, TYPE_COLORS } from "@/lib/queries";
 import {
   PALETTE,
   DEFAULT_COURSE_ICONS,
@@ -121,18 +125,11 @@ function CourseDetail() {
     queryFn: async () => {
       const { data } = await supabase
         .from("tasks")
-        .select("id,title,status,due_at,task_kind,task_type")
+        .select("id,title,description,status,due_at,course_id,task_type,task_kind,grade,points,pending_review")
         .eq("course_id", courseId)
         .order("due_at", { ascending: true, nullsFirst: false })
         .order("title", { ascending: true });
-      return (data ?? []) as {
-        id: string;
-        title: string;
-        status: string;
-        due_at: string | null;
-        task_kind: string | null;
-        task_type: string | null;
-      }[];
+      return (data ?? []) as Task[];
     },
   });
 
@@ -285,6 +282,81 @@ function CourseDetail() {
   const [editOpen, setEditOpen] = useState(false);
   const [completeOpen, setCompleteOpen] = useState(false);
   const [gradeInput, setGradeInput] = useState(course?.final_grade ?? "");
+
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [completeFor, setCompleteFor] = useState<Task | null>(null);
+  const [quickActionFor, setQuickActionFor] = useState<Task | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
+
+  const coursesOption = useMemo(() => {
+    return course ? [{ id: course.id, name: course.name, color: course.color }] : [];
+  }, [course]);
+
+  const upsertTask = useMutation({
+    mutationFn: async (patch: Partial<Task> & { id?: string }) => {
+      if (patch.id) {
+        const { id, ...rest } = patch;
+        const { error } = await supabase.from("tasks").update(rest).eq("id", id);
+        if (error) throw error;
+      } else {
+        const { data: u } = await supabase.auth.getUser();
+        if (!u.user) throw new Error("no user");
+        const { error } = await supabase.from("tasks").insert({
+          user_id: u.user.id,
+          title: patch.title ?? "",
+          description: patch.description ?? null,
+          due_at: patch.due_at ?? null,
+          course_id: courseId,
+          task_type: patch.task_type ?? "annat",
+          task_kind: patch.task_kind ?? "task",
+          status: patch.status ?? "todo",
+        });
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["tasks", "course", courseId] });
+      qc.invalidateQueries({ queryKey: ["tasks"] });
+      toast.success("Uppgift sparad");
+    },
+    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Fel"),
+  });
+
+  const removeTask = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("tasks").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["tasks", "course", courseId] });
+      qc.invalidateQueries({ queryKey: ["tasks"] });
+      toast.success("Uppgift borttagen");
+    },
+  });
+
+  const setTaskStatus = (t: Task, s: TaskStatus) => {
+    if (s === "done") {
+      if (t.task_type === "annat" || t.task_type === "modul") {
+        upsertTask.mutate({
+          id: t.id,
+          status: "done",
+          grade: null,
+          points: null,
+          pending_review: false,
+        });
+      } else {
+        setCompleteFor(t);
+      }
+      return;
+    }
+    const wasPending = t.pending_review || t.status === "done";
+    const patch = {
+      id: t.id,
+      status: s,
+      ...(wasPending && { grade: null, points: null, pending_review: false }),
+    };
+    upsertTask.mutate(patch);
+  };
 
   const archive = useMutation({
     mutationFn: async () => {
@@ -577,11 +649,19 @@ function CourseDetail() {
       {/* CONTENT GRID */}
       <div className="grid gap-4 lg:grid-cols-2">
         <Card className="border-border/60 bg-surface/60 backdrop-blur-md rounded-2xl">
-          <CardHeader className="pb-2">
+          <CardHeader className="pb-2 flex-row items-center justify-between space-y-0">
             <CardTitle className="font-display text-base flex items-center gap-2">
               <ListTodo className="h-4 w-4" style={{ color: course.color }} /> Uppgifter{" "}
               <span className="ml-auto text-xs text-muted-foreground">{assignments.length}</span>
             </CardTitle>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="gap-1 rounded-xl"
+              onClick={() => setCreateOpen(true)}
+            >
+              <Plus className="h-3.5 w-3.5" /> Ny
+            </Button>
           </CardHeader>
           <CardContent>
             {assignments.length === 0 ? (
@@ -589,15 +669,15 @@ function CourseDetail() {
                 Inga uppgifter.
               </div>
             ) : (
-              <div className="space-y-1">
-                {assignments.slice(0, 8).map((t) => (
-                  <TaskRow key={t.id} title={t.title} due={t.due_at} done={t.status === "done"} />
+              <div className="space-y-2">
+                {assignments.slice(0, 15).map((t) => (
+                  <TaskRow key={t.id} task={t} onClick={() => setQuickActionFor(t)} />
                 ))}
               </div>
             )}
-            <div className="mt-2 text-right">
+            <div className="mt-3 text-right">
               <Link to="/tasks" className="text-[11px] text-muted-foreground hover:text-foreground">
-                Öppna uppgifter →
+                Öppna alla uppgifter i listvy →
               </Link>
             </div>
           </CardContent>
@@ -763,6 +843,79 @@ function CourseDetail() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <QuickStatusDialog
+        task={quickActionFor}
+        onClose={() => setQuickActionFor(null)}
+        onChangeStatus={(t, s) => {
+          setQuickActionFor(null);
+          setTaskStatus(t, s);
+        }}
+        onEdit={(t) => {
+          setQuickActionFor(null);
+          setEditingTask(t);
+        }}
+      />
+
+      <TaskDialog
+        open={!!editingTask}
+        onOpenChange={(o) => !o && setEditingTask(null)}
+        courses={coursesOption}
+        task={editingTask ?? undefined}
+        onDelete={
+          editingTask
+            ? () => {
+                removeTask.mutate(editingTask.id);
+                setEditingTask(null);
+              }
+            : undefined
+        }
+        onSave={(v) => {
+          upsertTask.mutate(
+            { ...v, id: editingTask!.id },
+            {
+              onSuccess: () => {
+                setEditingTask(null);
+              },
+            },
+          );
+        }}
+      />
+
+      <TaskDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        courses={coursesOption}
+        onSave={(v) => {
+          upsertTask.mutate(v, {
+            onSuccess: () => {
+              setCreateOpen(false);
+              toast.success("Uppgift skapad");
+            },
+          });
+        }}
+      />
+
+      <CompleteDialog
+        task={completeFor}
+        onClose={() => setCompleteFor(null)}
+        onPending={(t) => {
+          upsertTask.mutate(
+            { id: t.id, pending_review: true },
+            { onSuccess: () => setCompleteFor(null) },
+          );
+        }}
+        onDone={(t, grade, points) => {
+          const patch: Record<string, any> = { id: t.id, grade, points, pending_review: false };
+          if (grade.trim() && points.trim()) {
+            patch.status = "done";
+            patch.completed_at = new Date().toISOString();
+          }
+          upsertTask.mutate(patch as Partial<Task> & { id: string }, {
+            onSuccess: () => setCompleteFor(null),
+          });
+        }}
+      />
     </div>
   );
 }
@@ -777,19 +930,61 @@ function StatBox({ label, value, sub }: { label: string; value: string; sub?: st
   );
 }
 
-function TaskRow({ title, due, done }: { title: string; due: string | null; done: boolean }) {
-  const d = due ? new Date(due) : null;
-  const validDue = d && !isNaN(d.getTime());
+function TaskRow({
+  task,
+  onClick,
+}: {
+  task: Task;
+  onClick: () => void;
+}) {
+  const done = task.status === "done";
+  const due = task.due_at ? new Date(task.due_at) : null;
+  const validDue = due && !isNaN(due.getTime());
+
+  let daysLeftStr = "";
+  if (validDue && !done) {
+    const d = differenceInCalendarDays(due, new Date());
+    if (d === 0) daysLeftStr = "Idag";
+    else if (d === 1) daysLeftStr = "Imorgon";
+    else if (d === -1) daysLeftStr = "Försenad 1 d";
+    else if (d < 0) daysLeftStr = `Försenad ${-d} d`;
+    else daysLeftStr = `${d} d kvar`;
+  }
+
+  const overdue = validDue && due.getTime() < Date.now() && !done;
+
   return (
-    <div className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm">
-      <span
-        className={cn("h-1.5 w-1.5 rounded-full", done ? "bg-c-7" : "bg-muted-foreground/50")}
-      />
-      <span className={cn("truncate", done && "line-through text-muted-foreground")}>{title}</span>
-      <span className="ml-auto text-[10px] text-muted-foreground">
-        {validDue ? format(d, "d MMM", { locale: sv }) : "—"}
-      </span>
-    </div>
+    <button
+      onClick={onClick}
+      className="w-full flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-xl border border-border/40 bg-surface/30 p-2.5 text-left text-sm hover:bg-surface-2/40 hover:border-primary/30 transition-all cursor-pointer"
+    >
+      <div className="flex items-center gap-2 min-w-0 flex-1">
+        <span
+          className={cn(
+            "h-2 w-2 rounded-full shrink-0",
+            task.status === "done"
+              ? "bg-c-7"
+              : task.status === "doing"
+              ? "bg-amber-500"
+              : "bg-muted-foreground/40"
+          )}
+        />
+        <span className={cn("truncate font-medium", done && "line-through text-muted-foreground")}>
+          {task.title}
+        </span>
+      </div>
+      <div className="flex flex-wrap items-center gap-1.5 shrink-0 text-[10px]">
+        <span className={cn("rounded-full px-2 py-0.5 font-medium border border-white/5", TYPE_COLORS[task.task_type])}>
+          {TYPE_LABELS[task.task_type]}
+        </span>
+        {validDue && (
+          <span className={cn("inline-flex items-center gap-1 text-muted-foreground", overdue && "text-sunset-rose font-medium")}>
+            <span>{format(due, "d MMM", { locale: sv })}</span>
+            {daysLeftStr && <span>· {daysLeftStr}</span>}
+          </span>
+        )}
+      </div>
+    </button>
   );
 }
 
