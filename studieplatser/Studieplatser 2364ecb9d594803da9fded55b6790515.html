@@ -1,0 +1,767 @@
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=utf-8"/><title>Studieplatser</title><meta name="data-notion-page-icon" content="/icons/school_blue.svg"/><link rel="icon" href="https://app.notion.com/icons/school_blue.svg"/><style>
+/* cspell:disable-file */
+/* webkit printing magic: print all background colors */
+html {
+	-webkit-print-color-adjust: exact;
+}
+* {
+	box-sizing: border-box;
+	-webkit-print-color-adjust: exact;
+}
+
+html,
+body {
+	margin: 0;
+	padding: 0;
+}
+@media only screen {
+	body {
+		margin: 2em auto;
+		max-width: 900px;
+		color: rgb(55, 53, 47);
+	}
+}
+
+body {
+	line-height: 1.5;
+	white-space: pre-wrap;
+}
+
+a,
+a.visited {
+	color: inherit;
+	text-decoration: underline;
+}
+
+.pdf-relative-link-path {
+	font-size: 80%;
+	color: #444;
+}
+
+h1,
+h2,
+h3 {
+	letter-spacing: -0.01em;
+	line-height: 1.2;
+	font-weight: 600;
+	margin-bottom: 0;
+}
+
+/* Override strong tags inside headings to maintain consistent weight */
+h1 strong,
+h2 strong,
+h3 strong {
+	font-weight: 600;
+}
+
+.page-title {
+	font-size: 2.5rem;
+	font-weight: 700;
+	margin-top: 0;
+	margin-bottom: 0.75em;
+}
+
+h1 {
+	font-size: 1.875rem;
+	margin-top: 1.875rem;
+}
+
+h2 {
+	font-size: 1.5rem;
+	margin-top: 1.5rem;
+}
+
+h3 {
+	font-size: 1.25rem;
+	margin-top: 1.25rem;
+}
+
+.source {
+	border: 1px solid #ddd;
+	border-radius: 3px;
+	padding: 1.5em;
+	word-break: break-all;
+}
+
+.callout {
+	border-radius: 10px;
+	padding: 1rem;
+}
+
+/* For default-background callouts, render the border outline. */
+.callout.block-color-default_background {
+	border: 1px solid rgba(55, 53, 47, 0.09);
+}
+
+figure,
+aside,
+details {
+	margin: 1.25em 0;
+	page-break-inside: avoid;
+}
+
+figcaption {
+	opacity: 0.5;
+	font-size: 85%;
+	margin-top: 0.5em;
+}
+
+mark {
+	background-color: transparent;
+}
+
+.indented {
+	padding-left: 1.5em;
+}
+
+hr {
+	background: transparent;
+	display: block;
+	width: 100%;
+	height: 1px;
+	visibility: visible;
+	border: none;
+	border-bottom: 1px solid rgba(55, 53, 47, 0.09);
+}
+
+img {
+	max-width: 100%;
+}
+
+@media only print {
+	img {
+		max-height: 100vh;
+		object-fit: contain;
+	}
+
+	table.collection-content {
+		width: 100%;
+		table-layout: fixed;
+	}
+
+	table.collection-content th,
+	table.collection-content td {
+		overflow-wrap: anywhere;
+	}
+
+	table.collection-content td > .user,
+	table.collection-content td > time {
+		white-space: pre-wrap;
+	}
+}
+
+@page {
+	margin: 1in;
+}
+
+.collection-content-wrapper {
+	overflow-x: auto;
+}
+
+@media only print {
+	.collection-content-wrapper {
+		overflow-x: visible;
+	}
+}
+
+.collection-content {
+	font-size: 0.875rem;
+}
+
+.collection-content td {
+	white-space: pre-wrap;
+	word-break: break-word;
+}
+
+.column-list {
+	display: flex;
+	gap: 46px;
+}
+
+.column {
+	min-width: 0;
+	overflow: hidden;
+}
+
+.column > *:first-child {
+	margin-top: 0;
+}
+
+.table_of_contents-item {
+	display: block;
+	font-size: 0.875rem;
+	line-height: 1.3;
+	padding-inline: 0.125rem;
+	padding-block: 0.375rem;
+}
+
+.table_of_contents-indent-1 {
+	margin-left: 1.5rem;
+}
+
+.table_of_contents-indent-2 {
+	margin-left: 3rem;
+}
+
+.table_of_contents-indent-3 {
+	margin-left: 4.5rem;
+}
+
+.table_of_contents-link {
+	text-decoration: none;
+	opacity: 0.7;
+	border-bottom: 1px solid rgba(55, 53, 47, 0.18);
+}
+
+table,
+th,
+td {
+	border: 1px solid rgba(55, 53, 47, 0.09);
+}
+
+table {
+	border-collapse: collapse;
+	border-left: none;
+	border-right: none;
+}
+
+th,
+td {
+	font-weight: normal;
+	padding: 0.25em 0.5em;
+	line-height: 1.5;
+	min-height: 1.5em;
+	text-align: left;
+}
+
+th {
+	color: rgba(55, 53, 47, 0.6);
+}
+
+ol,
+ul {
+	margin: 0;
+	margin-block-start: 0.6em;
+	margin-block-end: 0.6em;
+}
+
+li > ol:first-child,
+li > ul:first-child {
+	margin-block-start: 0.6em;
+}
+
+ul > li {
+	list-style: disc;
+}
+
+ul.to-do-list {
+	padding-inline-start: 0;
+}
+
+ul.to-do-list > li {
+	list-style: none;
+}
+
+.to-do-children-checked {
+	text-decoration: line-through;
+	opacity: 0.375;
+}
+
+ul.toggle > li {
+	list-style: none;
+}
+
+ul {
+	padding-inline-start: 1.7em;
+}
+
+ul > li {
+	padding-left: 0.1em;
+}
+
+ol {
+	padding-inline-start: 1.6em;
+}
+
+ol.numbered-list.numbered-list-digits-2 {
+	padding-inline-start: 2em;
+}
+
+ol.numbered-list.numbered-list-digits-3plus {
+	padding-inline-start: 2.4em;
+}
+
+ol > li {
+	padding-left: 0.2em;
+}
+
+.mono ol {
+	padding-inline-start: 2em;
+}
+
+.mono ol > li {
+	text-indent: -0.4em;
+}
+
+.toggle {
+	padding-inline-start: 0em;
+	list-style-type: none;
+}
+
+/* Indent toggle children */
+.toggle > li > details {
+	padding-left: 1.7em;
+}
+
+.toggle > li > details > summary {
+	margin-left: -1.1em;
+}
+
+.selected-value {
+	display: inline-block;
+	padding: 0 0.5em;
+	background: rgba(206, 205, 202, 0.5);
+	border-radius: 3px;
+	margin-right: 0.5em;
+	margin-top: 0.3em;
+	margin-bottom: 0.3em;
+	white-space: nowrap;
+}
+
+.collection-title {
+	display: inline-block;
+	margin-right: 1em;
+}
+
+.page-description {
+	margin-bottom: 2em;
+}
+
+.simple-table {
+	margin-top: 1em;
+	font-size: 0.875rem;
+	empty-cells: show;
+}
+.simple-table td {
+	height: 29px;
+	min-width: 120px;
+}
+
+.simple-table th {
+	height: 29px;
+	min-width: 120px;
+}
+
+.simple-table-header-color {
+	background: rgb(247, 246, 243);
+	color: black;
+}
+.simple-table-header {
+	font-weight: 500;
+}
+
+time {
+	opacity: 0.5;
+}
+
+.icon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	max-width: 1.2em;
+	max-height: 1.2em;
+	text-decoration: none;
+	vertical-align: text-bottom;
+	margin-right: 0.5em;
+}
+
+/*
+ * Render emoji icons using a ::before pseudo-element to keep the glyph
+ * out of the DOM textContent traversal. This avoids double-rendering icons
+ * in callouts and page titles.
+ * NOTE(slim/html-export-pseudo-icons): I can't tagref this because it will
+ * flag as a duplicate tag after codegen.
+ */
+.icon[data-emoji]::before {
+	content: attr(data-emoji);
+}
+
+img.icon {
+	border-radius: 3px;
+}
+
+.callout img.notion-static-icon {
+	width: 1em;
+	height: 1em;
+}
+
+.callout p {
+	margin: 0;
+}
+
+.callout h1,
+.callout h2,
+.callout h3 {
+	margin: 0 0 0.6rem;
+}
+
+.user-icon {
+	width: 1.5em;
+	height: 1.5em;
+	border-radius: 100%;
+	margin-right: 0.5rem;
+}
+
+.user-icon-inner {
+	font-size: 0.8em;
+}
+
+.text-icon {
+	border: 1px solid #000;
+	text-align: center;
+}
+
+.page-cover-image {
+	display: block;
+	object-fit: cover;
+	width: 100%;
+	max-height: 30vh;
+}
+
+.page-header-icon {
+	font-size: 3rem;
+	margin-bottom: 1rem;
+}
+
+.page-header-icon-with-cover {
+	margin-top: -0.72em;
+	margin-left: 0.07em;
+}
+
+.page-header-icon img {
+	border-radius: 3px;
+}
+
+.link-to-page {
+	margin: 1em 0;
+	padding: 0;
+	border: none;
+	font-weight: 500;
+}
+
+p > .user {
+	opacity: 0.5;
+}
+
+td > .user,
+td > time {
+	white-space: nowrap;
+}
+
+input[type="checkbox"] {
+	margin-right: 0.4em;
+	vertical-align: middle;
+}
+
+p {
+	margin-top: 0.5em;
+	margin-bottom: 0.5em;
+}
+
+.image {
+	border: none;
+	margin: 1.5em 0;
+	padding: 0;
+	border-radius: 0;
+	text-align: center;
+}
+
+.code,
+code {
+	background: rgba(135, 131, 120, 0.15);
+	border-radius: 3px;
+	padding: 0.2em 0.4em;
+	border-radius: 3px;
+	font-size: 85%;
+	tab-size: 2;
+}
+
+code {
+	color: #eb5757;
+}
+
+.code {
+	padding: 1.5em 1em;
+}
+
+.code-wrap {
+	white-space: pre-wrap;
+	word-break: break-all;
+}
+
+.code > code {
+	background: none;
+	padding: 0;
+	font-size: 100%;
+	color: inherit;
+}
+
+blockquote {
+	font-size: 1em;
+	margin: 1em 0;
+	padding-left: 1em;
+	border-left: 3px solid rgb(55, 53, 47);
+}
+
+blockquote.quote-large {
+	font-size: 1.25em;
+}
+
+.bookmark {
+	text-decoration: none;
+	max-height: 8em;
+	padding: 0;
+	display: flex;
+	width: 100%;
+	align-items: stretch;
+}
+
+.bookmark-title {
+	font-size: 0.85em;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	height: 1.75em;
+	white-space: nowrap;
+}
+
+.bookmark-text {
+	display: flex;
+	flex-direction: column;
+}
+
+.bookmark-info {
+	flex: 4 1 180px;
+	padding: 12px 14px 14px;
+	display: flex;
+	flex-direction: column;
+	justify-content: space-between;
+}
+
+.bookmark-image {
+	width: 33%;
+	flex: 1 1 180px;
+	display: block;
+	position: relative;
+	object-fit: cover;
+	border-radius: 1px;
+}
+
+.bookmark-description {
+	color: rgba(55, 53, 47, 0.6);
+	font-size: 0.75em;
+	overflow: hidden;
+	max-height: 4.5em;
+	word-break: break-word;
+}
+
+.bookmark-href {
+	font-size: 0.75em;
+	margin-top: 0.25em;
+}
+
+.tab {
+	margin: 1.25em 0;
+	padding-inline: 1rem;
+	border: 1px solid rgba(55, 53, 47, 0.09);
+}
+
+.sans { font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI Variable Display", "Segoe UI", Helvetica, "Apple Color Emoji", "Noto Sans Arabic", "Noto Sans Hebrew", Arial, sans-serif, "Segoe UI Emoji", "Segoe UI Symbol"; }
+.code { font-family: "SFMono-Regular", Menlo, Consolas, "PT Mono", "Liberation Mono", Courier, monospace; }
+.serif { font-family: Lyon-Text, Georgia, ui-serif, serif; }
+.mono { font-family: iawriter-mono, Nitti, Menlo, Courier, monospace; }
+.pdf .sans { font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI Variable Display", "Segoe UI", Helvetica, "Apple Color Emoji", "Noto Sans Arabic", "Noto Sans Hebrew", Arial, sans-serif, "Segoe UI Emoji", "Segoe UI Symbol", 'Twemoji', 'Noto Color Emoji', 'Noto Sans CJK JP'; }
+.pdf:lang(zh-CN) .sans { font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI Variable Display", "Segoe UI", Helvetica, "Apple Color Emoji", "Noto Sans Arabic", "Noto Sans Hebrew", Arial, sans-serif, "Segoe UI Emoji", "Segoe UI Symbol", 'Twemoji', 'Noto Color Emoji', 'Noto Sans CJK SC'; }
+.pdf:lang(zh-TW) .sans { font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI Variable Display", "Segoe UI", Helvetica, "Apple Color Emoji", "Noto Sans Arabic", "Noto Sans Hebrew", Arial, sans-serif, "Segoe UI Emoji", "Segoe UI Symbol", 'Twemoji', 'Noto Color Emoji', 'Noto Sans CJK TC'; }
+.pdf:lang(ko-KR) .sans { font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI Variable Display", "Segoe UI", Helvetica, "Apple Color Emoji", "Noto Sans Arabic", "Noto Sans Hebrew", Arial, sans-serif, "Segoe UI Emoji", "Segoe UI Symbol", 'Twemoji', 'Noto Color Emoji', 'Noto Sans CJK KR'; }
+.pdf .code { font-family: Source Code Pro, "SFMono-Regular", Menlo, Consolas, "PT Mono", "Liberation Mono", Courier, monospace, 'Twemoji', 'Noto Color Emoji', 'Noto Sans Mono CJK JP'; }
+.pdf:lang(zh-CN) .code { font-family: Source Code Pro, "SFMono-Regular", Menlo, Consolas, "PT Mono", "Liberation Mono", Courier, monospace, 'Twemoji', 'Noto Color Emoji', 'Noto Sans Mono CJK SC'; }
+.pdf:lang(zh-TW) .code { font-family: Source Code Pro, "SFMono-Regular", Menlo, Consolas, "PT Mono", "Liberation Mono", Courier, monospace, 'Twemoji', 'Noto Color Emoji', 'Noto Sans Mono CJK TC'; }
+.pdf:lang(ko-KR) .code { font-family: Source Code Pro, "SFMono-Regular", Menlo, Consolas, "PT Mono", "Liberation Mono", Courier, monospace, 'Twemoji', 'Noto Color Emoji', 'Noto Sans Mono CJK KR'; }
+.pdf .serif { font-family: PT Serif, Lyon-Text, Georgia, ui-serif, serif, 'Twemoji', 'Noto Color Emoji', 'Noto Serif CJK JP'; }
+.pdf:lang(zh-CN) .serif { font-family: PT Serif, Lyon-Text, Georgia, ui-serif, serif, 'Twemoji', 'Noto Color Emoji', 'Noto Serif CJK SC'; }
+.pdf:lang(zh-TW) .serif { font-family: PT Serif, Lyon-Text, Georgia, ui-serif, serif, 'Twemoji', 'Noto Color Emoji', 'Noto Serif CJK TC'; }
+.pdf:lang(ko-KR) .serif { font-family: PT Serif, Lyon-Text, Georgia, ui-serif, serif, 'Twemoji', 'Noto Color Emoji', 'Noto Serif CJK KR'; }
+.pdf .mono { font-family: PT Mono, iawriter-mono, Nitti, Menlo, Courier, monospace, 'Twemoji', 'Noto Color Emoji', 'Noto Sans Mono CJK JP'; }
+.pdf:lang(zh-CN) .mono { font-family: PT Mono, iawriter-mono, Nitti, Menlo, Courier, monospace, 'Twemoji', 'Noto Color Emoji', 'Noto Sans Mono CJK SC'; }
+.pdf:lang(zh-TW) .mono { font-family: PT Mono, iawriter-mono, Nitti, Menlo, Courier, monospace, 'Twemoji', 'Noto Color Emoji', 'Noto Sans Mono CJK TC'; }
+.pdf:lang(ko-KR) .mono { font-family: PT Mono, iawriter-mono, Nitti, Menlo, Courier, monospace, 'Twemoji', 'Noto Color Emoji', 'Noto Sans Mono CJK KR'; }
+.highlight-default {
+	color: rgba(44, 44, 43, 1);
+}
+.highlight-gray {
+	color: rgba(125, 122, 117, 1);
+	fill: rgba(125, 122, 117, 1);
+}
+.highlight-brown {
+	color: rgba(159, 118, 90, 1);
+	fill: rgba(159, 118, 90, 1);
+}
+.highlight-orange {
+	color: rgba(210, 123, 45, 1);
+	fill: rgba(210, 123, 45, 1);
+}
+.highlight-yellow {
+	color: rgba(203, 148, 52, 1);
+	fill: rgba(203, 148, 52, 1);
+}
+.highlight-teal {
+	color: rgba(80, 148, 110, 1);
+	fill: rgba(80, 148, 110, 1);
+}
+.highlight-blue {
+	color: rgba(56, 125, 201, 1);
+	fill: rgba(56, 125, 201, 1);
+}
+.highlight-purple {
+	color: rgba(154, 107, 180, 1);
+	fill: rgba(154, 107, 180, 1);
+}
+.highlight-pink {
+	color: rgba(193, 76, 138, 1);
+	fill: rgba(193, 76, 138, 1);
+}
+.highlight-red {
+	color: rgba(207, 81, 72, 1);
+	fill: rgba(207, 81, 72, 1);
+}
+.highlight-default_background {
+	color: rgba(44, 44, 43, 1);
+}
+.highlight-gray_background {
+	background: rgba(42, 28, 0, 0.07);
+}
+.highlight-brown_background {
+	background: rgba(139, 46, 0, 0.086);
+}
+.highlight-orange_background {
+	background: rgba(224, 101, 1, 0.129);
+}
+.highlight-yellow_background {
+	background: rgba(211, 168, 0, 0.137);
+}
+.highlight-teal_background {
+	background: rgba(0, 100, 45, 0.09);
+}
+.highlight-blue_background {
+	background: rgba(0, 124, 215, 0.094);
+}
+.highlight-purple_background {
+	background: rgba(102, 0, 178, 0.078);
+}
+.highlight-pink_background {
+	background: rgba(197, 0, 93, 0.086);
+}
+.highlight-red_background {
+	background: rgba(223, 22, 0, 0.094);
+}
+.block-color-default {
+	color: inherit;
+	fill: inherit;
+}
+.block-color-gray {
+	color: rgba(125, 122, 117, 1);
+	fill: rgba(125, 122, 117, 1);
+}
+.block-color-brown {
+	color: rgba(159, 118, 90, 1);
+	fill: rgba(159, 118, 90, 1);
+}
+.block-color-orange {
+	color: rgba(210, 123, 45, 1);
+	fill: rgba(210, 123, 45, 1);
+}
+.block-color-yellow {
+	color: rgba(203, 148, 52, 1);
+	fill: rgba(203, 148, 52, 1);
+}
+.block-color-teal {
+	color: rgba(80, 148, 110, 1);
+	fill: rgba(80, 148, 110, 1);
+}
+.block-color-blue {
+	color: rgba(56, 125, 201, 1);
+	fill: rgba(56, 125, 201, 1);
+}
+.block-color-purple {
+	color: rgba(154, 107, 180, 1);
+	fill: rgba(154, 107, 180, 1);
+}
+.block-color-pink {
+	color: rgba(193, 76, 138, 1);
+	fill: rgba(193, 76, 138, 1);
+}
+.block-color-red {
+	color: rgba(207, 81, 72, 1);
+	fill: rgba(207, 81, 72, 1);
+}
+.block-color-default_background {
+	color: inherit;
+	fill: inherit;
+}
+.block-color-gray_background {
+	background: rgba(240, 239, 237, 1);
+}
+.block-color-brown_background {
+	background: rgba(245, 237, 233, 1);
+}
+.block-color-orange_background {
+	background: rgba(251, 235, 222, 1);
+}
+.block-color-yellow_background {
+	background: rgba(249, 243, 220, 1);
+}
+.block-color-teal_background {
+	background: rgba(232, 241, 236, 1);
+}
+.block-color-blue_background {
+	background: rgba(229, 242, 252, 1);
+}
+.block-color-purple_background {
+	background: rgba(243, 235, 249, 1);
+}
+.block-color-pink_background {
+	background: rgba(250, 233, 241, 1);
+}
+.block-color-red_background {
+	background: rgba(252, 233, 231, 1);
+}
+.select-value-color-default { background-color: rgba(42, 28, 0, 0.07); }
+.select-value-color-gray { background-color: rgba(28, 19, 1, 0.11); }
+.select-value-color-brown { background-color: rgba(127, 51, 0, 0.156); }
+.select-value-color-orange { background-color: rgba(196, 88, 0, 0.203); }
+.select-value-color-yellow { background-color: rgba(209, 156, 0, 0.282); }
+.select-value-color-green { background-color: rgba(0, 96, 38, 0.156); }
+.select-value-color-blue { background-color: rgba(0, 118, 217, 0.203); }
+.select-value-color-purple { background-color: rgba(92, 0, 163, 0.141); }
+.select-value-color-pink { background-color: rgba(183, 0, 78, 0.152); }
+.select-value-color-red { background-color: rgba(206, 24, 0, 0.164); }
+
+.checkbox {
+	display: inline-flex;
+	vertical-align: text-bottom;
+	width: 16;
+	height: 16;
+	background-size: 16px;
+	margin-left: 2px;
+	margin-right: 5px;
+}
+
+.checkbox-on {
+	background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg%20width%3D%2216%22%20height%3D%2216%22%20viewBox%3D%220%200%2016%2016%22%20fill%3D%22none%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%0A%3Crect%20width%3D%2216%22%20height%3D%2216%22%20fill%3D%22%2358A9D7%22%2F%3E%0A%3Cpath%20d%3D%22M6.71429%2012.2852L14%204.9995L12.7143%203.71436L6.71429%209.71378L3.28571%206.2831L2%207.57092L6.71429%2012.2852Z%22%20fill%3D%22white%22%2F%3E%0A%3C%2Fsvg%3E");
+}
+
+.checkbox-off {
+	background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg%20width%3D%2216%22%20height%3D%2216%22%20viewBox%3D%220%200%2016%2016%22%20fill%3D%22none%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%0A%3Crect%20x%3D%220.75%22%20y%3D%220.75%22%20width%3D%2214.5%22%20height%3D%2214.5%22%20fill%3D%22white%22%20stroke%3D%22%2336352F%22%20stroke-width%3D%221.5%22%2F%3E%0A%3C%2Fsvg%3E");
+}
+	
+</style><style>@import url('https://cdn.jsdelivr.net/npm/katex@0.16.25/dist/katex-swap.min.css')</style></head><body><article id="2364ecb9-d594-803d-a9fd-ed55b6790515" class="page sans" data-notion-page-icon="/icons/school_blue.svg"><header><div class="page-header-icon undefined"><img class="icon notion-static-icon" src="https://app.notion.com/icons/school_blue.svg"/></div><h1 class="page-title" dir="auto">Studieplatser</h1><p class="page-description" dir="auto"></p></header><div class="page-body"><div class="collection-content-wrapper"><table class="collection-content"><colgroup><col style="width:13.882002974714924%"/><col style="width:9.91571641051066%"/><col style="width:9.91571641051066%"/><col style="width:9.91571641051066%"/><col style="width:9.91571641051066%"/><col style="width:4.21417947446703%"/><col style="width:6.197322756569163%"/><col style="width:6.296479920674268%"/><col style="width:9.91571641051066%"/><col style="width:9.91571641051066%"/><col style="width:9.915716410510655%"/></colgroup><thead><tr><th><span class="icon property-icon"><img src="https://app.notion.com/icons/font_gray.svg" style="width:14px;height:14px;display:block"/></span>Namn</th><th><span class="icon property-icon"><img src="https://app.notion.com/icons/map-pin-alternate_gray.svg" style="width:14px;height:14px;display:block"/></span>Plats</th><th><span class="icon property-icon"><img src="https://app.notion.com/icons/note-whole_gray.svg" style="width:14px;height:14px;display:block"/></span>Beskrivning</th><th><span class="icon property-icon"><img src="https://app.notion.com/icons/star_gray.svg" style="width:14px;height:14px;display:block"/></span>Betyg</th><th><span class="icon property-icon"><img src="https://app.notion.com/icons/volume-high_gray.svg" style="width:14px;height:14px;display:block"/></span>Ljudnivå</th><th><span class="icon property-icon"><img src="https://app.notion.com/icons/wifi_gray.svg" style="width:14px;height:14px;display:block"/></span>Wi-Fi</th><th><span class="icon property-icon"><img src="https://app.notion.com/icons/arrow-circle-down_gray.svg" style="width:14px;height:14px;display:block"/></span>Besöksnivå</th><th><span class="icon property-icon"><img src="https://app.notion.com/icons/electric-plug_gray.svg" style="width:14px;height:14px;display:block"/></span>Uttag</th><th><span class="icon property-icon"><img src="https://app.notion.com/icons/attachment_gray.svg" style="width:14px;height:14px;display:block"/></span>Mer information</th><th><span class="icon property-icon"><img src="https://app.notion.com/icons/clock_gray.svg" style="width:14px;height:14px;display:block"/></span>Öppettider</th><th><span class="icon property-icon"><img src="https://app.notion.com/icons/apple_gray.svg" style="width:14px;height:14px;display:block"/></span>Pentry</th></tr></thead><tbody><tr id="2374ecb9-d594-803d-bc4d-e629c5f6d848"><td class="cell-title"><a href="B-huset%202374ecb9d594803dbc4de629c5f6d848.html" data-notion-page-id="2374ecb9-d594-803d-bc4d-e629c5f6d848" data-notion-space-id="fd8d62b3-28fa-487f-a524-eb7b86bbd18a"><img class="icon notion-static-icon" src="https://app.notion.com/icons/library_gray.svg"/>B-huset</a></td><td class="cell-wEeG"><span class="selected-value select-value-color-purple">KTH Campus</span></td><td class="cell-FHbL">Mestadels soffgrupper utanför föreläsningssalarna. Väldigt mysiga och lugna platser, ofta relativt lugnt.</td><td class="cell-~}qR"><span class="selected-value select-value-color-green">⭐⭐⭐⭐</span></td><td class="cell-EoHr"><span class="selected-value select-value-color-blue">Låg</span></td><td class="cell-_oUv"><input type="checkbox" class="checkbox checkbox-on" disabled="" checked=""/></td><td class="cell-|Rfn"><span class="selected-value select-value-color-green">Låg</span></td><td class="cell-e[dF"><span class="selected-value select-value-color-green">God tillgång</span></td><td class="cell-&gt;Lta"><span style="margin-inline-end:6px"><a href="https://www.kth.se/places/building/fb1144e5-9477-4c59-953c-5551290e8bdc">Rumsförteckning</a></span></td><td class="cell-WGpd">6-24</td><td class="cell-&gt;oPF"><span class="selected-value select-value-color-blue">Nej</span></td></tr><tr id="2364ecb9-d594-80b0-8353-e14f7215c0d8"><td class="cell-title"><a href="Campus%20Albano%202364ecb9d59480b08353e14f7215c0d8.html" data-notion-page-id="2364ecb9-d594-80b0-8353-e14f7215c0d8" data-notion-space-id="fd8d62b3-28fa-487f-a524-eb7b86bbd18a">Campus Albano</a></td><td class="cell-wEeG"><span class="selected-value select-value-color-default">Albano</span><span class="selected-value select-value-color-gray">Utomhus</span></td><td class="cell-FHbL">Hus 1, 2, 4. Mycket bra studieplatser av många olika typer. Relativt god tillgång till uttag, finns en del ställen utan uttag dock. Lugnast i hus 1 (längst bort), trevliga platser på översta våningen vid takterrassen.</td><td class="cell-~}qR"><span class="selected-value select-value-color-blue">⭐⭐⭐⭐⭐</span></td><td class="cell-EoHr"><span class="selected-value select-value-color-yellow">Medel</span></td><td class="cell-_oUv"><input type="checkbox" class="checkbox checkbox-on" disabled="" checked=""/></td><td class="cell-|Rfn"><span class="selected-value select-value-color-yellow">Medel</span></td><td class="cell-e[dF"><span class="selected-value select-value-color-green">God tillgång</span></td><td class="cell-&gt;Lta"><span style="margin-inline-end:6px"><a href="https://www.su.se/utbildning/livet-som-student/studieplatser-och-grupprum?open-collapse-boxes=ccbd-studieplatserialbano#studieplatserialbano">Hemsida</a></span><span style="margin-inline-end:6px"><a href="Albano__plan_2_3_4_informella_studieplatser_ht23.pdf">Karta.pdf</a></span><span style="margin-inline-end:6px"><a href="Undervisningssalar_Albano.pdf">Rum.pdf</a></span></td><td class="cell-WGpd">Mån-Tors: 22:00 Fre: 20:00 Lör-Sön: 18:00</td><td class="cell-&gt;oPF"><span class="selected-value select-value-color-purple">Ja</span></td></tr><tr id="2374ecb9-d594-80b7-94e5-c6b35794f88b"><td class="cell-title"><a href="E%20D-huset%202374ecb9d59480b794e5c6b35794f88b.html" data-notion-page-id="2374ecb9-d594-80b7-94e5-c6b35794f88b" data-notion-space-id="fd8d62b3-28fa-487f-a524-eb7b86bbd18a"><img class="icon notion-static-icon" src="https://app.notion.com/icons/library_gray.svg"/>E/D-huset</a></td><td class="cell-wEeG"><span class="selected-value select-value-color-purple">KTH Campus</span></td><td class="cell-FHbL">Gott om blandade studieplatser. Guldkorn: grupprummen vid datasalarna, grupprummet i D nära D1, tysta läsesalarna (E/D nära tunnelbanan, D bland övningssalarna vån 3/4).</td><td class="cell-~}qR"><span class="selected-value select-value-color-yellow">⭐⭐⭐</span></td><td class="cell-EoHr"><span class="selected-value select-value-color-orange">Medelhög</span></td><td class="cell-_oUv"><input type="checkbox" class="checkbox checkbox-on" disabled="" checked=""/></td><td class="cell-|Rfn"><span class="selected-value select-value-color-red">Hög</span></td><td class="cell-e[dF"><span class="selected-value select-value-color-green">God tillgång</span></td><td class="cell-&gt;Lta"><span style="margin-inline-end:6px"><a href="https://www.kth.se/places/building/0611fcc9-bd40-425a-993a-de7c4fd28296">Rumförteckning</a></span></td><td class="cell-WGpd">E: Dygnet runt D: 6-24</td><td class="cell-&gt;oPF"><span class="selected-value select-value-color-blue">Nej</span></td></tr><tr id="2374ecb9-d594-8024-a629-c86cf7569c87"><td class="cell-title"><a href="Espresso%20House,%20Vasagatan%2015%202374ecb9d5948024a629c86cf7569c87.html" data-notion-page-id="2374ecb9-d594-8024-a629-c86cf7569c87" data-notion-space-id="fd8d62b3-28fa-487f-a524-eb7b86bbd18a"><img class="icon notion-static-icon" src="https://app.notion.com/icons/library_gray.svg"/>Espresso House, Vasagatan 15</a></td><td class="cell-wEeG"><span class="selected-value select-value-color-brown">Kafé</span><span class="selected-value select-value-color-orange">Östermalm/Norrmalm/Kungsholmen</span></td><td class="cell-FHbL"></td><td class="cell-~}qR"></td><td class="cell-EoHr"></td><td class="cell-_oUv"><input type="checkbox" class="checkbox checkbox-on" disabled="" checked=""/></td><td class="cell-|Rfn"></td><td class="cell-e[dF"></td><td class="cell-&gt;Lta"></td><td class="cell-WGpd"></td><td class="cell-&gt;oPF"><span class="selected-value select-value-color-purple">Ja</span></td></tr><tr id="2484ecb9-d594-80f9-8812-e32f8e01b37e"><td class="cell-title"><a href="Hemma%202484ecb9d59480f98812e32f8e01b37e.html" data-notion-page-id="2484ecb9-d594-80f9-8812-e32f8e01b37e" data-notion-space-id="fd8d62b3-28fa-487f-a524-eb7b86bbd18a"><img class="icon notion-static-icon" src="https://app.notion.com/icons/library_gray.svg"/>Hemma</a></td><td class="cell-wEeG"><span class="selected-value select-value-color-orange">Östermalm/Norrmalm/Kungsholmen</span></td><td class="cell-FHbL"></td><td class="cell-~}qR"></td><td class="cell-EoHr"></td><td class="cell-_oUv"><input type="checkbox" class="checkbox checkbox-off" disabled=""/></td><td class="cell-|Rfn"></td><td class="cell-e[dF"></td><td class="cell-&gt;Lta"></td><td class="cell-WGpd"></td><td class="cell-&gt;oPF"></td></tr><tr id="2374ecb9-d594-80c0-99a4-dc85e402dfdd"><td class="cell-title"><a href="K-huset%202374ecb9d59480c099a4dc85e402dfdd.html" data-notion-page-id="2374ecb9-d594-80c0-99a4-dc85e402dfdd" data-notion-space-id="fd8d62b3-28fa-487f-a524-eb7b86bbd18a"><img class="icon notion-static-icon" src="https://app.notion.com/icons/library_gray.svg"/>K-huset</a></td><td class="cell-wEeG"><span class="selected-value select-value-color-purple">KTH Campus</span></td><td class="cell-FHbL">Mycket få studieplatser, dock finns ett större grupprum bredvid K2. Även en del enstaka platser utanför K1.</td><td class="cell-~}qR"><span class="selected-value select-value-color-yellow">⭐⭐⭐</span></td><td class="cell-EoHr"><span class="selected-value select-value-color-blue">Låg</span></td><td class="cell-_oUv"><input type="checkbox" class="checkbox checkbox-on" disabled="" checked=""/></td><td class="cell-|Rfn"><span class="selected-value select-value-color-green">Låg</span></td><td class="cell-e[dF"><span class="selected-value select-value-color-yellow">På vissa ställen</span></td><td class="cell-&gt;Lta"><span style="margin-inline-end:6px"><a href="https://cloud.timeedit.net/kth/web/stud02/riq9057Y787Z9XQZ8Z5YQ06Q6Z6QY7vyY808x6XQZ7ogq7m7oQ.html">Rumsförteckning.html</a></span></td><td class="cell-WGpd">6-24</td><td class="cell-&gt;oPF"><span class="selected-value select-value-color-blue">Nej</span></td></tr><tr id="2374ecb9-d594-807f-b98a-fa046da3ef81"><td class="cell-title"><a href="KI%20Bibliotek,%20Flemmingsberg%202374ecb9d594807fb98afa046da3ef81.html" data-notion-page-id="2374ecb9-d594-807f-b98a-fa046da3ef81" data-notion-space-id="fd8d62b3-28fa-487f-a524-eb7b86bbd18a"><img class="icon notion-static-icon" src="https://app.notion.com/icons/library_gray.svg"/>KI Bibliotek, Flemmingsberg</a></td><td class="cell-wEeG"><span class="selected-value select-value-color-blue">Flemmingsberg</span></td><td class="cell-FHbL"></td><td class="cell-~}qR"></td><td class="cell-EoHr"></td><td class="cell-_oUv"><input type="checkbox" class="checkbox checkbox-on" disabled="" checked=""/></td><td class="cell-|Rfn"></td><td class="cell-e[dF"></td><td class="cell-&gt;Lta"><span style="margin-inline-end:6px"><a href="https://kib.ki.se/karta/flemingsberg">Karta</a></span></td><td class="cell-WGpd">Mån-fre: 9-16</td><td class="cell-&gt;oPF"></td></tr><tr id="2364ecb9-d594-804b-8ae9-d411bf47cf86"><td class="cell-title"><a href="Kista%20Bibliotek%202364ecb9d594804b8ae9d411bf47cf86.html" data-notion-page-id="2364ecb9-d594-804b-8ae9-d411bf47cf86" data-notion-space-id="fd8d62b3-28fa-487f-a524-eb7b86bbd18a"><img class="icon notion-static-icon" src="https://app.notion.com/icons/library_gray.svg"/>Kista Bibliotek</a></td><td class="cell-wEeG"><span class="selected-value select-value-color-pink">Kista</span></td><td class="cell-FHbL">Näst största biblioteket i Stockholm. Nära allt, mitt i gallerian. Finns en del studieplatser, men relativt välbesökt bibliotek. Väldigt många bokbara studierum</td><td class="cell-~}qR"><span class="selected-value select-value-color-orange">⭐⭐</span></td><td class="cell-EoHr"><span class="selected-value select-value-color-green">Medellåg</span></td><td class="cell-_oUv"><input type="checkbox" class="checkbox checkbox-on" disabled="" checked=""/></td><td class="cell-|Rfn"><span class="selected-value select-value-color-red">Hög</span></td><td class="cell-e[dF"><span class="selected-value select-value-color-yellow">På vissa ställen</span></td><td class="cell-&gt;Lta"><span style="margin-inline-end:6px"><a href="https://biblioteket.stockholm.se/bibliotek/kista-bibliotek">Hemsida</a></span><span style="margin-inline-end:6px"><a href="https://bokadator.stockholm.se/kulturforvaltningen/rinkebykistaspangatensta/customerbooking?locationid=23">Boka grupprum</a></span></td><td class="cell-WGpd">Alla dagar: 10-20</td><td class="cell-&gt;oPF"><span class="selected-value select-value-color-blue">Nej</span></td></tr><tr id="2364ecb9-d594-80c4-a0f4-fac6f6e52d26"><td class="cell-title"><a href="KTH%20Biblioteket%202364ecb9d59480c4a0f4fac6f6e52d26.html" data-notion-page-id="2364ecb9-d594-80c4-a0f4-fac6f6e52d26" data-notion-space-id="fd8d62b3-28fa-487f-a524-eb7b86bbd18a"><img class="icon notion-static-icon" src="https://app.notion.com/icons/library_gray.svg"/>KTH Biblioteket</a></td><td class="cell-wEeG"><span class="selected-value select-value-color-purple">KTH Campus</span></td><td class="cell-FHbL">Gäller att vara där tidigt om man ska få en bra plats, oavsett dag. </td><td class="cell-~}qR"><span class="selected-value select-value-color-yellow">⭐⭐⭐</span></td><td class="cell-EoHr"><span class="selected-value select-value-color-green">Medellåg</span></td><td class="cell-_oUv"><input type="checkbox" class="checkbox checkbox-on" disabled="" checked=""/></td><td class="cell-|Rfn"><span class="selected-value select-value-color-red">Hög</span></td><td class="cell-e[dF"><span class="selected-value select-value-color-green">God tillgång</span></td><td class="cell-&gt;Lta"><span style="margin-inline-end:6px"><a href="https://wagnerguide.com/c/kth/kth">Karta</a></span><span style="margin-inline-end:6px"><a href="https://www.kth.se/biblioteket/anvanda-biblioteket/oppettider-kontakt/besokare-i-realtid-1.1078198">Besökare i realtid.1078198</a></span></td><td class="cell-WGpd">Mån-tors: 8-21 Fre: 8-19 Lör: 10-16</td><td class="cell-&gt;oPF"><span class="selected-value select-value-color-blue">Nej</span></td></tr><tr id="2374ecb9-d594-8067-a563-d613af00a077"><td class="cell-title"><a href="KTH%20Flemingsberg%202374ecb9d5948067a563d613af00a077.html" data-notion-page-id="2374ecb9-d594-8067-a563-d613af00a077" data-notion-space-id="fd8d62b3-28fa-487f-a524-eb7b86bbd18a"><img class="icon notion-static-icon" src="https://app.notion.com/icons/library_gray.svg"/>KTH Flemingsberg</a></td><td class="cell-wEeG"><span class="selected-value select-value-color-blue">Flemmingsberg</span></td><td class="cell-FHbL"></td><td class="cell-~}qR"></td><td class="cell-EoHr"></td><td class="cell-_oUv"><input type="checkbox" class="checkbox checkbox-on" disabled="" checked=""/></td><td class="cell-|Rfn"></td><td class="cell-e[dF"></td><td class="cell-&gt;Lta"><span style="margin-inline-end:6px"><a href="https://www.google.com/maps/place/KTH+Flemingsberg/@59.2220937,17.936307,17z/data=!3m1!4b1!4m5!3m4!1s0x465f70e1e0b23a85:0xfceb1cfcd2d48dd7!8m2!3d59.222091!4d17.9384957">Hitta hit.9384957</a></span></td><td class="cell-WGpd">6:30-22</td><td class="cell-&gt;oPF"></td></tr><tr id="2364ecb9-d594-80d6-89c8-fac9a1e186f6"><td class="cell-title"><a href="Kungliga%20biblioteket%202364ecb9d59480d689c8fac9a1e186f6.html" data-notion-page-id="2364ecb9-d594-80d6-89c8-fac9a1e186f6" data-notion-space-id="fd8d62b3-28fa-487f-a524-eb7b86bbd18a"><img class="icon notion-static-icon" src="https://app.notion.com/icons/library_gray.svg"/>Kungliga biblioteket</a></td><td class="cell-wEeG"><span class="selected-value select-value-color-orange">Östermalm/Norrmalm/Kungsholmen</span></td><td class="cell-FHbL">Oerhört fin och lugn studiemiljö. Dock förbjudet att förtära såväl dryck som mat.</td><td class="cell-~}qR"></td><td class="cell-EoHr"><span class="selected-value select-value-color-blue">Låg</span></td><td class="cell-_oUv"><input type="checkbox" class="checkbox checkbox-off" disabled=""/></td><td class="cell-|Rfn"></td><td class="cell-e[dF"></td><td class="cell-&gt;Lta"><span style="margin-inline-end:6px"><a href="https://www.kb.se/">Hemsida</a></span><span style="margin-inline-end:6px"><a href="https://beta.kb.se/besok-oss/hitta-i-huset/kartor-over-kbs-lokaler.html">Karta.html</a></span></td><td class="cell-WGpd">Mån-tors: 9-19 Fre: 9-18 Lör: 11-15</td><td class="cell-&gt;oPF"><span class="selected-value select-value-color-blue">Nej</span></td></tr><tr id="23d4ecb9-d594-8010-b140-ce803c7239c5"><td class="cell-title"><a href="Liding%C3%B6%20Stadsbibliotek%2023d4ecb9d5948010b140ce803c7239c5.html" data-notion-page-id="23d4ecb9-d594-8010-b140-ce803c7239c5" data-notion-space-id="fd8d62b3-28fa-487f-a524-eb7b86bbd18a"><img class="icon notion-static-icon" src="https://app.notion.com/icons/library_gray.svg"/>Lidingö Stadsbibliotek</a></td><td class="cell-wEeG"><span class="selected-value select-value-color-orange">Östermalm/Norrmalm/Kungsholmen</span></td><td class="cell-FHbL"></td><td class="cell-~}qR"></td><td class="cell-EoHr"></td><td class="cell-_oUv"><input type="checkbox" class="checkbox checkbox-off" disabled=""/></td><td class="cell-|Rfn"></td><td class="cell-e[dF"></td><td class="cell-&gt;Lta"></td><td class="cell-WGpd">Mån-tors: 10-20 Fre: 10-18 Lör: 11-16 Sön: 12-16</td><td class="cell-&gt;oPF"></td></tr><tr id="2374ecb9-d594-8085-b9d7-d0d417c54784"><td class="cell-title"><a href="M-huset%202374ecb9d5948085b9d7d0d417c54784.html" data-notion-page-id="2374ecb9-d594-8085-b9d7-d0d417c54784" data-notion-space-id="fd8d62b3-28fa-487f-a524-eb7b86bbd18a"><img class="icon notion-static-icon" src="https://app.notion.com/icons/library_gray.svg"/>M-huset</a></td><td class="cell-wEeG"><span class="selected-value select-value-color-purple">KTH Campus</span></td><td class="cell-FHbL">Gott om blandade studieplatser och grupprum.</td><td class="cell-~}qR"><span class="selected-value select-value-color-green">⭐⭐⭐⭐</span></td><td class="cell-EoHr"><span class="selected-value select-value-color-orange">Medelhög</span></td><td class="cell-_oUv"><input type="checkbox" class="checkbox checkbox-on" disabled="" checked=""/></td><td class="cell-|Rfn"><span class="selected-value select-value-color-yellow">Medel</span></td><td class="cell-e[dF"><span class="selected-value select-value-color-green">God tillgång</span></td><td class="cell-&gt;Lta"><span style="margin-inline-end:6px"><a href="https://www.kth.se/places/building/99493070-7ec5-4106-84aa-7895d0187287">Rumsförteckning</a></span></td><td class="cell-WGpd">6-24</td><td class="cell-&gt;oPF"><span class="selected-value select-value-color-purple">Ja</span></td></tr><tr id="2374ecb9-d594-8038-bd66-d46c93a1b6cb"><td class="cell-title"><a href="Nacka%20Forum%20Bibliotek%202374ecb9d5948038bd66d46c93a1b6cb.html" data-notion-page-id="2374ecb9-d594-8038-bd66-d46c93a1b6cb" data-notion-space-id="fd8d62b3-28fa-487f-a524-eb7b86bbd18a"><img class="icon notion-static-icon" src="https://app.notion.com/icons/library_gray.svg"/>Nacka Forum Bibliotek</a></td><td class="cell-wEeG"><span class="selected-value select-value-color-pink">Nacka</span></td><td class="cell-FHbL"></td><td class="cell-~}qR"></td><td class="cell-EoHr"></td><td class="cell-_oUv"><input type="checkbox" class="checkbox checkbox-on" disabled="" checked=""/></td><td class="cell-|Rfn"></td><td class="cell-e[dF"></td><td class="cell-&gt;Lta"></td><td class="cell-WGpd"></td><td class="cell-&gt;oPF"><span class="selected-value select-value-color-blue">Nej</span></td></tr><tr id="2374ecb9-d594-808b-b6e4-c1381fe3d0e3"><td class="cell-title"><a href="Nymble%202374ecb9d594808bb6e4c1381fe3d0e3.html" data-notion-page-id="2374ecb9-d594-808b-b6e4-c1381fe3d0e3" data-notion-space-id="fd8d62b3-28fa-487f-a524-eb7b86bbd18a"><img class="icon notion-static-icon" src="https://app.notion.com/icons/library_gray.svg"/>Nymble</a></td><td class="cell-wEeG"><span class="selected-value select-value-color-purple">KTH Campus</span></td><td class="cell-FHbL">Väldigt mycket studieplatser, extra bra vid ex. grupparbeten. Färre individuella studieplatser, men finns på översta våningen där det även är lite lugnare.</td><td class="cell-~}qR"><span class="selected-value select-value-color-yellow">⭐⭐⭐</span></td><td class="cell-EoHr"><span class="selected-value select-value-color-green">Medellåg</span></td><td class="cell-_oUv"><input type="checkbox" class="checkbox checkbox-on" disabled="" checked=""/></td><td class="cell-|Rfn"><span class="selected-value select-value-color-yellow">Medel</span></td><td class="cell-e[dF"><span class="selected-value select-value-color-yellow">På vissa ställen</span></td><td class="cell-&gt;Lta"><span style="margin-inline-end:6px"><a href="https://www.kth.se/places/building/58df4379-bf60-4915-b32f-6fe77652de7a">Rumsförteckning</a></span></td><td class="cell-WGpd">7:30-23</td><td class="cell-&gt;oPF"><span class="selected-value select-value-color-purple">Ja</span></td></tr><tr id="2374ecb9-d594-80a2-a392-efa5b9763bb7"><td class="cell-title"><a href="Q-huset%202374ecb9d59480a2a392efa5b9763bb7.html" data-notion-page-id="2374ecb9-d594-80a2-a392-efa5b9763bb7" data-notion-space-id="fd8d62b3-28fa-487f-a524-eb7b86bbd18a"><img class="icon notion-static-icon" src="https://app.notion.com/icons/library_gray.svg"/>Q-huset</a></td><td class="cell-wEeG"><span class="selected-value select-value-color-purple">KTH Campus</span></td><td class="cell-FHbL">En del studieplatser, dock inte allt för bekväma. Finns dock några lugnare mot Roslagsbanan.</td><td class="cell-~}qR"><span class="selected-value select-value-color-orange">⭐⭐</span></td><td class="cell-EoHr"><span class="selected-value select-value-color-yellow">Medel</span></td><td class="cell-_oUv"><input type="checkbox" class="checkbox checkbox-on" disabled="" checked=""/></td><td class="cell-|Rfn"><span class="selected-value select-value-color-yellow">Medel</span></td><td class="cell-e[dF"><span class="selected-value select-value-color-yellow">På vissa ställen</span></td><td class="cell-&gt;Lta"><span style="margin-inline-end:6px"><a href="https://www.kth.se/places/building/d7763ac8-477f-46ed-a123-82d43056e820">Rumsförteckning</a></span></td><td class="cell-WGpd">Dygnet runt</td><td class="cell-&gt;oPF"><span class="selected-value select-value-color-blue">Nej</span></td></tr><tr id="2374ecb9-d594-80b6-93ab-d25ea939ec1c"><td class="cell-title"><a href="Ringen-huset%202374ecb9d59480b693abd25ea939ec1c.html" data-notion-page-id="2374ecb9-d594-80b6-93ab-d25ea939ec1c" data-notion-space-id="fd8d62b3-28fa-487f-a524-eb7b86bbd18a"><img class="icon notion-static-icon" src="https://app.notion.com/icons/library_gray.svg"/>Ringen-huset</a></td><td class="cell-wEeG"><span class="selected-value select-value-color-purple">KTH Campus</span></td><td class="cell-FHbL"></td><td class="cell-~}qR"></td><td class="cell-EoHr"></td><td class="cell-_oUv"><input type="checkbox" class="checkbox checkbox-on" disabled="" checked=""/></td><td class="cell-|Rfn"></td><td class="cell-e[dF"></td><td class="cell-&gt;Lta"><span style="margin-inline-end:6px"><a href="https://www.kth.se/places/building/912e80e8-5772-44ff-943e-cfd33d0266a4">Rumsförteckning</a></span></td><td class="cell-WGpd">Dygnet runt</td><td class="cell-&gt;oPF"><span class="selected-value select-value-color-blue">Nej</span></td></tr><tr id="2374ecb9-d594-80c0-b5f6-e7cb5a952e62"><td class="cell-title"><a href="SH%20Bibliotek%202374ecb9d59480c0b5f6e7cb5a952e62.html" data-notion-page-id="2374ecb9-d594-80c0-b5f6-e7cb5a952e62" data-notion-space-id="fd8d62b3-28fa-487f-a524-eb7b86bbd18a"><img class="icon notion-static-icon" src="https://app.notion.com/icons/library_gray.svg"/>SH Bibliotek</a></td><td class="cell-wEeG"><span class="selected-value select-value-color-blue">Flemmingsberg</span></td><td class="cell-FHbL"></td><td class="cell-~}qR"></td><td class="cell-EoHr"></td><td class="cell-_oUv"><input type="checkbox" class="checkbox checkbox-on" disabled="" checked=""/></td><td class="cell-|Rfn"></td><td class="cell-e[dF"></td><td class="cell-&gt;Lta"><span style="margin-inline-end:6px"><a href="https://www.google.com/maps/place/S%C3%B6dert%C3%B6rns+h%C3%B6gskolebibliotek/@59.2193618,17.9418167,320m/data=!3m2!1e3!5s0x465f70e3d28c339d:0x86993d9f8d9bae97!4m6!3m5!1s0x465f70e3d3eecd0f:0xd2d041a4967b15a9!8m2!3d59.2190193!4d17.9412579!16s%2Fg%2F11flbt9kvc?entry=ttu&amp;g_ep=EgoyMDI1MDcxNi4wIKXMDSoASAFQAw%3D%3D">Hitta hit.9412579!16s%2Fg%2F11flbt9kvc</a></span><span style="margin-inline-end:6px"><a href="https://www.sh.se/bibliotek/lana-och-besoka/besoka-biblioteket">Information</a></span><span style="margin-inline-end:6px"><a href="https://www.sh.se/bibliotek/lana-och-besoka/studera-pa-biblioteket">Studieplatser</a></span><span style="margin-inline-end:6px"><a href="https://wagnerguide.com/c/sodertornshogskolebibliotek/karta?lang=sv">Karta</a></span></td><td class="cell-WGpd">8:30-16:30</td><td class="cell-&gt;oPF"></td></tr><tr id="2374ecb9-d594-801e-98ff-d121324ba491"><td class="cell-title"><a href="Solna%20Stadsbibliotek%202374ecb9d594801e98ffd121324ba491.html" data-notion-page-id="2374ecb9-d594-801e-98ff-d121324ba491" data-notion-space-id="fd8d62b3-28fa-487f-a524-eb7b86bbd18a"><img class="icon notion-static-icon" src="https://app.notion.com/icons/library_gray.svg"/>Solna Stadsbibliotek</a></td><td class="cell-wEeG"><span class="selected-value select-value-color-yellow">Solna/Sundbyberg</span></td><td class="cell-FHbL"></td><td class="cell-~}qR"></td><td class="cell-EoHr"></td><td class="cell-_oUv"><input type="checkbox" class="checkbox checkbox-on" disabled="" checked=""/></td><td class="cell-|Rfn"></td><td class="cell-e[dF"></td><td class="cell-&gt;Lta"></td><td class="cell-WGpd"></td><td class="cell-&gt;oPF"><span class="selected-value select-value-color-blue">Nej</span></td></tr><tr id="2364ecb9-d594-80e3-ba89-c1d2a3e1850b"><td class="cell-title"><a href="SU%20Biblioteket%202364ecb9d59480e3ba89c1d2a3e1850b.html" data-notion-page-id="2364ecb9-d594-80e3-ba89-c1d2a3e1850b" data-notion-space-id="fd8d62b3-28fa-487f-a524-eb7b86bbd18a"><img class="icon notion-static-icon" src="https://app.notion.com/icons/library_gray.svg"/>SU Biblioteket</a></td><td class="cell-wEeG"><span class="selected-value select-value-color-yellow">Campus Frescati</span></td><td class="cell-FHbL">Mycket god tillgång till enskilda studieplatser, väldigt lugn miljö då större delen av biblioteket är tyst-sal.</td><td class="cell-~}qR"><span class="selected-value select-value-color-green">⭐⭐⭐⭐</span></td><td class="cell-EoHr"><span class="selected-value select-value-color-blue">Låg</span></td><td class="cell-_oUv"><input type="checkbox" class="checkbox checkbox-on" disabled="" checked=""/></td><td class="cell-|Rfn"><span class="selected-value select-value-color-yellow">Medel</span></td><td class="cell-e[dF"><span class="selected-value select-value-color-green">God tillgång</span></td><td class="cell-&gt;Lta"><span style="margin-inline-end:6px"><a href="https://wagnerguide.com/c/stockholmsuniversitet/stockholmub?proxy=true">Karta</a></span><span style="margin-inline-end:6px"><a href="https://www.su.se/stockholms-universitetsbibliotek/">Hemsida</a></span></td><td class="cell-WGpd">Mån-tors; 8-21.30 Fre: 8-18 Lör-sön: 9-17</td><td class="cell-&gt;oPF"><span class="selected-value select-value-color-blue">Nej</span></td></tr><tr id="2364ecb9-d594-8018-ace0-e4cccd65af1c"><td class="cell-title"><a href="Transtr%C3%B6mmerbiblioteket%202364ecb9d5948018ace0e4cccd65af1c.html" data-notion-page-id="2364ecb9-d594-8018-ace0-e4cccd65af1c" data-notion-space-id="fd8d62b3-28fa-487f-a524-eb7b86bbd18a"><img class="icon notion-static-icon" src="https://app.notion.com/icons/library_gray.svg"/>Tranströmmerbiblioteket</a></td><td class="cell-wEeG"><span class="selected-value select-value-color-blue">Södermalm</span></td><td class="cell-FHbL">Ej besökt ännu, nyrenoverat bibliotek i Medborgarhuset vid Medborgarplatsen.</td><td class="cell-~}qR"></td><td class="cell-EoHr"></td><td class="cell-_oUv"><input type="checkbox" class="checkbox checkbox-on" disabled="" checked=""/></td><td class="cell-|Rfn"></td><td class="cell-e[dF"></td><td class="cell-&gt;Lta"><span style="margin-inline-end:6px"><a href="https://biblioteket.stockholm.se/bibliotek/transtromerbiblioteket">Hemsida</a></span></td><td class="cell-WGpd">Mån-fre: 10-20 Lör-sön: 11-17</td><td class="cell-&gt;oPF"><span class="selected-value select-value-color-blue">Nej</span></td></tr><tr id="2374ecb9-d594-806f-b3c6-e83041876b46"><td class="cell-title"><a href="U-huset%202374ecb9d594806fb3c6e83041876b46.html" data-notion-page-id="2374ecb9-d594-806f-b3c6-e83041876b46" data-notion-space-id="fd8d62b3-28fa-487f-a524-eb7b86bbd18a"><img class="icon notion-static-icon" src="https://app.notion.com/icons/library_gray.svg"/>U-huset</a></td><td class="cell-wEeG"><span class="selected-value select-value-color-purple">KTH Campus</span></td><td class="cell-FHbL">Bra för grupparbeten, men annars överskattat. Väldigt stora öppna ytor.</td><td class="cell-~}qR"><span class="selected-value select-value-color-orange">⭐⭐</span></td><td class="cell-EoHr"><span class="selected-value select-value-color-yellow">Medel</span></td><td class="cell-_oUv"><input type="checkbox" class="checkbox checkbox-on" disabled="" checked=""/></td><td class="cell-|Rfn"><span class="selected-value select-value-color-red">Hög</span></td><td class="cell-e[dF"><span class="selected-value select-value-color-green">God tillgång</span></td><td class="cell-&gt;Lta"><span style="margin-inline-end:6px"><a href="https://www.kth.se/places/building/f3b6cf22-e7e9-491f-9214-7b79761beba7">Rumsförteckning</a></span></td><td class="cell-WGpd">6-24</td><td class="cell-&gt;oPF"><span class="selected-value select-value-color-purple">Ja</span></td></tr><tr id="2374ecb9-d594-808b-855a-c659eb42c5e2"><td class="cell-title"><a href="V-huset%202374ecb9d594808b855ac659eb42c5e2.html" data-notion-page-id="2374ecb9-d594-808b-855a-c659eb42c5e2" data-notion-space-id="fd8d62b3-28fa-487f-a524-eb7b86bbd18a"><img class="icon notion-static-icon" src="https://app.notion.com/icons/library_gray.svg"/>V-huset</a></td><td class="cell-wEeG"><span class="selected-value select-value-color-purple">KTH Campus</span></td><td class="cell-FHbL">Inte så mycket individuella studieplatser, men flertalet platser för ex. grupparbeten samt informella grupprum. Finns ett seminarierum (V12) som endast används under tenta och är olåst.</td><td class="cell-~}qR"><span class="selected-value select-value-color-yellow">⭐⭐⭐</span></td><td class="cell-EoHr"><span class="selected-value select-value-color-green">Medellåg</span></td><td class="cell-_oUv"><input type="checkbox" class="checkbox checkbox-on" disabled="" checked=""/></td><td class="cell-|Rfn"><span class="selected-value select-value-color-green">Låg</span></td><td class="cell-e[dF"><span class="selected-value select-value-color-yellow">På vissa ställen</span></td><td class="cell-&gt;Lta"><span style="margin-inline-end:6px"><a href="https://www.kth.se/places/building/8ba7e678-f7ee-4c19-a45b-bbf8c8196587">Rumsförteckning</a></span></td><td class="cell-WGpd">Dygnet runt</td><td class="cell-&gt;oPF"><span class="selected-value select-value-color-purple">Ja</span></td></tr><tr id="2374ecb9-d594-8000-b429-f6131b2954f1"><td class="cell-title"><a href="W-huset%202374ecb9d5948000b429f6131b2954f1.html" data-notion-page-id="2374ecb9-d594-8000-b429-f6131b2954f1" data-notion-space-id="fd8d62b3-28fa-487f-a524-eb7b86bbd18a"><img class="icon notion-static-icon" src="https://app.notion.com/icons/library_gray.svg"/>W-huset</a></td><td class="cell-wEeG"><span class="selected-value select-value-color-purple">KTH Campus</span></td><td class="cell-FHbL">Bra grupprum, blandade studieplatser i lite lugnare miljö.</td><td class="cell-~}qR"><span class="selected-value select-value-color-yellow">⭐⭐⭐</span></td><td class="cell-EoHr"><span class="selected-value select-value-color-yellow">Medel</span></td><td class="cell-_oUv"><input type="checkbox" class="checkbox checkbox-on" disabled="" checked=""/></td><td class="cell-|Rfn"><span class="selected-value select-value-color-yellow">Medel</span></td><td class="cell-e[dF"><span class="selected-value select-value-color-yellow">På vissa ställen</span></td><td class="cell-&gt;Lta"><span style="margin-inline-end:6px"><a href="https://www.kth.se/places/building/a3b6f06c-f44e-45fb-acda-1119dabce8c9">Rumsförteckning</a></span></td><td class="cell-WGpd">6-24</td><td class="cell-&gt;oPF"><span class="selected-value select-value-color-purple">Ja</span></td></tr></tbody></table></div><br/><br/></div></article><span class="sans" style="font-size:14px;padding-top:2em"></span></body></html>

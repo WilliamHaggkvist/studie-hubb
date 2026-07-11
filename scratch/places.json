@@ -1,0 +1,497 @@
+[
+  {
+    "id": "b-huset-2374ecb9d594803dbc4de629c5f6d848",
+    "name": "B-huset",
+    "description": "Mestadels soffgrupper utanför föreläsningssalarna. Väldigt mysiga och lugna platser, ofta relativt lugnt.",
+    "busyLevel": "Låg",
+    "rating": 4,
+    "soundLevel": "Låg",
+    "links": [
+      {
+        "text": "Rumsförteckning",
+        "url": "https://www.kth.se/places/building/fb1144e5-9477-4c59-953c-5551290e8bdc"
+      }
+    ],
+    "pentry": false,
+    "location": "KTH Campus",
+    "powerOutlets": "God tillgång",
+    "wifi": true,
+    "hours": "6-24"
+  },
+  {
+    "id": "campus-albano-2364ecb9d59480b08353e14f7215c0d8",
+    "name": "Campus Albano",
+    "description": "Hus 1, 2, 4. Mycket bra studieplatser av många olika typer. Relativt god tillgång till uttag, finns en del ställen utan uttag dock. Lugnast i hus 1 (längst bort), trevliga platser på översta våningen vid takterrassen.",
+    "busyLevel": "Medel",
+    "rating": 5,
+    "soundLevel": "Medel",
+    "links": [
+      {
+        "text": "Hemsida",
+        "url": "https://www.su.se/utbildning/livet-som-student/studieplatser-och-grupprum?open-collapse-boxes=ccbd-studieplatserialbano#studieplatserialbano"
+      },
+      {
+        "text": "Karta.pdf",
+        "url": "Albano__plan_2_3_4_informella_studieplatser_ht23.pdf"
+      },
+      {
+        "text": "Rum.pdf",
+        "url": "Undervisningssalar_Albano.pdf"
+      }
+    ],
+    "pentry": true,
+    "location": "Albano, Utomhus",
+    "powerOutlets": "God tillgång",
+    "wifi": true,
+    "hours": "Mån-Tors: 22:00 Fre: 20:00 Lör-Sön: 18:00"
+  },
+  {
+    "id": "e-d-huset-2374ecb9d59480b794e5c6b35794f88b",
+    "name": "E/D-huset",
+    "description": "Gott om blandade studieplatser. Guldkorn: grupprummen vid datasalarna, grupprummet i D nära D1, tysta läsesalarna (E/D nära tunnelbanan, D bland övningssalarna vån 3/4).",
+    "busyLevel": "Hög",
+    "rating": 3,
+    "soundLevel": "Medelhög",
+    "links": [
+      {
+        "text": "Rumförteckning",
+        "url": "https://www.kth.se/places/building/0611fcc9-bd40-425a-993a-de7c4fd28296"
+      }
+    ],
+    "pentry": false,
+    "location": "KTH Campus",
+    "powerOutlets": "God tillgång",
+    "wifi": true,
+    "hours": "E: Dygnet runt D: 6-24"
+  },
+  {
+    "id": "espresso-house-vasagatan-15-2374ecb9d5948024a629c86cf7569c87",
+    "name": "Espresso House, Vasagatan 15",
+    "description": "",
+    "busyLevel": "Medel",
+    "rating": 3,
+    "soundLevel": "Medel",
+    "links": [],
+    "pentry": true,
+    "location": "Kafé, Östermalm/Norrmalm/Kungsholmen",
+    "powerOutlets": "Saknas",
+    "wifi": true,
+    "hours": "Kontakta info"
+  },
+  {
+    "id": "hemma-2484ecb9d59480f98812e32f8e01b37e",
+    "name": "Hemma",
+    "description": "",
+    "busyLevel": "Medel",
+    "rating": 3,
+    "soundLevel": "Medel",
+    "links": [],
+    "pentry": false,
+    "location": "Östermalm/Norrmalm/Kungsholmen",
+    "powerOutlets": "Saknas",
+    "wifi": false,
+    "hours": "Kontakta info"
+  },
+  {
+    "id": "k-huset-2374ecb9d59480c099a4dc85e402dfdd",
+    "name": "K-huset",
+    "description": "Mycket få studieplatser, dock finns ett större grupprum bredvid K2. Även en del enstaka platser utanför K1.",
+    "busyLevel": "Låg",
+    "rating": 3,
+    "soundLevel": "Låg",
+    "links": [
+      {
+        "text": "Rumsförteckning.html",
+        "url": "https://cloud.timeedit.net/kth/web/stud02/riq9057Y787Z9XQZ8Z5YQ06Q6Z6QY7vyY808x6XQZ7ogq7m7oQ.html"
+      }
+    ],
+    "pentry": false,
+    "location": "KTH Campus",
+    "powerOutlets": "På vissa ställen",
+    "wifi": true,
+    "hours": "6-24"
+  },
+  {
+    "id": "ki-bibliotek-flemmingsberg-2374ecb9d594807fb98afa046da3ef81",
+    "name": "KI Bibliotek, Flemmingsberg",
+    "description": "",
+    "busyLevel": "Medel",
+    "rating": 3,
+    "soundLevel": "Medel",
+    "links": [
+      {
+        "text": "Karta",
+        "url": "https://kib.ki.se/karta/flemingsberg"
+      }
+    ],
+    "pentry": false,
+    "location": "Flemmingsberg",
+    "powerOutlets": "Saknas",
+    "wifi": true,
+    "hours": "Mån-fre: 9-16"
+  },
+  {
+    "id": "kista-bibliotek-2364ecb9d594804b8ae9d411bf47cf86",
+    "name": "Kista Bibliotek",
+    "description": "Näst största biblioteket i Stockholm. Nära allt, mitt i gallerian. Finns en del studieplatser, men relativt välbesökt bibliotek. Väldigt många bokbara studierum",
+    "busyLevel": "Hög",
+    "rating": 2,
+    "soundLevel": "Medellåg",
+    "links": [
+      {
+        "text": "Hemsida",
+        "url": "https://biblioteket.stockholm.se/bibliotek/kista-bibliotek"
+      },
+      {
+        "text": "Boka grupprum",
+        "url": "https://bokadator.stockholm.se/kulturforvaltningen/rinkebykistaspangatensta/customerbooking?locationid=23"
+      }
+    ],
+    "pentry": false,
+    "location": "Kista",
+    "powerOutlets": "På vissa ställen",
+    "wifi": true,
+    "hours": "Alla dagar: 10-20"
+  },
+  {
+    "id": "kth-biblioteket-2364ecb9d59480c4a0f4fac6f6e52d26",
+    "name": "KTH Biblioteket",
+    "description": "Gäller att vara där tidigt om man ska få en bra plats, oavsett dag.",
+    "busyLevel": "Hög",
+    "rating": 3,
+    "soundLevel": "Medellåg",
+    "links": [
+      {
+        "text": "Karta",
+        "url": "https://wagnerguide.com/c/kth/kth"
+      },
+      {
+        "text": "Besökare i realtid.1078198",
+        "url": "https://www.kth.se/biblioteket/anvanda-biblioteket/oppettider-kontakt/besokare-i-realtid-1.1078198"
+      }
+    ],
+    "pentry": false,
+    "location": "KTH Campus",
+    "powerOutlets": "God tillgång",
+    "wifi": true,
+    "hours": "Mån-tors: 8-21 Fre: 8-19 Lör: 10-16"
+  },
+  {
+    "id": "kth-flemingsberg-2374ecb9d5948067a563d613af00a077",
+    "name": "KTH Flemingsberg",
+    "description": "",
+    "busyLevel": "Medel",
+    "rating": 3,
+    "soundLevel": "Medel",
+    "links": [
+      {
+        "text": "Hitta hit.9384957",
+        "url": "https://www.google.com/maps/place/KTH+Flemingsberg/@59.2220937,17.936307,17z/data=!3m1!4b1!4m5!3m4!1s0x465f70e1e0b23a85:0xfceb1cfcd2d48dd7!8m2!3d59.222091!4d17.9384957"
+      }
+    ],
+    "pentry": false,
+    "location": "Flemmingsberg",
+    "powerOutlets": "Saknas",
+    "wifi": true,
+    "hours": "6:30-22"
+  },
+  {
+    "id": "kungliga-biblioteket-2364ecb9d59480d689c8fac9a1e186f6",
+    "name": "Kungliga biblioteket",
+    "description": "Oerhört fin och lugn studiemiljö. Dock förbjudet att förtära såväl dryck som mat.",
+    "busyLevel": "Medel",
+    "rating": 3,
+    "soundLevel": "Låg",
+    "links": [
+      {
+        "text": "Hemsida",
+        "url": "https://www.kb.se/"
+      },
+      {
+        "text": "Karta.html",
+        "url": "https://beta.kb.se/besok-oss/hitta-i-huset/kartor-over-kbs-lokaler.html"
+      }
+    ],
+    "pentry": false,
+    "location": "Östermalm/Norrmalm/Kungsholmen",
+    "powerOutlets": "Saknas",
+    "wifi": false,
+    "hours": "Mån-tors: 9-19 Fre: 9-18 Lör: 11-15"
+  },
+  {
+    "id": "liding-stadsbibliotek-23d4ecb9d5948010b140ce803c7239c5",
+    "name": "Lidingö Stadsbibliotek",
+    "description": "",
+    "busyLevel": "Medel",
+    "rating": 3,
+    "soundLevel": "Medel",
+    "links": [],
+    "pentry": false,
+    "location": "Östermalm/Norrmalm/Kungsholmen",
+    "powerOutlets": "Saknas",
+    "wifi": false,
+    "hours": "Mån-tors: 10-20 Fre: 10-18 Lör: 11-16 Sön: 12-16"
+  },
+  {
+    "id": "m-huset-2374ecb9d5948085b9d7d0d417c54784",
+    "name": "M-huset",
+    "description": "Gott om blandade studieplatser och grupprum.",
+    "busyLevel": "Medel",
+    "rating": 4,
+    "soundLevel": "Medelhög",
+    "links": [
+      {
+        "text": "Rumsförteckning",
+        "url": "https://www.kth.se/places/building/99493070-7ec5-4106-84aa-7895d0187287"
+      }
+    ],
+    "pentry": true,
+    "location": "KTH Campus",
+    "powerOutlets": "God tillgång",
+    "wifi": true,
+    "hours": "6-24"
+  },
+  {
+    "id": "nacka-forum-bibliotek-2374ecb9d5948038bd66d46c93a1b6cb",
+    "name": "Nacka Forum Bibliotek",
+    "description": "",
+    "busyLevel": "Medel",
+    "rating": 3,
+    "soundLevel": "Medel",
+    "links": [],
+    "pentry": false,
+    "location": "Nacka",
+    "powerOutlets": "Saknas",
+    "wifi": true,
+    "hours": "Kontakta info"
+  },
+  {
+    "id": "ny-studieplats-2364ecb9d59480e088a5cf41ce62c4bc",
+    "name": "Ny studieplats",
+    "description": "",
+    "busyLevel": "Medel",
+    "rating": 3,
+    "soundLevel": "Medel",
+    "links": [],
+    "pentry": false,
+    "location": "Okänd",
+    "powerOutlets": "Saknas",
+    "wifi": false,
+    "hours": "Kontakta info"
+  },
+  {
+    "id": "nymble-2374ecb9d594808bb6e4c1381fe3d0e3",
+    "name": "Nymble",
+    "description": "Väldigt mycket studieplatser, extra bra vid ex. grupparbeten. Färre individuella studieplatser, men finns på översta våningen där det även är lite lugnare.",
+    "busyLevel": "Medel",
+    "rating": 3,
+    "soundLevel": "Medellåg",
+    "links": [
+      {
+        "text": "Rumsförteckning",
+        "url": "https://www.kth.se/places/building/58df4379-bf60-4915-b32f-6fe77652de7a"
+      }
+    ],
+    "pentry": true,
+    "location": "KTH Campus",
+    "powerOutlets": "På vissa ställen",
+    "wifi": true,
+    "hours": "7:30-23"
+  },
+  {
+    "id": "q-huset-2374ecb9d59480a2a392efa5b9763bb7",
+    "name": "Q-huset",
+    "description": "En del studieplatser, dock inte allt för bekväma. Finns dock några lugnare mot Roslagsbanan.",
+    "busyLevel": "Medel",
+    "rating": 2,
+    "soundLevel": "Medel",
+    "links": [
+      {
+        "text": "Rumsförteckning",
+        "url": "https://www.kth.se/places/building/d7763ac8-477f-46ed-a123-82d43056e820"
+      }
+    ],
+    "pentry": false,
+    "location": "KTH Campus",
+    "powerOutlets": "På vissa ställen",
+    "wifi": true,
+    "hours": "Dygnet runt"
+  },
+  {
+    "id": "ringen-huset-2374ecb9d59480b693abd25ea939ec1c",
+    "name": "Ringen-huset",
+    "description": "",
+    "busyLevel": "Medel",
+    "rating": 3,
+    "soundLevel": "Medel",
+    "links": [
+      {
+        "text": "Rumsförteckning",
+        "url": "https://www.kth.se/places/building/912e80e8-5772-44ff-943e-cfd33d0266a4"
+      }
+    ],
+    "pentry": false,
+    "location": "KTH Campus",
+    "powerOutlets": "Saknas",
+    "wifi": true,
+    "hours": "Dygnet runt"
+  },
+  {
+    "id": "sh-bibliotek-2374ecb9d59480c0b5f6e7cb5a952e62",
+    "name": "SH Bibliotek",
+    "description": "",
+    "busyLevel": "Medel",
+    "rating": 3,
+    "soundLevel": "Medel",
+    "links": [
+      {
+        "text": "Hitta hit.9412579!16s%2Fg%2F11flbt9kvc",
+        "url": "https://www.google.com/maps/place/S%C3%B6dert%C3%B6rns+h%C3%B6gskolebibliotek/@59.2193618,17.9418167,320m/data=!3m2!1e3!5s0x465f70e3d28c339d:0x86993d9f8d9bae97!4m6!3m5!1s0x465f70e3d3eecd0f:0xd2d041a4967b15a9!8m2!3d59.2190193!4d17.9412579!16s%2Fg%2F11flbt9kvc?entry=ttu&amp;g_ep=EgoyMDI1MDcxNi4wIKXMDSoASAFQAw%3D%3D"
+      },
+      {
+        "text": "Information",
+        "url": "https://www.sh.se/bibliotek/lana-och-besoka/besoka-biblioteket"
+      },
+      {
+        "text": "Studieplatser",
+        "url": "https://www.sh.se/bibliotek/lana-och-besoka/studera-pa-biblioteket"
+      },
+      {
+        "text": "Karta",
+        "url": "https://wagnerguide.com/c/sodertornshogskolebibliotek/karta?lang=sv"
+      }
+    ],
+    "pentry": false,
+    "location": "Flemmingsberg",
+    "powerOutlets": "Saknas",
+    "wifi": true,
+    "hours": "8:30-16:30"
+  },
+  {
+    "id": "solna-stadsbibliotek-2374ecb9d594801e98ffd121324ba491",
+    "name": "Solna Stadsbibliotek",
+    "description": "",
+    "busyLevel": "Medel",
+    "rating": 3,
+    "soundLevel": "Medel",
+    "links": [],
+    "pentry": false,
+    "location": "Solna/Sundbyberg",
+    "powerOutlets": "Saknas",
+    "wifi": true,
+    "hours": "Kontakta info"
+  },
+  {
+    "id": "studieplatser-2364ecb9d594803da9fded55b6790515",
+    "name": "Studieplatser",
+    "description": "",
+    "busyLevel": "Medel",
+    "rating": 3,
+    "soundLevel": "Medel",
+    "links": [],
+    "pentry": false,
+    "location": "Okänd",
+    "powerOutlets": "Saknas",
+    "wifi": false,
+    "hours": "Kontakta info"
+  },
+  {
+    "id": "su-biblioteket-2364ecb9d59480e3ba89c1d2a3e1850b",
+    "name": "SU Biblioteket",
+    "description": "Mycket god tillgång till enskilda studieplatser, väldigt lugn miljö då större delen av biblioteket är tyst-sal.",
+    "busyLevel": "Medel",
+    "rating": 4,
+    "soundLevel": "Låg",
+    "links": [
+      {
+        "text": "Karta",
+        "url": "https://wagnerguide.com/c/stockholmsuniversitet/stockholmub?proxy=true"
+      },
+      {
+        "text": "Hemsida",
+        "url": "https://www.su.se/stockholms-universitetsbibliotek/"
+      }
+    ],
+    "pentry": false,
+    "location": "Campus Frescati",
+    "powerOutlets": "God tillgång",
+    "wifi": true,
+    "hours": "Mån-tors; 8-21.30 Fre: 8-18 Lör-sön: 9-17"
+  },
+  {
+    "id": "transtr-mmerbiblioteket-2364ecb9d5948018ace0e4cccd65af1c",
+    "name": "Tranströmmerbiblioteket",
+    "description": "Ej besökt ännu, nyrenoverat bibliotek i Medborgarhuset vid Medborgarplatsen.",
+    "busyLevel": "Medel",
+    "rating": 3,
+    "soundLevel": "Medel",
+    "links": [
+      {
+        "text": "Hemsida",
+        "url": "https://biblioteket.stockholm.se/bibliotek/transtromerbiblioteket"
+      }
+    ],
+    "pentry": false,
+    "location": "Södermalm",
+    "powerOutlets": "Saknas",
+    "wifi": true,
+    "hours": "Mån-fre: 10-20 Lör-sön: 11-17"
+  },
+  {
+    "id": "u-huset-2374ecb9d594806fb3c6e83041876b46",
+    "name": "U-huset",
+    "description": "Bra för grupparbeten, men annars överskattat. Väldigt stora öppna ytor.",
+    "busyLevel": "Hög",
+    "rating": 2,
+    "soundLevel": "Medel",
+    "links": [
+      {
+        "text": "Rumsförteckning",
+        "url": "https://www.kth.se/places/building/f3b6cf22-e7e9-491f-9214-7b79761beba7"
+      }
+    ],
+    "pentry": true,
+    "location": "KTH Campus",
+    "powerOutlets": "God tillgång",
+    "wifi": true,
+    "hours": "6-24"
+  },
+  {
+    "id": "v-huset-2374ecb9d594808b855ac659eb42c5e2",
+    "name": "V-huset",
+    "description": "Inte så mycket individuella studieplatser, men flertalet platser för ex. grupparbeten samt informella grupprum. Finns ett seminarierum (V12) som endast används under tenta och är olåst.",
+    "busyLevel": "Låg",
+    "rating": 3,
+    "soundLevel": "Medellåg",
+    "links": [
+      {
+        "text": "Rumsförteckning",
+        "url": "https://www.kth.se/places/building/8ba7e678-f7ee-4c19-a45b-bbf8c8196587"
+      }
+    ],
+    "pentry": true,
+    "location": "KTH Campus",
+    "powerOutlets": "På vissa ställen",
+    "wifi": true,
+    "hours": "Dygnet runt"
+  },
+  {
+    "id": "w-huset-2374ecb9d5948000b429f6131b2954f1",
+    "name": "W-huset",
+    "description": "Bra grupprum, blandade studieplatser i lite lugnare miljö.",
+    "busyLevel": "Medel",
+    "rating": 3,
+    "soundLevel": "Medel",
+    "links": [
+      {
+        "text": "Rumsförteckning",
+        "url": "https://www.kth.se/places/building/a3b6f06c-f44e-45fb-acda-1119dabce8c9"
+      }
+    ],
+    "pentry": true,
+    "location": "KTH Campus",
+    "powerOutlets": "På vissa ställen",
+    "wifi": true,
+    "hours": "6-24"
+  }
+]

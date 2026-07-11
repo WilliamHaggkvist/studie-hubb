@@ -301,7 +301,7 @@ function SidebarContent() {
         <NavItem
           to="/tips"
           icon={<Lightbulb className="h-4 w-4" />}
-          label="Tips och råd"
+          label="Tips och guider"
           activeColor="var(--c-3)"
         />
         <NavItem
