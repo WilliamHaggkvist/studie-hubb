@@ -33,6 +33,7 @@ export const coursesQuery = queryOptions({
     if (error) throw error;
     return (data ?? []) as Course[];
   },
+  enabled: typeof window !== "undefined",
 });
 
 export type Task = {
@@ -62,6 +63,7 @@ export const tasksQuery = queryOptions({
     if (error) throw error;
     return (data ?? []) as Task[];
   },
+  enabled: typeof window !== "undefined",
 });
 
 export type TermRow = {
@@ -83,6 +85,7 @@ export const termsQuery = queryOptions({
     if (error) throw error;
     return (data ?? []) as TermRow[];
   },
+  enabled: typeof window !== "undefined",
 });
 
 /** Sekunder mellan två ISO-tider (aldrig negativt). */

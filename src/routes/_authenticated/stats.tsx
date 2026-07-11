@@ -500,7 +500,10 @@ function StatsPage() {
                       border: "1px solid var(--border)",
                       borderRadius: 8,
                       fontSize: 12,
+                      color: "var(--foreground)",
                     }}
+                    itemStyle={{ color: "var(--foreground)" }}
+                    labelStyle={{ color: "var(--muted-foreground)" }}
                     formatter={(v: number) => [`${v} h`, ""]}
                   />
                   <Legend wrapperStyle={{ fontSize: 11 }} />
@@ -552,7 +555,10 @@ function StatsPage() {
                         border: "1px solid var(--border)",
                         borderRadius: 8,
                         fontSize: 12,
+                        color: "var(--foreground)",
                       }}
+                      itemStyle={{ color: "var(--foreground)" }}
+                      labelStyle={{ color: "var(--muted-foreground)" }}
                       formatter={(v: number, n: string) => [`${v} h`, n]}
                     />
                   </PieChart>
@@ -630,7 +636,10 @@ function StatsPage() {
                       border: "1px solid var(--border)",
                       borderRadius: 8,
                       fontSize: 12,
+                      color: "var(--foreground)",
                     }}
+                    itemStyle={{ color: "var(--foreground)" }}
+                    labelStyle={{ color: "var(--muted-foreground)" }}
                   />
                   <Bar dataKey="value" radius={[4, 4, 4, 4]}>
                     {statusData.map((r) => (

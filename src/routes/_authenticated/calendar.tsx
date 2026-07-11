@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import {
   addDays,
@@ -67,6 +67,13 @@ function CalendarPage() {
       : startOfWeek(cursor, { weekStartsOn: 1 });
   const cellCount = view === "month" ? 42 : 7;
   const days = Array.from({ length: cellCount }).map((_, i) => addDays(gridStart, i));
+  const weeks = useMemo(() => {
+    const list = [];
+    for (let i = 0; i < days.length; i += 7) {
+      list.push(days.slice(i, i + 7));
+    }
+    return list;
+  }, [days]);
   const rangeStart = gridStart.toISOString();
   const rangeEnd = addDays(gridStart, cellCount).toISOString();
 
@@ -176,7 +183,7 @@ function CalendarPage() {
           <div className="min-w-[10rem] text-center font-display text-lg">
             {view === "month"
               ? format(cursor, "MMMM yyyy", { locale: sv })
-              : `Vecka ${format(cursor, "w")} · ${format(cursor, "MMM yyyy", { locale: sv })}`}
+              : `Vecka ${format(cursor, "I")} · ${format(cursor, "MMM yyyy", { locale: sv })}`}
           </div>
           <Button variant="ghost" size="icon" onClick={() => shift(1)}>
             <ChevronRight className="h-4 w-4" />
@@ -196,7 +203,8 @@ function CalendarPage() {
 
       <div className="grid gap-4 lg:grid-cols-[1fr_20rem]">
         <div className="overflow-hidden rounded-xl border border-border/60 bg-surface/40">
-          <div className="grid grid-cols-7 border-b border-border/60 bg-surface/60 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+          <div className="grid grid-cols-[3rem_repeat(7,1fr)] border-b border-border/60 bg-surface/60 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            <div className="px-2 py-2 text-center border-r border-border/40 text-muted-foreground/40">V.</div>
             {["Mån", "Tis", "Ons", "Tor", "Fre", "Lör", "Sön"].map((d) => (
               <div key={d} className="px-2 py-2 text-center">
                 {d}
@@ -205,11 +213,18 @@ function CalendarPage() {
           </div>
           <div
             className={cn(
-              "grid grid-cols-7",
+              "grid grid-cols-[3rem_repeat(7,1fr)]",
               view === "month" ? "auto-rows-fr" : "auto-rows-[10rem]",
             )}
           >
-            {days.map((d) => {
+            {weeks.map((week, wIdx) => {
+              const weekNum = format(week[0], "I");
+              return (
+                <React.Fragment key={wIdx}>
+                  <div className="flex flex-col items-center justify-center border-b border-r border-border/40 text-[10px] font-bold text-muted-foreground/40 bg-surface/10 select-none">
+                    {weekNum}
+                  </div>
+                  {week.map((d) => {
               const inMonth = view === "week" || isSameMonth(d, cursor);
               const dayEvents = filteredEvents.filter((e) => isSameDay(parseISO(e.starts_at), d));
               const dayTasks = filteredTasksDue.filter(
@@ -299,6 +314,9 @@ function CalendarPage() {
                 </button>
               );
             })}
+          </React.Fragment>
+        );
+      })}
           </div>
         </div>
 

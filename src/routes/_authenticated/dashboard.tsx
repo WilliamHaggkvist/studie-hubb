@@ -41,6 +41,10 @@ import {
   BookOpen,
   Settings,
   Flame,
+  Sun,
+  Moon,
+  Sunrise,
+  Sunset,
 } from "lucide-react";
 import {
   format,
@@ -49,6 +53,7 @@ import {
   startOfDay,
   endOfDay,
   addDays,
+  subDays,
   isSameDay,
   differenceInCalendarDays,
   parseISO,
@@ -506,15 +511,32 @@ function Dashboard() {
   const greeting =
     hour < 6 ? "God natt" : hour < 12 ? "God morgon" : hour < 18 ? "God dag" : "God kväll";
 
+  let GreetingIcon = Sun;
+  let iconColor = "text-amber-500";
+  if (hour < 6) {
+    GreetingIcon = Moon;
+    iconColor = "text-indigo-400";
+  } else if (hour < 12) {
+    GreetingIcon = Sunrise;
+    iconColor = "text-orange-400";
+  } else if (hour < 18) {
+    GreetingIcon = Sun;
+    iconColor = "text-amber-500";
+  } else {
+    GreetingIcon = Sunset;
+    iconColor = "text-rose-400";
+  }
+
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 lg:px-8">
       <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <div className="text-xs uppercase tracking-widest text-muted-foreground">
-            {format(now, "EEEE d MMMM", { locale: sv })}
+            {format(now, "EEEE d MMMM", { locale: sv })} · v. {format(now, "I")}
           </div>
-          <h1 className="mt-1 font-display text-3xl font-bold tracking-tight">
-            {greeting}. <span className="gradient-text">Vad ska vi jobba med idag?</span>
+          <h1 className="mt-1 font-display text-3xl font-bold tracking-tight flex items-center gap-2">
+            <span>{greeting}</span>
+            <GreetingIcon className={`h-8 w-8 ${iconColor} shrink-0`} />
           </h1>
         </div>
         <Button

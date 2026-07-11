@@ -648,6 +648,11 @@ function QuickStatusDialog({
           <DialogTitle className="font-display text-base">{task.title}</DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
+          {task.description && (
+            <div className="text-xs text-muted-foreground bg-white/5 border border-white/5 rounded-lg p-2.5 whitespace-pre-wrap max-h-[120px] overflow-y-auto">
+              {task.description}
+            </div>
+          )}
           <p className="text-xs text-muted-foreground">Ändra status</p>
           <div className="grid grid-cols-3 gap-2">
             {COLUMNS.map((col) => (
