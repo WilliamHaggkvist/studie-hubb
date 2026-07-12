@@ -211,7 +211,7 @@ function TipsPage() {
                   {(searchQuery || selectedLocation !== "all" || selectedSoundLevel !== "all" || filterPentry || filterWifi || showSavedOnly) && (
                     <Button 
                       variant="ghost" 
-                      size="xs" 
+                      size="sm" 
                       onClick={clearFilters}
                       className="h-7 text-[10px] text-muted-foreground hover:text-foreground"
                     >

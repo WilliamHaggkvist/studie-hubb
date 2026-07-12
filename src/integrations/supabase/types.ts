@@ -130,6 +130,7 @@ export type Database = {
           literature: string | null
           name: string
           period: Database["public"]["Enums"]["course_period"] | null
+          periods: Database["public"]["Enums"]["course_period"][] | null
           sort_order: number
           teacher_contact: string | null
           teacher_name: string | null
@@ -153,6 +154,7 @@ export type Database = {
           literature?: string | null
           name: string
           period?: Database["public"]["Enums"]["course_period"] | null
+          periods?: Database["public"]["Enums"]["course_period"][] | null
           sort_order?: number
           teacher_contact?: string | null
           teacher_name?: string | null
@@ -176,6 +178,7 @@ export type Database = {
           literature?: string | null
           name?: string
           period?: Database["public"]["Enums"]["course_period"] | null
+          periods?: Database["public"]["Enums"]["course_period"][] | null
           sort_order?: number
           teacher_contact?: string | null
           teacher_name?: string | null

@@ -13,6 +13,7 @@ export type Course = {
   archived: boolean;
   hp: number | null;
   period: string | null;
+  periods: string[] | null;
   arskurs: number | null;
   university_id: string | null;
   weekly_goal_hours: number | null;
@@ -27,7 +28,7 @@ export const coursesQuery = queryOptions({
     const { data, error } = await supabase
       .from("courses")
       .select(
-        "id,name,code,color,icon,archived,hp,period,arskurs,university_id,weekly_goal_hours,completed,final_grade,is_standalone",
+        "id,name,code,color,icon,archived,hp,period,periods,arskurs,university_id,weekly_goal_hours,completed,final_grade,is_standalone",
       )
       .order("name", { ascending: true });
     if (error) throw error;
@@ -36,15 +37,18 @@ export const coursesQuery = queryOptions({
   enabled: typeof window !== "undefined",
 });
 
+export type TaskStatus = "todo" | "doing" | "done";
+export type TaskKind = "task" | "exam";
+
 export type Task = {
   id: string;
   title: string;
   description: string | null;
-  status: "todo" | "doing" | "done";
+  status: TaskStatus;
   due_at: string | null;
   course_id: string | null;
   task_type: TaskType;
-  task_kind: "task" | "exam";
+  task_kind: TaskKind;
   grade: string | null;
   points: string | null;
   pending_review: boolean;

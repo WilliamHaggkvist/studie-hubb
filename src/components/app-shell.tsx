@@ -59,6 +59,7 @@ type CourseRow = {
   icon: string | null;
   code: string | null;
   period: string | null;
+  periods: string[] | null;
   arskurs: number | null;
   completed: boolean;
 };
@@ -193,7 +194,7 @@ function SidebarContent() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("courses")
-        .select("id,name,color,icon,code,period,arskurs,completed")
+        .select("id,name,color,icon,code,period,periods,arskurs,completed")
         .eq("archived", false)
         .order("sort_order", { ascending: true })
         .order("created_at", { ascending: true });
