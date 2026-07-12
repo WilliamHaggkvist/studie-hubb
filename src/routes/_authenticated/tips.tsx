@@ -24,7 +24,10 @@ import {
   ExternalLink, 
   Heart, 
   Search, 
-  Filter
+  Filter,
+  Plus,
+  Trash2,
+  Edit2
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/tips")({
@@ -33,6 +36,12 @@ export const Route = createFileRoute("/_authenticated/tips")({
 
 interface LinkItem {
   text: string;
+  url: string;
+}
+
+interface QuickLink {
+  id: string;
+  title: string;
   url: string;
 }
 
@@ -53,6 +62,14 @@ interface StudyPlace {
 
 const STUDY_PLACES = STUDY_PLACES_RAW as StudyPlace[];
 
+const BUTTON_GRADIENTS = [
+  "bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border border-purple-500/20 hover:border-purple-500/40",
+  "bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 border border-orange-500/20 hover:border-orange-500/40",
+  "bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/20 hover:border-cyan-500/40",
+  "bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 hover:border-emerald-500/40",
+  "bg-pink-500/10 hover:bg-pink-500/20 text-pink-400 border border-pink-500/20 hover:border-pink-500/40"
+];
+
 function TipsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedLocation, setSelectedLocation] = useState("all");
@@ -61,6 +78,13 @@ function TipsPage() {
   const [filterWifi, setFilterWifi] = useState(false);
   const [showSavedOnly, setShowSavedOnly] = useState(false);
   const [savedPlaces, setSavedPlaces] = useState<string[]>([]);
+  
+  // Quick links state
+  const [quickLinks, setQuickLinks] = useState<QuickLink[]>([]);
+  const [newLinkTitle, setNewLinkTitle] = useState("");
+  const [newLinkUrl, setNewLinkUrl] = useState("");
+  const [isEditingLinks, setIsEditingLinks] = useState(false);
+  const [isImageZoomed, setIsImageZoomed] = useState(false);
 
   // Load bookmarks
   useEffect(() => {
@@ -73,6 +97,42 @@ function TipsPage() {
       }
     }
   }, []);
+
+  // Load quick links
+  useEffect(() => {
+    const savedLinks = localStorage.getItem("datasalar_quick_links");
+    if (savedLinks) {
+      try {
+        setQuickLinks(JSON.parse(savedLinks));
+      } catch (e) {
+        console.error(e);
+      }
+    } else {
+      setQuickLinks([
+        { id: "1", title: "Boka datasal", url: "https://www.su.se/utbildning/din-studenttid/it-for-studenter" },
+        { id: "2", title: "Mjukvara för studenter", url: "https://www.su.se/utbildning/din-studenttid/it-for-studenter/programvara-for-studenter-1.446549" }
+      ]);
+    }
+  }, []);
+
+  const saveQuickLinks = (links: QuickLink[]) => {
+    setQuickLinks(links);
+    localStorage.setItem("datasalar_quick_links", JSON.stringify(links));
+  };
+
+  const addQuickLink = () => {
+    if (newLinkTitle.trim() && newLinkUrl.trim()) {
+      const url = newLinkUrl.startsWith('http') ? newLinkUrl : `https://${newLinkUrl}`;
+      const newLink = { id: Date.now().toString(), title: newLinkTitle, url };
+      saveQuickLinks([...quickLinks, newLink]);
+      setNewLinkTitle("");
+      setNewLinkUrl("");
+    }
+  };
+
+  const removeQuickLink = (id: string) => {
+    saveQuickLinks(quickLinks.filter(l => l.id !== id));
+  };
 
   const toggleSavePlace = (id: string) => {
     const next = savedPlaces.includes(id)
@@ -164,7 +224,12 @@ function TipsPage() {
   };
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8 lg:px-8">
+    <div className="mx-auto max-w-6xl px-4 py-8 lg:px-8 relative min-h-screen">
+      {/* Decorative backdrop glow blobs for glassmorphic design */}
+      <div className="absolute top-12 left-12 -z-10 h-72 w-72 rounded-full bg-primary/5 blur-[100px] pointer-events-none" />
+      <div className="absolute top-1/3 right-12 -z-10 h-96 w-96 rounded-full bg-sunset-orange/5 blur-[120px] pointer-events-none" />
+      <div className="absolute bottom-12 left-1/3 -z-10 h-80 w-80 rounded-full bg-cyan-500/5 blur-[100px] pointer-events-none" />
+
       <div className="mb-8 flex items-start justify-between gap-4">
         <div>
           <h1 className="font-display text-4xl font-bold tracking-tight bg-gradient-to-r from-primary via-sunset-orange to-sunset-amber bg-clip-text text-transparent">
@@ -178,20 +243,20 @@ function TipsPage() {
       </div>
 
       <Tabs defaultValue="study-places" className="space-y-6">
-        <TabsList className="bg-surface/60 border border-border/40 p-1 flex overflow-x-auto w-full justify-start h-auto scrollbar-none gap-1 rounded-2xl">
-          <TabsTrigger value="study-places" className="rounded-xl py-2 px-4 text-xs font-medium transition-all data-[state=active]:bg-primary data-[state=active]:text-white">
+        <TabsList className="bg-surface/40 backdrop-blur-md border border-border/40 p-1 flex overflow-x-auto w-full justify-start h-auto scrollbar-none gap-1 rounded-2xl">
+          <TabsTrigger value="study-places" className="rounded-xl py-2 px-4 text-xs font-semibold transition-all data-[state=active]:bg-primary data-[state=active]:text-white hover:text-primary">
             Studieplatser
           </TabsTrigger>
-          <TabsTrigger value="methods" className="rounded-xl py-2 px-4 text-xs font-medium transition-all data-[state=active]:bg-primary data-[state=active]:text-white">
+          <TabsTrigger value="methods" className="rounded-xl py-2 px-4 text-xs font-semibold transition-all data-[state=active]:bg-primary data-[state=active]:text-white hover:text-primary">
             Metoder
           </TabsTrigger>
-          <TabsTrigger value="good-advice" className="rounded-xl py-2 px-4 text-xs font-medium transition-all data-[state=active]:bg-primary data-[state=active]:text-white">
+          <TabsTrigger value="good-advice" className="rounded-xl py-2 px-4 text-xs font-semibold transition-all data-[state=active]:bg-primary data-[state=active]:text-white hover:text-primary">
             Goda råd
           </TabsTrigger>
-          <TabsTrigger value="computer-labs" className="rounded-xl py-2 px-4 text-xs font-medium transition-all data-[state=active]:bg-primary data-[state=active]:text-white">
+          <TabsTrigger value="computer-labs" className="rounded-xl py-2 px-4 text-xs font-semibold transition-all data-[state=active]:bg-primary data-[state=active]:text-white hover:text-primary">
             Datasalar
           </TabsTrigger>
-          <TabsTrigger value="ai-studies" className="rounded-xl py-2 px-4 text-xs font-medium transition-all data-[state=active]:bg-primary data-[state=active]:text-white">
+          <TabsTrigger value="ai-studies" className="rounded-xl py-2 px-4 text-xs font-semibold transition-all data-[state=active]:bg-primary data-[state=active]:text-white hover:text-primary">
             AI i studierna
           </TabsTrigger>
         </TabsList>
@@ -430,42 +495,42 @@ function TipsPage() {
 
         {/* METHODS */}
         <TabsContent value="methods" className="grid gap-6 md:grid-cols-2">
-          <Card className="border-border/60 bg-surface/60 backdrop-blur-md rounded-2xl">
-            <CardHeader className="flex flex-row items-center gap-3 pb-2">
-              <div className="p-2 rounded-xl bg-purple-500/10 text-purple-400">
-                <Brain className="h-5 w-5" />
+          <Card className="border-border/60 bg-gradient-to-br from-purple-500/5 via-surface/60 to-surface/40 backdrop-blur-md rounded-2xl hover:border-purple-500/30 hover:shadow-xl transition-all duration-300 hover:-translate-y-0.5">
+            <CardHeader className="flex flex-row items-center gap-4 pb-2">
+              <div className="p-3 rounded-2xl bg-purple-500/10 text-purple-400 shadow-inner">
+                <Brain className="h-6 w-6" />
               </div>
               <div>
-                <CardTitle className="text-base font-semibold">Pomodoro & Tidsblockering</CardTitle>
-                <CardDescription className="text-[11px]">Effektivisera din tid och behåll fokus</CardDescription>
+                <CardTitle className="text-base font-bold text-foreground">Pomodoro & Tidsblockering</CardTitle>
+                <CardDescription className="text-[11px] text-purple-400/80 font-medium">Effektivisera din tid och behåll fokus</CardDescription>
               </div>
             </CardHeader>
-            <CardContent className="text-xs text-muted-foreground space-y-2">
-              <p>
-                <strong>Pomodoro:</strong> Plugga fokuserat i 25 minuter, ta 5 minuters paus. Efter 4 cykler tar du en längre paus på 15-30 minuter. Använd timern här på StudieHubb för att hålla koll!
+            <CardContent className="text-xs text-muted-foreground space-y-3 pt-2">
+              <p className="leading-relaxed">
+                <strong className="text-foreground">Pomodoro:</strong> Plugga fokuserat i 25 minuter, ta 5 minuters paus. Efter 4 cykler tar du en längre paus på 15-30 minuter. Använd timern här på StudieHubb för att hålla koll!
               </p>
-              <p>
-                <strong>Tidsblockering:</strong> Planera din dag i block (t.ex. 09-11: Skriva rapport, 13-15: Läsa kapitel 4) istället för en oändlig att göra-lista.
+              <p className="leading-relaxed">
+                <strong className="text-foreground">Tidsblockering:</strong> Planera din dag i block (t.ex. 09-11: Skriva rapport, 13-15: Läsa kapitel 4) istället för en oändlig att göra-lista.
               </p>
             </CardContent>
           </Card>
 
-          <Card className="border-border/60 bg-surface/60 backdrop-blur-md rounded-2xl">
-            <CardHeader className="flex flex-row items-center gap-3 pb-2">
-              <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400">
-                <Brain className="h-5 w-5" />
+          <Card className="border-border/60 bg-gradient-to-br from-emerald-500/5 via-surface/60 to-surface/40 backdrop-blur-md rounded-2xl hover:border-emerald-500/30 hover:shadow-xl transition-all duration-300 hover:-translate-y-0.5">
+            <CardHeader className="flex flex-row items-center gap-4 pb-2">
+              <div className="p-3 rounded-2xl bg-emerald-500/10 text-emerald-400 shadow-inner">
+                <Brain className="h-6 w-6" />
               </div>
               <div>
-                <CardTitle className="text-base font-semibold">Aktiv återkallning (Active Recall)</CardTitle>
-                <CardDescription className="text-[11px]">Förstå och minns informationen längre</CardDescription>
+                <CardTitle className="text-base font-bold text-foreground">Aktiv återkallning (Active Recall)</CardTitle>
+                <CardDescription className="text-[11px] text-emerald-400/80 font-medium">Förstå och minns informationen längre</CardDescription>
               </div>
             </CardHeader>
-            <CardContent className="text-xs text-muted-foreground space-y-2">
-              <p>
-                <strong>Feynman-tekniken:</strong> Förklara ett svårt koncept med dina egna ord som om du förklarade det för ett barn. Då märer du direkt var dina kunskapsluckor finns.
+            <CardContent className="text-xs text-muted-foreground space-y-3 pt-2">
+              <p className="leading-relaxed">
+                <strong className="text-foreground">Feynman-tekniken:</strong> Förklara ett svårt koncept med dina egna ord som om du förklarade det för ett barn. Då märker du direkt var dina kunskapsluckor finns.
               </p>
-              <p>
-                <strong>Flashcards:</strong> Testa dig själv istället för att bara passivt läsa om anteckningarna. Det tvingar hjärnan att hämta informationen, vilket stärker minnesspåren.
+              <p className="leading-relaxed">
+                <strong className="text-foreground">Flashcards:</strong> Testa dig själv istället för att bara passivt läsa om anteckningarna. Det tvingar hjärnan att hämta informationen, vilket stärker minnesspåren.
               </p>
             </CardContent>
           </Card>
@@ -473,128 +538,208 @@ function TipsPage() {
 
         {/* GOOD ADVICE */}
         <TabsContent value="good-advice" className="grid gap-6 md:grid-cols-2">
-          <Card className="border-border/60 bg-surface/60 backdrop-blur-md rounded-2xl">
-            <CardHeader className="flex flex-row items-center gap-3 pb-2">
-              <div className="p-2 rounded-xl bg-pink-500/10 text-pink-400">
-                <HeartHandshake className="h-5 w-5" />
+          <Card className="border-border/60 bg-gradient-to-br from-pink-500/5 via-surface/60 to-surface/40 backdrop-blur-md rounded-2xl hover:border-pink-500/30 hover:shadow-xl transition-all duration-300 hover:-translate-y-0.5">
+            <CardHeader className="flex flex-row items-center gap-4 pb-2">
+              <div className="p-3 rounded-2xl bg-pink-500/10 text-pink-400 shadow-inner">
+                <HeartHandshake className="h-6 w-6" />
               </div>
               <div>
-                <CardTitle className="text-base font-semibold">Återhämtning & Sömn</CardTitle>
-                <CardDescription className="text-[11px]">Hjärnans viktigaste bränsle</CardDescription>
+                <CardTitle className="text-base font-bold text-foreground">Återhämtning & Sömn</CardTitle>
+                <CardDescription className="text-[11px] text-pink-400/80 font-medium">Hjärnans viktigaste bränsle</CardDescription>
               </div>
             </CardHeader>
-            <CardContent className="text-xs text-muted-foreground space-y-2">
-              <p>
-                <strong>Vikten av pauser:</strong> Att sitta 8 timmar i sträck ger sällan bra resultat. Hjärnan behöver pauser för att bearbeta det du lärt dig. Gå ut och ta luft i 10 minuter!
+            <CardContent className="text-xs text-muted-foreground space-y-3 pt-2">
+              <p className="leading-relaxed">
+                <strong className="text-foreground">Vikten av pauser:</strong> Att sitta 8 timmar i sträck ger sällan bra resultat. Hjärnan behöver pauser för att bearbeta det du lärt dig. Gå ut och ta luft i 10 minuter!
               </p>
-              <p>
-                <strong>Sömnen konsoliderar minnen:</strong> Det är under sömnen som dagens kunskap lagras i långtidsminnet. Att dygna innan en tenta är oftast kontraproduktivt.
+              <p className="leading-relaxed">
+                <strong className="text-foreground">Sömnen konsoliderar minnen:</strong> Det är under sömnen som dagens kunskap lagras i långtidsminnet. Att dygna innan en tenta är oftast kontraproduktivt.
               </p>
             </CardContent>
           </Card>
 
-          <Card className="border-border/60 bg-surface/60 backdrop-blur-md rounded-2xl">
-            <CardHeader className="flex flex-row items-center gap-3 pb-2">
-              <div className="p-2 rounded-xl bg-amber-500/10 text-amber-400">
-                <HeartHandshake className="h-5 w-5" />
+          <Card className="border-border/60 bg-gradient-to-br from-amber-500/5 via-surface/60 to-surface/40 backdrop-blur-md rounded-2xl hover:border-amber-500/30 hover:shadow-xl transition-all duration-300 hover:-translate-y-0.5">
+            <CardHeader className="flex flex-row items-center gap-4 pb-2">
+              <div className="p-3 rounded-2xl bg-amber-500/10 text-amber-400 shadow-inner">
+                <HeartHandshake className="h-6 w-6" />
               </div>
               <div>
-                <CardTitle className="text-base font-semibold">Struktur och Realism</CardTitle>
-                <CardDescription className="text-[11px]">Sänk stressen med bra planering</CardDescription>
+                <CardTitle className="text-base font-bold text-foreground">Struktur och Realism</CardTitle>
+                <CardDescription className="text-[11px] text-amber-400/80 font-medium">Sänk stressen med bra planering</CardDescription>
               </div>
             </CardHeader>
-            <CardContent className="text-xs text-muted-foreground space-y-2">
-              <p>
-                <strong>Bryt ner uppgifter:</strong> En stor inlämning känns övermäktig. Dela upp den i delmoment (t.ex. "Skriv inledning", "Hitta 3 källor"). Det gör det mycket lättare att komma igång.
+            <CardContent className="text-xs text-muted-foreground space-y-3 pt-2">
+              <p className="leading-relaxed">
+                <strong className="text-foreground">Bryt ner uppgifter:</strong> En stor inlämning känns övermäktig. Dela upp den i delmoment (t.ex. "Skriv inledning", "Hitta 3 källor"). Det gör det mycket lättare att komma igång.
               </p>
-              <p>
-                <strong>Var realistisk:</strong> Planera inte in 12 timmars plugg per dag. Sätt ett rimligt mål och sluta plugga med gott samvete när du uppnått det.
+              <p className="leading-relaxed">
+                <strong className="text-foreground">Var realistisk:</strong> Planera inte in 12 timmars plugg per dag. Sätt ett rimligt mål och sluta plugga med gott samvete när du uppnått det.
               </p>
             </CardContent>
           </Card>
         </TabsContent>
 
         {/* COMPUTER LABS */}
-        <TabsContent value="computer-labs" className="grid gap-6 md:grid-cols-2">
-          <Card className="border-border/60 bg-surface/60 backdrop-blur-md rounded-2xl">
-            <CardHeader className="flex flex-row items-center gap-3 pb-2">
-              <div className="p-2 rounded-xl bg-cyan-500/10 text-cyan-400">
-                <Monitor className="h-5 w-5" />
+        <TabsContent value="computer-labs" className="space-y-6">
+          <div className="grid gap-6 md:grid-cols-3 items-start">
+            {/* Snabblänkar på vänster sida på större skärmar */}
+            <div className="md:col-span-1 flex flex-col pt-1">
+              <div className="flex items-start justify-between pb-4">
+                <div className="flex items-start gap-3">
+                  <div className="p-2 rounded-xl bg-primary/10 text-primary shrink-0 mt-0.5">
+                    <ExternalLink className="h-5 w-5" />
+                  </div>
+                  <div className="pt-0.5">
+                    <h3 className="text-lg font-bold text-foreground leading-none">Snabblänkar</h3>
+                    <p className="text-[11px] text-muted-foreground mt-1.5">Dina sparade länkar</p>
+                  </div>
+                </div>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-8 w-8 rounded-full"
+                  onClick={() => setIsEditingLinks(!isEditingLinks)}
+                >
+                  <Edit2 className="h-4 w-4 text-muted-foreground" />
+                </Button>
               </div>
-              <div>
-                <CardTitle className="text-base font-semibold">Datasalar på Campus</CardTitle>
-                <CardDescription className="text-[11px]">Tillgång till datorer och programvara</CardDescription>
-              </div>
-            </CardHeader>
-            <CardContent className="text-xs text-muted-foreground space-y-2">
-              <p>
-                <strong>Programlicenser:</strong> Många tyngre program (t.ex. CAD, MATLAB, Adobe Creative Cloud) finns tillgängliga gratis i datasalar om du inte vill köpa dem själv.
-              </p>
-              <p>
-                <strong>Öppettider:</strong> De flesta datasalar är tillgängliga dygnet runt med ditt studentkort. Perfekt om du jobbar bäst under udda tider på dygnet.
-              </p>
-            </CardContent>
-          </Card>
 
-          <Card className="border-border/60 bg-surface/60 backdrop-blur-md rounded-2xl">
-            <CardHeader className="flex flex-row items-center gap-3 pb-2">
-              <div className="p-2 rounded-xl bg-blue-500/10 text-blue-400">
-                <Monitor className="h-5 w-5" />
+              <div className="space-y-4">
+                {isEditingLinks && (
+                  <div className="space-y-2 pb-4 border-b border-border/40 mb-2">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Titel</Label>
+                      <Input 
+                        placeholder="T.ex. Schema" 
+                        value={newLinkTitle} 
+                        onChange={(e) => setNewLinkTitle(e.target.value)} 
+                        className="h-8 text-xs rounded-lg"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">URL</Label>
+                      <Input 
+                        placeholder="https://..." 
+                        value={newLinkUrl} 
+                        onChange={(e) => setNewLinkUrl(e.target.value)} 
+                        className="h-8 text-xs rounded-lg"
+                        onKeyDown={(e) => e.key === 'Enter' && addQuickLink()}
+                      />
+                    </div>
+                    <Button onClick={addQuickLink} className="w-full h-8 text-xs rounded-lg mt-2" disabled={!newLinkTitle || !newLinkUrl}>
+                      <Plus className="h-3 w-3 mr-1" /> Lägg till länk
+                    </Button>
+                  </div>
+                )}
+                
+                <div className="space-y-3">
+                  {quickLinks.map((link, index) => {
+                    const gradientClass = BUTTON_GRADIENTS[index % BUTTON_GRADIENTS.length];
+                    return (
+                      <div key={link.id} className="flex items-center gap-2 group w-full min-w-0">
+                        <a 
+                          href={link.url} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className={`w-full flex items-center justify-between gap-2.5 p-4 rounded-2xl ${gradientClass} font-bold text-sm shadow-md hover:shadow-lg transition-all group/link active:scale-[0.99] hover:-translate-y-0.5 min-w-0`}
+                        >
+                          <span className="whitespace-normal break-words text-left pr-2">{link.title}</span>
+                          <ExternalLink className="h-4 w-4 shrink-0 transition-transform group-hover/link:translate-x-0.5 group-hover/link:-translate-y-0.5" />
+                        </a>
+                        {isEditingLinks && (
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-12 w-12 text-red-500/70 hover:text-red-500 hover:bg-red-500/10 rounded-2xl shrink-0"
+                            onClick={() => removeQuickLink(link.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    );
+                  })}
+                  {quickLinks.length === 0 && (
+                    <p className="text-xs text-muted-foreground italic text-center py-4">Inga snabblänkar tillagda ännu.</p>
+                  )}
+                </div>
               </div>
-              <div>
-                <CardTitle className="text-base font-semibold">Skrivare & Teknik</CardTitle>
-                <CardDescription className="text-[11px]">Utskrifter och teknisk support</CardDescription>
-              </div>
-            </CardHeader>
-            <CardContent className="text-xs text-muted-foreground space-y-2">
-              <p>
-                <strong>Utskrifter:</strong> Du kan oftast skriva ut via universitetets molnskrivartjänst (t.ex. PaperCut) från vilken datasal som helst, eller direkt från din egen bärbara dator.
-              </p>
-              <p>
-                <strong>IT-support:</strong> Om wifi strular eller ditt studentkonto låser sig finns oftast en IT-helpdesk i närheten av biblioteket eller de stora datasalsblocken.
-              </p>
-            </CardContent>
-          </Card>
+            </div>
+
+            {/* Bilden på höger sida på större skärmar */}
+            <div className="md:col-span-2">
+              <button 
+                className="rounded-2xl overflow-hidden cursor-zoom-in hover:brightness-95 active:scale-[0.99] transition-all w-full block text-left"
+                onClick={() => setIsImageZoomed(true)}
+              >
+                <img 
+                  src="/tipsguider/datorsalar.png" 
+                  alt="Datorsalar" 
+                  className="w-full h-auto block rounded-2xl border border-border/60 shadow-sm"
+                />
+              </button>
+            </div>
+          </div>
+
+          {/* Fullskärmszoom-overlay */}
+          {isImageZoomed && (
+            <div 
+              className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4 cursor-zoom-out"
+              onClick={() => setIsImageZoomed(false)}
+            >
+              <img 
+                src="/tipsguider/datorsalar.png" 
+                alt="Datorsalar Zoomed" 
+                className="max-w-full max-h-full object-contain rounded-lg shadow-2xl animate-in zoom-in-95 duration-200"
+              />
+              <button 
+                className="absolute top-4 right-4 text-white/80 hover:text-white bg-black/40 hover:bg-black/60 rounded-full p-2 text-sm font-semibold transition-colors"
+                onClick={() => setIsImageZoomed(false)}
+              >
+                Stäng
+              </button>
+            </div>
+          )}
         </TabsContent>
 
         {/* AI IN STUDIES */}
         <TabsContent value="ai-studies" className="grid gap-6 md:grid-cols-2">
-          <Card className="border-border/60 bg-surface/60 backdrop-blur-md rounded-2xl">
-            <CardHeader className="flex flex-row items-center gap-3 pb-2">
-              <div className="p-2 rounded-xl bg-orange-500/10 text-orange-400">
-                <Sparkles className="h-5 w-5" />
+          <Card className="border-border/60 bg-gradient-to-br from-orange-500/5 via-surface/60 to-surface/40 backdrop-blur-md rounded-2xl hover:border-orange-500/30 hover:shadow-xl transition-all duration-300 hover:-translate-y-0.5">
+            <CardHeader className="flex flex-row items-center gap-4 pb-2">
+              <div className="p-3 rounded-2xl bg-orange-500/10 text-orange-400 shadow-inner">
+                <Sparkles className="h-6 w-6" />
               </div>
               <div>
-                <CardTitle className="text-base font-semibold">AI som din personliga studiepartner</CardTitle>
-                <CardDescription className="text-[11px]">Effektiva sätt att använda AI-verktyg</CardDescription>
+                <CardTitle className="text-base font-bold text-foreground">AI som din personliga studiepartner</CardTitle>
+                <CardDescription className="text-[11px] text-orange-400/80 font-medium">Effektiva sätt att använda AI-verktyg</CardDescription>
               </div>
             </CardHeader>
-            <CardContent className="text-xs text-muted-foreground space-y-2">
-              <p>
-                <strong>Förklara komplex text:</strong> Klistra in en svår akademisk text och be AI att sammanfatta den eller förklara den med enklare ord och analogier.
+            <CardContent className="text-xs text-muted-foreground space-y-3 pt-2">
+              <p className="leading-relaxed">
+                <strong className="text-foreground">Förklara komplex text:</strong> Klistra in en svår akademisk text och be AI att sammanfatta den eller förklara den med enklare ord och analogier.
               </p>
-              <p>
-                <strong>Skapa övningsfrågor:</strong> Ge AI ditt kursmaterial och be den generera ett quiz eller 5 diskussionsfrågor för att testa dina kunskaper inför tentan.
+              <p className="leading-relaxed">
+                <strong className="text-foreground">Skapa övningsfrågor:</strong> Ge AI ditt kursmaterial och be den generera ett quiz eller 5 diskussionsfrågor för att testa dina kunskaper inför tentan.
               </p>
             </CardContent>
           </Card>
 
-          <Card className="border-border/60 bg-surface/60 backdrop-blur-md rounded-2xl">
-            <CardHeader className="flex flex-row items-center gap-3 pb-2">
-              <div className="p-2 rounded-xl bg-red-500/10 text-red-400">
-                <Sparkles className="h-5 w-5" />
+          <Card className="border-border/60 bg-gradient-to-br from-red-500/5 via-surface/60 to-surface/40 backdrop-blur-md rounded-2xl hover:border-red-500/30 hover:shadow-xl transition-all duration-300 hover:-translate-y-0.5">
+            <CardHeader className="flex flex-row items-center gap-4 pb-2">
+              <div className="p-3 rounded-2xl bg-red-500/10 text-red-400 shadow-inner">
+                <Sparkles className="h-6 w-6" />
               </div>
               <div>
-                <CardTitle className="text-base font-semibold">Källkritik & Akademisk hederlighet</CardTitle>
-                <CardDescription className="text-[11px]">Använd AI ansvarsfullt</CardDescription>
+                <CardTitle className="text-base font-bold text-foreground">Källkritik & Akademisk hederlighet</CardTitle>
+                <CardDescription className="text-[11px] text-red-400/80 font-medium">Använd AI ansvarsfullt</CardDescription>
               </div>
             </CardHeader>
-            <CardContent className="text-xs text-muted-foreground space-y-2">
-              <p>
-                <strong>Hallucinationer:</strong> AI-modeller kan hitta på fakta eller källhänvisningar. Dubbelkolla ALLTID viktig information och faktiska källor mot kurslitteraturen.
+            <CardContent className="text-xs text-muted-foreground space-y-3 pt-2">
+              <p className="leading-relaxed">
+                <strong className="text-foreground">Hallucinationer:</strong> AI-modeller kan hitta på fakta eller källhänvisningar. Dubbelkolla ALLTID viktig information och faktiska källor mot kurslitteraturen.
               </p>
-              <p>
-                <strong>Fusk vs. Stöd:</strong> Använd AI för att bolla idéer, förbättra ditt språk eller förstå koncept. Låt aldrig AI skriva dina inlämningar åt dig – det klassas som plagiat och kan leda till avstängning.
+              <p className="leading-relaxed">
+                <strong className="text-foreground">Fusk vs. Stöd:</strong> Använd AI för att bolla idéer, förbättra ditt språk eller förstå koncept. Låt aldrig AI skriva dina inlämningar åt dig – det klassas som plagiat och kan leda till avstängning.
               </p>
             </CardContent>
           </Card>
