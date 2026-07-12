@@ -196,7 +196,7 @@ function SidebarContent() {
   // Filter to active courses, sorted by period
   const periodOrder = ["P1", "P2", "P3", "P4", "P5"];
   const sidebarCourses = courses
-    .filter((c) => !c.completed)
+    .filter((c) => !c.completed && !c.archived)
     .sort((a, b) => {
       const ia = a.period ? periodOrder.indexOf(a.period) : 999;
       const ib = b.period ? periodOrder.indexOf(b.period) : 999;

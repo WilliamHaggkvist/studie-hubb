@@ -249,7 +249,7 @@ function Dashboard() {
     if (t.status === "done") return false;
     if (t.course_id) {
       const course = coursesMap.get(t.course_id);
-      if (course?.archived) return false;
+      if (course?.archived || course?.completed) return false;
     }
     return true;
   });
@@ -257,7 +257,7 @@ function Dashboard() {
     if (!t.pending_review || t.status === "done") return false;
     if (t.course_id) {
       const course = coursesMap.get(t.course_id);
-      if (course?.archived) return false;
+      if (course?.archived || course?.completed) return false;
     }
     return true;
   });
@@ -268,7 +268,7 @@ function Dashboard() {
     if (due < weekStart || due > weekEnd) return false;
     if (t.course_id) {
       const course = coursesMap.get(t.course_id);
-      if (course?.archived) return false;
+      if (course?.archived || course?.completed) return false;
     }
     return true;
   });
@@ -279,7 +279,7 @@ function Dashboard() {
     if (due < weekStart || due > weekEnd) return false;
     if (t.course_id) {
       const course = coursesMap.get(t.course_id);
-      if (course?.archived) return false;
+      if (course?.archived || course?.completed) return false;
     }
     return true;
   });
@@ -346,7 +346,7 @@ function Dashboard() {
       if (e.source === "session") continue;
       if (e.course_id) {
         const course = coursesMap.get(e.course_id);
-        if (course?.archived) continue;
+        if (course?.archived || course?.completed) continue;
       }
       out.push({
         started_at: e.started_at,
@@ -357,7 +357,7 @@ function Dashboard() {
     for (const s of weekSessions) {
       if (s.course_id) {
         const course = coursesMap.get(s.course_id);
-        if (course?.archived) continue;
+        if (course?.archived || course?.completed) continue;
       }
       const start = s.actual_start ?? s.planned_start;
       const end = s.actual_end ?? s.planned_end;
@@ -394,7 +394,7 @@ function Dashboard() {
     return rawTodaysSessions.filter((s) => {
       if (!s.course_id) return true;
       const course = coursesMap.get(s.course_id);
-      return course ? !course.archived : true;
+      return course ? (!course.archived && !course.completed) : true;
     });
   }, [rawTodaysSessions, coursesMap]);
 
@@ -403,7 +403,7 @@ function Dashboard() {
       if (!t.due_at) return false;
       if (t.course_id) {
         const course = coursesMap.get(t.course_id);
-        if (course?.archived) return false;
+        if (course?.archived || course?.completed) return false;
       }
       return isSameDay(parseISO(t.due_at), new Date());
     });
