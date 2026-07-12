@@ -66,3 +66,35 @@ export function getTermForPeriod(period: CoursePeriod | null | undefined): Term 
 }
 
 export const ARSKURS_OPTIONS = [1, 2, 3, 4, 5, 6] as const;
+
+/** Sort a list of periods in canonical P1 → P5 order and drop unknown values. */
+export function sortPeriods(arr: readonly (string | null | undefined)[]): CoursePeriod[] {
+  const set = new Set<CoursePeriod>();
+  for (const p of arr) {
+    if (p && (COURSE_PERIODS as readonly string[]).includes(p)) {
+      set.add(p as CoursePeriod);
+    }
+  }
+  return [...set].sort(
+    (a, b) => COURSE_PERIODS.indexOf(a) - COURSE_PERIODS.indexOf(b),
+  );
+}
+
+/** The earliest period in a list (used for grouping/sorting). */
+export function firstPeriod(
+  arr: readonly (string | null | undefined)[] | null | undefined,
+): CoursePeriod | null {
+  if (!arr) return null;
+  return sortPeriods(arr)[0] ?? null;
+}
+
+/** Display string for a course's periods (e.g. "P1, P2"). Falls back to legacy single period. */
+export function formatPeriods(
+  arr: readonly (string | null | undefined)[] | null | undefined,
+  fallback: string | null | undefined,
+): string | null {
+  const sorted = arr ? sortPeriods(arr) : [];
+  if (sorted.length > 0) return sorted.join(", ");
+  return fallback ?? null;
+}
+
