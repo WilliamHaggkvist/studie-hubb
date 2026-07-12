@@ -36,15 +36,18 @@ export const coursesQuery = queryOptions({
   enabled: typeof window !== "undefined",
 });
 
+export type TaskStatus = "todo" | "doing" | "done";
+export type TaskKind = "task" | "exam";
+
 export type Task = {
   id: string;
   title: string;
   description: string | null;
-  status: "todo" | "doing" | "done";
+  status: TaskStatus;
   due_at: string | null;
   course_id: string | null;
   task_type: TaskType;
-  task_kind: "task" | "exam";
+  task_kind: TaskKind;
   grade: string | null;
   points: string | null;
   pending_review: boolean;
