@@ -29,6 +29,7 @@ import {
   StickyNote,
   Lightbulb,
   GraduationCap,
+  Info,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -192,11 +193,10 @@ function SidebarContent() {
 
   const { data: courses = [] } = useQuery(coursesQuery);
 
-  // Filter to active courses for current year, sorted by period
+  // Filter to active courses, sorted by period
   const periodOrder = ["P1", "P2", "P3", "P4", "P5"];
   const sidebarCourses = courses
     .filter((c) => !c.completed)
-    .filter((c) => currentYear == null || c.arskurs === currentYear)
     .sort((a, b) => {
       const ia = a.period ? periodOrder.indexOf(a.period) : 999;
       const ib = b.period ? periodOrder.indexOf(b.period) : 999;
@@ -293,6 +293,12 @@ function SidebarContent() {
           icon={<Lightbulb className="h-4 w-4" />}
           label="Tips och guider"
           activeColor="var(--c-3)"
+        />
+        <NavItem
+          to="/information"
+          icon={<Info className="h-4 w-4" />}
+          label="Information"
+          activeColor="var(--c-1)"
         />
         <NavItem
           to="/settings"

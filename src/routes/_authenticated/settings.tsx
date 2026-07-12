@@ -38,7 +38,6 @@ function SettingsPage() {
         <h1 className="font-display text-3xl font-bold tracking-tight">Inställningar</h1>
         <p className="text-sm text-muted-foreground">Anpassa StudieHubb efter dina studier.</p>
       </div>
-      <StudySettingsCard />
       <NotificationsCard />
       <UniversitiesCard />
       <TermsCard />
@@ -523,49 +522,6 @@ function NotificationsCard() {
   );
 }
 
-function StudySettingsCard() {
-  const { data: s } = useUserSettings();
-  const qc = useQueryClient();
-  const save = useMutation({
-    mutationFn: async (patch: { current_year?: number }) => {
-      const { data: u } = await supabase.auth.getUser();
-      if (!u.user) throw new Error("no user");
-      const { error } = await supabase.from("user_settings").update(patch).eq("user_id", u.user.id);
-      if (error) throw error;
-    },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["user_settings"] }),
-  });
-  return (
-    <Card className="border-border/60 bg-surface/60 backdrop-blur-md rounded-2xl">
-      <CardHeader>
-        <CardTitle className="font-display text-base">Studier</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="space-y-1.5 max-w-sm">
-          <Label>Aktuell årskurs</Label>
-          <Select
-            value={String(s?.current_year ?? 1)}
-            onValueChange={(v) => save.mutate({ current_year: Number(v) })}
-          >
-            <SelectTrigger className="rounded-xl">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {ARSKURS_OPTIONS.map((a) => (
-                <SelectItem key={a} value={String(a)}>
-                  Årskurs {a}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <p className="text-[11px] text-muted-foreground">
-            Styr vilka kurser som visas som "aktiva" på översikten.
-          </p>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
 
 function UniversitiesCard() {
   const { data: unis = [] } = useUniversities();
