@@ -4,6 +4,7 @@ import { useSyncExternalStore, useEffect, useState, type ReactNode } from "react
 import { useDebounce } from "@/hooks/use-debounce";
 import { supabase } from "@/integrations/supabase/client";
 import { useUserSettings } from "@/lib/settings";
+import { coursesQuery } from "@/lib/queries";
 import { cn } from "@/lib/utils";
 import { timerStore, formatDuration } from "@/lib/timer-store";
 import {
@@ -189,19 +190,7 @@ function SidebarContent() {
   const { data: settings } = useUserSettings();
   const currentYear = settings?.current_year ?? null;
 
-  const { data: courses = [] } = useQuery({
-    queryKey: ["courses"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("courses")
-        .select("id,name,color,icon,code,period,periods,arskurs,completed")
-        .eq("archived", false)
-        .order("sort_order", { ascending: true })
-        .order("created_at", { ascending: true });
-      if (error) throw error;
-      return (data ?? []) as CourseRow[];
-    },
-  });
+  const { data: courses = [] } = useQuery(coursesQuery);
 
   // Filter to active courses for current year, sorted by period
   const periodOrder = ["P1", "P2", "P3", "P4", "P5"];
