@@ -422,7 +422,7 @@ function CoursesPage() {
                               <div className="mt-1 flex flex-wrap gap-1 text-[10px] uppercase tracking-wider text-muted-foreground">
                                 {c.code && <span>{c.code}</span>}
                                 {c.hp != null && <span>• {c.hp} HP</span>}
-                                {c.period && <span>• {c.period}</span>}
+                                {(() => { const l = formatPeriods(c.periods, c.period); return l ? <span>• {l}</span> : null; })()}
                                 {c.arskurs != null && <span>• Åk {c.arskurs}</span>}
                               </div>
                             </div>
@@ -473,7 +473,7 @@ function CoursesPage() {
                       <div className="mt-1 flex flex-wrap gap-1 text-[10px] uppercase tracking-wider text-muted-foreground">
                         {c.code && <span>{c.code}</span>}
                         {c.hp != null && <span>• {c.hp} HP</span>}
-                        {c.period && <span>• {c.period}</span>}
+                        {(() => { const l = formatPeriods(c.periods, c.period); return l ? <span>• {l}</span> : null; })()}
                         {c.arskurs != null && <span>• Åk {c.arskurs}</span>}
                       </div>
                     </div>
@@ -569,7 +569,7 @@ function CompletedList({
                     <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-c-7" />
                     <span className="min-w-0 flex-1 truncate text-sm font-medium">{c.name}</span>
                     <span className="shrink-0 text-[10px] text-muted-foreground whitespace-nowrap">
-                      {[c.code?.toUpperCase(), uni, c.hp != null ? `${c.hp} HP` : null, c.period]
+                      {[c.code?.toUpperCase(), uni, c.hp != null ? `${c.hp} HP` : null, formatPeriods(c.periods, c.period)]
                         .filter(Boolean)
                         .join(" · ")}
                     </span>
