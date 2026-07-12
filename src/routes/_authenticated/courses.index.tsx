@@ -30,6 +30,9 @@ import {
   ARSKURS_OPTIONS,
   PERIOD_TO_TERM,
   TERM_LABELS,
+  sortPeriods,
+  firstPeriod,
+  formatPeriods,
   type CoursePeriod,
   type Term,
 } from "@/lib/course-presets";
@@ -51,6 +54,7 @@ type CourseRow = {
   archived: boolean;
   hp: number | null;
   period: string | null;
+  periods: string[] | null;
   arskurs: number | null;
   university_id: string | null;
   weekly_goal_hours: number | null;
@@ -69,7 +73,7 @@ function CoursesPage() {
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
   const [hp, setHp] = useState<string>("");
-  const [period, setPeriod] = useState<string>("");
+  const [periods, setPeriods] = useState<CoursePeriod[]>([]);
   const [arskurs, setArskurs] = useState<string>("");
   const [universityId, setUniversityId] = useState<string>("");
   const [weeklyGoal, setWeeklyGoal] = useState<string>("");
@@ -79,7 +83,7 @@ function CoursesPage() {
     setName("");
     setCode("");
     setHp("");
-    setPeriod("");
+    setPeriods([]);
     setArskurs("");
     setUniversityId("");
     setWeeklyGoal("");
@@ -106,7 +110,8 @@ function CoursesPage() {
           code: code.trim() || null,
           color: chosenColor,
           hp: hp ? Number(hp) : null,
-          period: (period || null) as "P1" | "P2" | "P3" | "P4" | "P5" | null,
+          period: (firstPeriod(periods) ?? null) as "P1" | "P2" | "P3" | "P4" | "P5" | null,
+          periods: periods.length > 0 ? (sortPeriods(periods) as unknown as ("P1" | "P2" | "P3" | "P4" | "P5")[]) : null,
           arskurs: arskurs ? Number(arskurs) : null,
           university_id: universityId || null,
           weekly_goal_hours: weeklyGoal ? Number(weeklyGoal) : 0,
@@ -220,18 +225,33 @@ function CoursesPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label>Period</Label>
-                  <Select value={period} onValueChange={setPeriod}>
-                    <SelectTrigger className="rounded-xl">
-                      <SelectValue placeholder="Välj period" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {COURSE_PERIODS.map((p) => (
-                        <SelectItem key={p} value={p}>
+                  <div className="flex flex-wrap gap-1.5">
+                    {COURSE_PERIODS.map((p) => {
+                      const active = periods.includes(p);
+                      return (
+                        <button
+                          type="button"
+                          key={p}
+                          onClick={() =>
+                            setPeriods((prev) =>
+                              active
+                                ? prev.filter((x) => x !== p)
+                                : (sortPeriods([...prev, p]) as CoursePeriod[]),
+                            )
+                          }
+                          className={cn(
+                            "rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors",
+                            active
+                              ? "border-primary bg-primary/15 text-primary"
+                              : "border-border/60 bg-surface/40 text-muted-foreground hover:border-border",
+                          )}
+                        >
                           {p}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">Välj en eller flera.</p>
                 </div>
                 <div className="space-y-1.5">
                   <Label>Årskurs</Label>
