@@ -289,10 +289,7 @@ function Dashboard() {
   const weekDoneCount = weekTasks.filter((t) => t.status === "done" || t.pending_review).length;
 
   const activePeriod = todayPeriod(terms);
-  const activeCourses = courses.filter(
-    (c) =>
-      !c.completed && (currentYear === null || c.arskurs === null || c.arskurs === currentYear),
-  );
+  const activeCourses = courses.filter((c) => !c.completed);
 
   const groupedCourses = activeCourses.reduce(
     (acc, c) => {
