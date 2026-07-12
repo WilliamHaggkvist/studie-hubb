@@ -61,6 +61,7 @@ import {
   DEFAULT_COURSE_ICONS,
   COURSE_PERIODS,
   ARSKURS_OPTIONS,
+  formatPeriods,
 } from "@/lib/course-presets";
 import { useUniversities } from "@/lib/settings";
 import { cn } from "@/lib/utils";
@@ -80,6 +81,7 @@ type CourseRow = {
   archived: boolean;
   hp: number | null;
   period: string | null;
+  periods: string[] | null;
   arskurs: number | null;
   university_id: string | null;
   weekly_goal_hours: number | null;
@@ -111,7 +113,7 @@ function CourseDetail() {
       const { data, error } = await supabase
         .from("courses")
         .select(
-          "id,name,code,color,icon,archived,hp,period,arskurs,university_id,weekly_goal_hours,literature,teacher_name,teacher_contact,completed,final_grade,is_standalone",
+          "id,name,code,color,icon,archived,hp,period,periods,arskurs,university_id,weekly_goal_hours,literature,teacher_name,teacher_contact,completed,final_grade,is_standalone",
         )
         .eq("id", courseId)
         .maybeSingle();
@@ -508,7 +510,7 @@ function CourseDetail() {
               </h1>
               <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px]">
                 {course.hp != null && <Chip>{course.hp} HP</Chip>}
-                {course.period && <Chip>{course.period}</Chip>}
+                {(() => { const label = formatPeriods(course.periods, course.period); return label ? <Chip>{label}</Chip> : null; })()}
                 {course.arskurs != null && <Chip>Årskurs {course.arskurs}</Chip>}
                 {universityName && <Chip>{universityName}</Chip>}
                 {goalHours > 0 && <Chip>Mål {goalHours} h/v</Chip>}
