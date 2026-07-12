@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { PALETTE, COURSE_PERIODS, ARSKURS_OPTIONS } from "@/lib/course-presets";
+import { PALETTE, COURSE_PERIODS, ARSKURS_OPTIONS, sortPeriods, firstPeriod, type CoursePeriod } from "@/lib/course-presets";
 import { useUniversities } from "@/lib/settings";
 
 type CourseRow = {
@@ -33,6 +33,7 @@ type CourseRow = {
   archived: boolean;
   hp: number | null;
   period: string | null;
+  periods: string[] | null;
   arskurs: number | null;
   university_id: string | null;
   weekly_goal_hours: number | null;
@@ -60,7 +61,7 @@ export function EditCourseDialog({
     code: course.code ?? "",
     color: course.color,
     hp: course.hp?.toString() ?? "",
-    period: course.period ?? "",
+    periods: sortPeriods(course.periods ?? (course.period ? [course.period] : [])) as CoursePeriod[],
     arskurs: course.arskurs?.toString() ?? "",
     university_id: course.university_id ?? "",
     weekly_goal_hours: course.weekly_goal_hours?.toString() ?? "",
@@ -79,7 +80,8 @@ export function EditCourseDialog({
           code: form.code.trim() || null,
           color: form.color,
           hp: form.hp ? Number(form.hp) : null,
-          period: (form.period || null) as "P1" | "P2" | "P3" | "P4" | "P5" | null,
+          period: (firstPeriod(form.periods) ?? null) as "P1" | "P2" | "P3" | "P4" | "P5" | null,
+          periods: form.periods.length > 0 ? (sortPeriods(form.periods) as unknown as ("P1" | "P2" | "P3" | "P4" | "P5")[]) : null,
           arskurs: form.arskurs ? Number(form.arskurs) : null,
           university_id: form.university_id || null,
           weekly_goal_hours: form.weekly_goal_hours ? Number(form.weekly_goal_hours) : 0,
@@ -138,18 +140,34 @@ export function EditCourseDialog({
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>Period</Label>
-              <Select value={form.period} onValueChange={(v) => setForm({ ...form, period: v })}>
-                <SelectTrigger className="rounded-xl">
-                  <SelectValue placeholder="Välj" />
-                </SelectTrigger>
-                <SelectContent>
-                  {COURSE_PERIODS.map((p) => (
-                    <SelectItem key={p} value={p}>
+              <div className="flex flex-wrap gap-1.5">
+                {COURSE_PERIODS.map((p) => {
+                  const active = form.periods.includes(p);
+                  return (
+                    <button
+                      type="button"
+                      key={p}
+                      onClick={() =>
+                        setForm({
+                          ...form,
+                          periods: active
+                            ? form.periods.filter((x) => x !== p)
+                            : (sortPeriods([...form.periods, p]) as CoursePeriod[]),
+                        })
+                      }
+                      className={cn(
+                        "rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors",
+                        active
+                          ? "border-primary bg-primary/15 text-primary"
+                          : "border-border/60 bg-surface/40 text-muted-foreground hover:border-border",
+                      )}
+                    >
                       {p}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-[10px] text-muted-foreground">Välj en eller flera perioder.</p>
             </div>
             <div className="space-y-1.5">
               <Label>Årskurs</Label>
