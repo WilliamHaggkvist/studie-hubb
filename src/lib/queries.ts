@@ -25,6 +25,7 @@ export type Course = {
 export const coursesQuery = queryOptions({
   queryKey: ["courses"] as const,
   queryFn: async (): Promise<Course[]> => {
+    await supabase.auth.getUser();
     const { data, error } = await supabase
       .from("courses")
       .select(
@@ -57,6 +58,7 @@ export type Task = {
 export const tasksQuery = queryOptions({
   queryKey: ["tasks"] as const,
   queryFn: async (): Promise<Task[]> => {
+    await supabase.auth.getUser();
     const { data, error } = await supabase
       .from("tasks")
       .select(
@@ -81,6 +83,7 @@ export type TermRow = {
 export const termsQuery = queryOptions({
   queryKey: ["term_dates"] as const,
   queryFn: async (): Promise<TermRow[]> => {
+    await supabase.auth.getUser();
     const { data, error } = await supabase
       .from("term_dates")
       .select("id,year,term,start_date,end_date")

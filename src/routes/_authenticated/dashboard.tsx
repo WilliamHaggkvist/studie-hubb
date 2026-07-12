@@ -186,6 +186,7 @@ function Dashboard() {
   const { data: recentStudyDays = [] } = useQuery({
     queryKey: ["recent_study_days"],
     queryFn: async () => {
+      await supabase.auth.getUser();
       const limitDate = subDays(new Date(), 90).toISOString();
       const { data: entries } = await supabase
         .from("time_entries")
@@ -315,6 +316,7 @@ function Dashboard() {
   const { data: weekEntries = [] } = useQuery({
     queryKey: ["time_entries", "week", weekStart.toISOString()],
     queryFn: async () => {
+      await supabase.auth.getUser();
       const { data } = await supabase
         .from("time_entries")
         .select("id,started_at,duration_seconds,course_id,source")
@@ -328,6 +330,7 @@ function Dashboard() {
   const { data: weekSessions = [] } = useQuery({
     queryKey: ["study_sessions", "week", weekStart.toISOString()],
     queryFn: async () => {
+      await supabase.auth.getUser();
       const { data } = await supabase
         .from("study_sessions")
         .select("id,course_id,planned_start,planned_end,actual_start,actual_end,completed")
@@ -377,6 +380,7 @@ function Dashboard() {
   const { data: rawTodaysSessions = [] } = useQuery({
     queryKey: ["sessions", "today"],
     queryFn: async () => {
+      await supabase.auth.getUser();
       const { data } = await supabase
         .from("study_sessions")
         .select("id,planned_start,planned_end,completed,course_id")
