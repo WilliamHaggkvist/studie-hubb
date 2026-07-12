@@ -145,6 +145,8 @@ function InformationPage() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewName, setPreviewName] = useState<string | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [isImageZoomed, setIsImageZoomed] = useState(false);
+  const [zoomedImageUrl, setZoomedImageUrl] = useState("");
 
   // Load from localStorage
   useEffect(() => {
@@ -788,6 +790,86 @@ function InformationPage() {
           </div>
         </div>
       </div>
+
+      {/* Static references section */}
+      <div className="mt-12 pt-8 border-t border-border/40 space-y-6">
+        <h2 className="font-display text-2xl font-bold tracking-tight bg-gradient-to-r from-primary to-sunset-orange bg-clip-text text-transparent flex items-center gap-2">
+          <BookOpen className="h-5.5 w-5.5 text-primary" />
+          Programstruktur & Läsår
+        </h2>
+        <div className="flex flex-col gap-6">
+          <div>
+            <span className="text-xs text-muted-foreground font-semibold block mb-2">Läsårsindelning</span>
+            <button 
+              className="rounded-2xl overflow-hidden cursor-zoom-in hover:brightness-95 active:scale-[0.99] transition-all w-full block text-left"
+              onClick={() => {
+                setZoomedImageUrl("/tipsguider/lasarsindelning.jpg");
+                setIsImageZoomed(true);
+              }}
+            >
+              <img 
+                src="/tipsguider/lasarsindelning.jpg" 
+                alt="Läsårsindelning" 
+                className="w-full h-auto block rounded-2xl border border-border/60 shadow-sm"
+              />
+            </button>
+          </div>
+
+          <div>
+            <span className="text-xs text-muted-foreground font-semibold block mb-2">CDEPR Programstruktur - Del 1</span>
+            <button 
+              className="rounded-2xl overflow-hidden cursor-zoom-in hover:brightness-95 active:scale-[0.99] transition-all w-full block text-left"
+              onClick={() => {
+                setZoomedImageUrl("/tipsguider/CDEPR Programstruktur-images-0.jpg");
+                setIsImageZoomed(true);
+              }}
+            >
+              <img 
+                src="/tipsguider/CDEPR Programstruktur-images-0.jpg" 
+                alt="CDEPR Programstruktur - Del 1" 
+                className="w-full h-auto block rounded-2xl border border-border/60 shadow-sm"
+              />
+            </button>
+          </div>
+
+          <div>
+            <span className="text-xs text-muted-foreground font-semibold block mb-2">CDEPR Programstruktur - Del 2</span>
+            <button 
+              className="rounded-2xl overflow-hidden cursor-zoom-in hover:brightness-95 active:scale-[0.99] transition-all w-full block text-left"
+              onClick={() => {
+                setZoomedImageUrl("/tipsguider/CDEPR Programstruktur-images-1.jpg");
+                setIsImageZoomed(true);
+              }}
+            >
+              <img 
+                src="/tipsguider/CDEPR Programstruktur-images-1.jpg" 
+                alt="CDEPR Programstruktur - Del 2" 
+                className="w-full h-auto block rounded-2xl border border-border/60 shadow-sm"
+              />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Fullscreen zoom overlay */}
+      {isImageZoomed && (
+        <div 
+          className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4 cursor-zoom-out animate-in fade-in duration-200"
+          onClick={() => setIsImageZoomed(false)}
+        >
+          <img 
+            src={zoomedImageUrl} 
+            alt="Förstoring" 
+            className="max-w-full max-h-full object-contain rounded-lg shadow-2xl animate-in zoom-in-95 duration-200"
+          />
+          <button 
+            className="absolute top-4 right-4 text-white/80 hover:text-white bg-black/40 hover:bg-black/60 rounded-full p-2 text-sm font-semibold transition-colors"
+            onClick={() => setIsImageZoomed(false)}
+          >
+            Stäng
+          </button>
+        </div>
+      )}
 
       {/* Edit Program Dialog */}
       <Dialog open={isEditingProgram} onOpenChange={setIsEditingProgram}>
