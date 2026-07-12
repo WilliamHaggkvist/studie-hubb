@@ -246,31 +246,34 @@ function InformationPage() {
       const { data: u } = await supabase.auth.getUser();
       if (u.user) {
         const path = `${u.user.id}/study-program/${Date.now()}-${file.name}`;
-        const { error: upErr } = await supabase.storage
+        const { data: uploadData, error: upErr } = await supabase.storage
           .from("course-files")
           .upload(path, file, { upsert: false });
 
-        if (!upErr) {
-          const { data: urlData } = supabase.storage
-            .from("course-files")
-            .getPublicUrl(path);
+        if (upErr || !uploadData) {
+          throw new Error(upErr?.message || "Bucket saknas eller uppladdning misslyckades");
+        }
 
-          if (urlData?.publicUrl) {
-            finalUrl = urlData.publicUrl;
-            const newFile: InfoFile = {
-              id: Date.now().toString(),
-              name: file.name,
-              url: finalUrl
-            };
-            setProgFiles([...progFiles, newFile]);
-            toast.success("Dokument uppladdat!");
-            setFileLoading(false);
-            return;
-          }
+        const { data: urlData } = supabase.storage
+          .from("course-files")
+          .getPublicUrl(path);
+
+        if (urlData?.publicUrl) {
+          finalUrl = urlData.publicUrl;
+          const newFile: InfoFile = {
+            id: Date.now().toString(),
+            name: file.name,
+            url: finalUrl
+          };
+          setProgFiles([...progFiles, newFile]);
+          toast.success("Dokument uppladdat!");
+          setFileLoading(false);
+          return;
         }
       }
     } catch (err) {
       console.warn("Supabase upload failed, falling back to base64...", err);
+      toast.warning("Kunde inte spara i molnet (är bucket 'course-files' skapad i Supabase?). Sparar lokalt i webbläsaren istället.");
     }
 
     if (file.size > 2 * 1024 * 1024) {
@@ -439,25 +442,28 @@ function InformationPage() {
       const { data: u } = await supabase.auth.getUser();
       if (u.user) {
         const path = `${u.user.id}/info-cards/${Date.now()}-${file.name}`;
-        const { error: upErr } = await supabase.storage
+        const { data: uploadData, error: upErr } = await supabase.storage
           .from("course-files")
           .upload(path, file, { upsert: false });
 
-        if (!upErr) {
-          const { data: urlData } = supabase.storage
-            .from("course-files")
-            .getPublicUrl(path);
+        if (upErr || !uploadData) {
+          throw new Error(upErr?.message || "Bucket saknas eller uppladdning misslyckades");
+        }
 
-          if (urlData?.publicUrl) {
-            setCardImageUrl(urlData.publicUrl);
-            toast.success("Bild uppladdad!");
-            setCardImageLoading(false);
-            return;
-          }
+        const { data: urlData } = supabase.storage
+          .from("course-files")
+          .getPublicUrl(path);
+
+        if (urlData?.publicUrl) {
+          setCardImageUrl(urlData.publicUrl);
+          toast.success("Bild uppladdad!");
+          setCardImageLoading(false);
+          return;
         }
       }
     } catch (err) {
       console.warn("Supabase card image upload failed, falling back to base64...", err);
+      toast.warning("Kunde inte spara i molnet (är bucket 'course-files' skapad i Supabase?). Sparar lokalt i webbläsaren istället.");
     }
 
     try {
