@@ -23,7 +23,8 @@ export function CompleteDialog({
     setPoints(task?.points ?? "");
   }, [task]);
   if (!task) return null;
-  const noGrade = task.task_type === "annat" || task.task_type === "modul";
+  const noGrade =
+    task.task_type === "annat" || task.task_type === "modul" || task.parent_id !== null;
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-sm glass rounded-2xl border-white/5">

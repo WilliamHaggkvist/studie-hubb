@@ -53,6 +53,8 @@ export type Task = {
   grade: string | null;
   points: string | null;
   pending_review: boolean;
+  completed_at: string | null;
+  parent_id: string | null;
 };
 
 export const tasksQuery = queryOptions({
@@ -62,7 +64,7 @@ export const tasksQuery = queryOptions({
     const { data, error } = await supabase
       .from("tasks")
       .select(
-        "id,title,description,status,due_at,course_id,task_type,task_kind,grade,points,pending_review",
+        "id,title,description,status,due_at,course_id,task_type,task_kind,grade,points,pending_review,completed_at,parent_id",
       )
       .order("due_at", { ascending: true, nullsFirst: false })
       .order("title", { ascending: true });

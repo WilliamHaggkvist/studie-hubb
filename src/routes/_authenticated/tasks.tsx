@@ -1,11 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -13,16 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Trash2, Calendar as CalIcon, Inbox, Pencil } from "lucide-react";
+import { Plus, Calendar as CalIcon, Inbox, ChevronDown, ChevronRight, Check } from "lucide-react";
 import { TaskDialog } from "@/components/tasks/task-dialog";
 import { QuickStatusDialog } from "@/components/tasks/quick-status-dialog";
 import { CompleteDialog } from "@/components/tasks/complete-dialog";
@@ -30,7 +18,15 @@ import { format, parseISO, differenceInCalendarDays } from "date-fns";
 import { sv } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { coursesQuery, type TaskType, TYPE_LABELS, TYPE_COLORS, TYPES_ALPHA } from "@/lib/queries";
+import {
+  coursesQuery,
+  tasksQuery,
+  type Task,
+  type TaskStatus,
+  TYPE_LABELS,
+  TYPE_COLORS,
+  TYPES_ALPHA,
+} from "@/lib/queries";
 import {
   DndContext,
   type DragEndEvent,
@@ -45,34 +41,7 @@ export const Route = createFileRoute("/_authenticated/tasks")({
   component: TasksPage,
 });
 
-type TaskStatus = "todo" | "doing" | "done";
-type TaskKind = "task" | "exam";
-
-type Task = {
-  id: string;
-  title: string;
-  description: string | null;
-  status: TaskStatus;
-  due_at: string | null;
-  course_id: string | null;
-  task_type: TaskType;
-  task_kind: TaskKind;
-  grade: string | null;
-  points: string | null;
-  pending_review: boolean;
-};
 type Course = { id: string; name: string; color: string };
-
-const EXAM_TYPES = new Set<TaskType>([
-  "inlamningsuppgift",
-  "kontrollskrivning",
-  "laboration",
-  "quiz",
-  "redovisning",
-  "seminarie",
-  "tenta",
-  "ovning",
-]);
 
 const COLUMNS: { key: TaskStatus; label: string; accent: string }[] = [
   { key: "todo", label: "Ej startad", accent: "var(--sunset-coral, #f94144)" },
@@ -94,62 +63,67 @@ function TasksPage() {
   const [filterCourse, setFilterCourse] = useState<string>("all");
   const [filterType, setFilterType] = useState<string>("all");
   const [filterDue, setFilterDue] = useState<string>("all");
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   const [createOpen, setCreateOpen] = useState(false);
   const [editing, setEditing] = useState<Task | null>(null);
   const [completeFor, setCompleteFor] = useState<Task | null>(null);
   const [quickActionFor, setQuickActionFor] = useState<Task | null>(null);
+  const [createParentId, setCreateParentId] = useState<string | null>(null);
 
   const { data: allCourses = [] } = useQuery(coursesQuery);
   const courses = allCourses.filter((c) => !c.archived && !c.completed);
 
-  const { data: allTasks = [] } = useQuery({
-    queryKey: ["tasks"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("tasks")
-        .select(
-          "id,title,description,status,due_at,course_id,task_type,task_kind,grade,points,pending_review",
-        )
-        .order("due_at", { ascending: true, nullsFirst: false })
-        .order("title", { ascending: true });
-      if (error) throw error;
-      return (data ?? []) as Task[];
-    },
-  });
+  const { data: allTasks = [] } = useQuery(tasksQuery);
 
-  const filtered = useMemo(() => {
+  // Barn per förälder
+  const childrenByParent = useMemo(() => {
+    const m = new Map<string, Task[]>();
+    for (const t of allTasks) {
+      if (t.parent_id) {
+        const arr = m.get(t.parent_id) ?? [];
+        arr.push(t);
+        m.set(t.parent_id, arr);
+      }
+    }
+    return m;
+  }, [allTasks]);
+
+  // Filtrera rot-uppgifter (barn följer med sin förälder)
+  const filteredRoots = useMemo(() => {
     const now = Date.now();
     const day = 24 * 3600 * 1000;
     const coursesMap = new Map(allCourses.map((c) => [c.id, c]));
-    return allTasks.filter((t) => {
-      if (t.course_id) {
-        const course = coursesMap.get(t.course_id);
-        if (course?.archived || course?.completed) return false;
-      }
-      if (filterCourse !== "all") {
-        if (filterCourse === "none") {
-          if (t.course_id) return false;
-        } else if (t.course_id !== filterCourse) {
+    return allTasks
+      .filter((t) => t.parent_id === null)
+      .filter((t) => {
+        if (t.course_id) {
+          const course = coursesMap.get(t.course_id);
+          if (course?.archived || course?.completed) return false;
+        }
+        if (filterCourse !== "all") {
+          if (filterCourse === "none") {
+            if (t.course_id) return false;
+          } else if (t.course_id !== filterCourse) {
+            return false;
+          }
+        }
+        if (filterType !== "all" && t.task_type !== filterType) return false;
+        if (filterDue !== "all" && t.due_at) {
+          const diff = parseISO(t.due_at).getTime() - now;
+          if (filterDue === "overdue" && diff >= 0) return false;
+          if (filterDue === "today" && (diff < 0 || diff > day)) return false;
+          if (filterDue === "week" && (diff < 0 || diff > 7 * day)) return false;
+          if (filterDue === "month" && (diff < 0 || diff > 30 * day)) return false;
+        } else if (filterDue !== "all" && !t.due_at) {
           return false;
         }
-      }
-      if (filterType !== "all" && t.task_type !== filterType) return false;
-      if (filterDue !== "all" && t.due_at) {
-        const diff = parseISO(t.due_at).getTime() - now;
-        if (filterDue === "overdue" && diff >= 0) return false;
-        if (filterDue === "today" && (diff < 0 || diff > day)) return false;
-        if (filterDue === "week" && (diff < 0 || diff > 7 * day)) return false;
-        if (filterDue === "month" && (diff < 0 || diff > 30 * day)) return false;
-      } else if (filterDue !== "all" && !t.due_at) {
-        return false;
-      }
-      return true;
-    });
+        return true;
+      });
   }, [allTasks, allCourses, filterCourse, filterType, filterDue]);
 
-  const pending = filtered.filter((t) => t.pending_review && t.status !== "done");
-  const board = filtered.filter((t) => !t.pending_review);
+  const pending = filteredRoots.filter((t) => t.pending_review && t.status !== "done");
+  const board = filteredRoots.filter((t) => !t.pending_review);
 
   const upsert = useMutation({
     mutationFn: async (patch: Partial<Task> & { id?: string }) => {
@@ -169,6 +143,7 @@ function TasksPage() {
           task_type: patch.task_type ?? "annat",
           task_kind: patch.task_kind ?? "task",
           status: patch.status ?? "todo",
+          parent_id: patch.parent_id ?? null,
         });
         if (error) throw error;
       }
@@ -186,8 +161,10 @@ function TasksPage() {
   });
 
   const setStatus = (t: Task, s: TaskStatus) => {
+    // Barn: aldrig betygsdialog
+    const isChild = t.parent_id !== null;
     if (s === "done") {
-      if (t.task_type === "annat" || t.task_type === "modul") {
+      if (isChild || t.task_type === "annat" || t.task_type === "modul") {
         upsert.mutate({
           id: t.id,
           status: "done",
@@ -195,20 +172,14 @@ function TasksPage() {
           points: null,
           pending_review: false,
           completed_at: new Date().toISOString(),
-        } as Partial<Task> & { id: string; completed_at?: string | null });
+        });
       } else {
         setCompleteFor(t);
       }
       return;
     }
     const wasPending = t.pending_review || t.status === "done";
-    const patch: Partial<Task> & {
-      id: string;
-      completed_at?: string | null;
-      grade?: string | null;
-      points?: string | null;
-      pending_review?: boolean;
-    } = {
+    const patch: Partial<Task> & { id: string } = {
       id: t.id,
       status: s,
       completed_at: null,
@@ -219,10 +190,23 @@ function TasksPage() {
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
   const onDragEnd = (e: DragEndEvent) => {
-    const t = filtered.find((x) => x.id === e.active.id);
+    const t = filteredRoots.find((x) => x.id === e.active.id);
     const target = e.over?.id as TaskStatus | undefined;
     if (!t || !target || t.status === target) return;
     setStatus(t, target);
+  };
+
+  const toggleExpand = (id: string) =>
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  const openCreateChild = (parentId: string) => {
+    setCreateParentId(parentId);
+    setCreateOpen(true);
   };
 
   return (
@@ -273,7 +257,10 @@ function TasksPage() {
             </SelectContent>
           </Select>
           <Button
-            onClick={() => setCreateOpen(true)}
+            onClick={() => {
+              setCreateParentId(null);
+              setCreateOpen(true);
+            }}
             className="gap-1 gradient-sunset text-white hover:opacity-90"
           >
             <Plus className="h-4 w-4" /> Ny
@@ -290,7 +277,12 @@ function TasksPage() {
                 col={col}
                 tasks={board.filter((t) => t.status === col.key)}
                 courses={courses}
+                childrenByParent={childrenByParent}
+                expanded={expanded}
+                onToggleExpand={toggleExpand}
                 onOpen={setQuickActionFor}
+                onAddChild={openCreateChild}
+                onToggleChild={setStatus}
               />
             ))}
           </div>
@@ -305,14 +297,24 @@ function TasksPage() {
               </div>
               <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
                 {pending.map((t) => (
-                  <DraggableCard key={t.id} task={t} courses={courses} onOpen={setQuickActionFor} />
+                  <DraggableCard
+                    key={t.id}
+                    task={t}
+                    courses={courses}
+                    childrenByParent={childrenByParent}
+                    expanded={expanded}
+                    onToggleExpand={toggleExpand}
+                    onOpen={setQuickActionFor}
+                    onAddChild={openCreateChild}
+                    onToggleChild={setStatus}
+                  />
                 ))}
               </div>
             </div>
           )}
         </DndContext>
 
-        {filtered.length === 0 && (
+        {filteredRoots.length === 0 && (
           <div className="rounded-2xl border border-dashed border-border/60 bg-surface/40 p-10 text-center text-sm text-muted-foreground">
             Inga uppgifter här. Skapa din första!
           </div>
@@ -321,12 +323,18 @@ function TasksPage() {
 
       <TaskDialog
         open={createOpen}
-        onOpenChange={setCreateOpen}
+        onOpenChange={(o) => {
+          setCreateOpen(o);
+          if (!o) setCreateParentId(null);
+        }}
         courses={courses}
+        rootTasks={allTasks.filter((t) => t.parent_id === null)}
+        defaultParentId={createParentId}
         onSave={(v) => {
           upsert.mutate(v, {
             onSuccess: () => {
               setCreateOpen(false);
+              setCreateParentId(null);
               toast.success("Skapad");
             },
           });
@@ -337,6 +345,10 @@ function TasksPage() {
         onOpenChange={(o) => !o && setEditing(null)}
         courses={courses}
         task={editing ?? undefined}
+        rootTasks={allTasks.filter(
+          (t) => t.parent_id === null && t.id !== editing?.id,
+        )}
+        hasChildren={editing ? (childrenByParent.get(editing.id)?.length ?? 0) > 0 : false}
         onDelete={
           editing
             ? () => {
@@ -367,12 +379,17 @@ function TasksPage() {
           );
         }}
         onDone={(t, grade, points) => {
-          const patch: Record<string, unknown> = { id: t.id, grade, points, pending_review: false };
+          const patch: Partial<Task> & { id: string } = {
+            id: t.id,
+            grade,
+            points,
+            pending_review: false,
+          };
           if (grade.trim() && points.trim()) {
             patch.status = "done";
             patch.completed_at = new Date().toISOString();
           }
-          upsert.mutate(patch as Partial<Task> & { id: string }, {
+          upsert.mutate(patch, {
             onSuccess: () => setCompleteFor(null),
           });
         }}
@@ -393,17 +410,24 @@ function TasksPage() {
   );
 }
 
+type CardCommon = {
+  courses: Course[];
+  childrenByParent: Map<string, Task[]>;
+  expanded: Set<string>;
+  onToggleExpand: (id: string) => void;
+  onOpen: (t: Task) => void;
+  onAddChild: (parentId: string) => void;
+  onToggleChild: (t: Task, s: TaskStatus) => void;
+};
+
 function Column({
   col,
   tasks,
-  courses,
-  onOpen,
+  ...rest
 }: {
   col: { key: TaskStatus; label: string; accent: string };
   tasks: Task[];
-  courses: Course[];
-  onOpen: (t: Task) => void;
-}) {
+} & CardCommon) {
   const { setNodeRef, isOver } = useDroppable({ id: col.key });
   return (
     <div
@@ -422,7 +446,7 @@ function Column({
       </div>
       <div className="space-y-2 min-h-[80px]">
         {tasks.map((t) => (
-          <DraggableCard key={t.id} task={t} courses={courses} onOpen={onOpen} />
+          <DraggableCard key={t.id} task={t} {...rest} />
         ))}
       </div>
     </div>
@@ -431,13 +455,10 @@ function Column({
 
 function DraggableCard({
   task,
-  courses,
-  onOpen,
+  ...rest
 }: {
   task: Task;
-  courses: Course[];
-  onOpen: (t: Task) => void;
-}) {
+} & CardCommon) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: task.id,
   });
@@ -448,65 +469,167 @@ function DraggableCard({
     <div
       ref={setNodeRef}
       style={style}
-      {...listeners}
-      {...attributes}
       className={cn("touch-none", isDragging && "opacity-50")}
     >
-      <Card task={task} courses={courses} onOpen={onOpen} />
+      <Card task={task} dragHandle={{ ...listeners, ...attributes }} {...rest} />
     </div>
   );
 }
 
 function Card({
   task,
+  dragHandle,
   courses,
+  childrenByParent,
+  expanded,
+  onToggleExpand,
   onOpen,
+  onAddChild,
+  onToggleChild,
 }: {
   task: Task;
-  courses: Course[];
-  onOpen: (t: Task) => void;
-}) {
+  dragHandle: Record<string, unknown>;
+} & CardCommon) {
   const c = courses.find((x) => x.id === task.course_id);
   const overdue =
     task.due_at && parseISO(task.due_at).getTime() < Date.now() && task.status !== "done";
+  const kids = childrenByParent.get(task.id) ?? [];
+  const doneKids = kids.filter((k) => k.status === "done").length;
+  const isOpen = expanded.has(task.id);
   return (
-    <button
-      onClick={() => onOpen(task)}
-      className="w-full rounded-xl border border-border/60 bg-surface p-3 text-left shadow-sm hover:border-primary/40"
-    >
-      <div
-        className={cn(
-          "mb-1 text-sm font-medium",
-          task.status === "done" && "line-through text-muted-foreground",
+    <div className="rounded-xl border border-border/60 bg-surface shadow-sm">
+      <div className="flex items-start gap-1 p-1">
+        {kids.length > 0 && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleExpand(task.id);
+            }}
+            className="mt-1 rounded-md p-1 text-muted-foreground hover:bg-surface-2"
+            aria-label={isOpen ? "Fäll ihop" : "Fäll ut"}
+          >
+            {isOpen ? (
+              <ChevronDown className="h-3.5 w-3.5" />
+            ) : (
+              <ChevronRight className="h-3.5 w-3.5" />
+            )}
+          </button>
         )}
-      >
-        {task.title}
+        <button
+          type="button"
+          onClick={() => onOpen(task)}
+          {...dragHandle}
+          className={cn(
+            "flex-1 rounded-lg p-2 text-left hover:bg-white/5",
+            kids.length === 0 && "pl-2",
+          )}
+        >
+          <div
+            className={cn(
+              "mb-1 text-sm font-medium",
+              task.status === "done" && "line-through text-muted-foreground",
+            )}
+          >
+            {task.title}
+          </div>
+          <div className="flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground">
+            {c && (
+              <span className="inline-flex items-center gap-1">
+                <span
+                  className="inline-block h-1.5 w-1.5 rounded-full"
+                  style={{ background: c.color }}
+                />
+                {c.name}
+              </span>
+            )}
+            <span className={`rounded-full px-1.5 py-0.5 ${TYPE_COLORS[task.task_type]}`}>
+              {TYPE_LABELS[task.task_type]}
+            </span>
+            {task.due_at && (
+              <span className={cn("inline-flex items-center gap-1", overdue && "text-sunset-rose")}>
+                <CalIcon className="h-2.5 w-2.5" />{" "}
+                {format(parseISO(task.due_at), "d MMM", { locale: sv })} ·{" "}
+                {daysLeftLabel(task.due_at)}
+              </span>
+            )}
+            {kids.length > 0 && (
+              <span className="rounded-full bg-surface-2 px-1.5 py-0.5">
+                {doneKids}/{kids.length} klara
+              </span>
+            )}
+            {task.grade && task.task_type !== "annat" && task.task_type !== "modul" && (
+              <span className="rounded-full bg-surface-2 px-1.5 py-0.5">Betyg: {task.grade}</span>
+            )}
+          </div>
+        </button>
       </div>
-      <div className="flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground">
-        {c && (
-          <span className="inline-flex items-center gap-1">
-            <span
-              className="inline-block h-1.5 w-1.5 rounded-full"
-              style={{ background: c.color }}
-            />
-            {c.name}
-          </span>
-        )}
-        <span className={`rounded-full px-1.5 py-0.5 ${TYPE_COLORS[task.task_type]}`}>
-          {TYPE_LABELS[task.task_type]}
-        </span>
-        {task.due_at && (
-          <span className={cn("inline-flex items-center gap-1", overdue && "text-sunset-rose")}>
-            <CalIcon className="h-2.5 w-2.5" />{" "}
-            {format(parseISO(task.due_at), "d MMM", { locale: sv })} · {daysLeftLabel(task.due_at)}
-          </span>
-        )}
-        {task.grade && task.task_type !== "annat" && task.task_type !== "modul" && (
-          <span className="rounded-full bg-surface-2 px-1.5 py-0.5">Betyg: {task.grade}</span>
-        )}
+      {kids.length > 0 && isOpen && (
+        <div className="border-t border-border/40 px-2 py-2 space-y-1">
+          {kids.map((k) => (
+            <ChildRow key={k.id} child={k} onToggle={onToggleChild} onOpen={onOpen} />
+          ))}
+        </div>
+      )}
+      <div className="border-t border-border/40 px-2 py-1">
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onAddChild(task.id);
+          }}
+          className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-[10px] text-muted-foreground hover:bg-white/5 hover:text-foreground"
+        >
+          <Plus className="h-3 w-3" /> Underuppgift
+        </button>
       </div>
-    </button>
+    </div>
   );
 }
 
-
+function ChildRow({
+  child,
+  onToggle,
+  onOpen,
+}: {
+  child: Task;
+  onToggle: (t: Task, s: TaskStatus) => void;
+  onOpen: (t: Task) => void;
+}) {
+  const isDone = child.status === "done";
+  return (
+    <div className="flex items-center gap-2 rounded-md px-1.5 py-1 hover:bg-white/5">
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          onToggle(child, isDone ? "todo" : "done");
+        }}
+        className={cn(
+          "flex h-4 w-4 flex-none items-center justify-center rounded-md border transition",
+          isDone
+            ? "border-emerald-500/60 bg-emerald-500/20 text-emerald-400"
+            : "border-border/60 hover:border-primary/60",
+        )}
+        aria-label={isDone ? "Markera ej klar" : "Markera klar"}
+      >
+        {isDone && <Check className="h-3 w-3" />}
+      </button>
+      <button
+        type="button"
+        onClick={() => onOpen(child)}
+        className={cn(
+          "flex-1 truncate text-left text-xs",
+          isDone && "line-through text-muted-foreground",
+        )}
+      >
+        {child.title}
+      </button>
+      {child.due_at && (
+        <span className="text-[10px] text-muted-foreground">
+          {format(parseISO(child.due_at), "d MMM", { locale: sv })}
+        </span>
+      )}
+    </div>
+  );
+}

@@ -39,6 +39,9 @@ export function TaskDialog({
   courses,
   task,
   defaultKind,
+  rootTasks,
+  defaultParentId,
+  hasChildren,
   onSave,
   onDelete,
 }: {
@@ -47,6 +50,12 @@ export function TaskDialog({
   courses: CourseOption[];
   task?: Task;
   defaultKind?: TaskKind;
+  /** Tillgängliga rot-uppgifter att koppla som förälder. Om saknas visas inget parent-fält. */
+  rootTasks?: Task[];
+  /** Förvalt parent_id vid skapa. */
+  defaultParentId?: string | null;
+  /** True om uppgiften som redigeras redan har barn — då får den inte själv bli barn. */
+  hasChildren?: boolean;
   onSave: (v: Partial<Task>) => void;
   onDelete?: () => void;
 }) {
@@ -55,16 +64,20 @@ export function TaskDialog({
   const [dueAt, setDueAt] = useState(task?.due_at ? task.due_at.slice(0, 16) : "");
   const [courseId, setCourseId] = useState(task?.course_id ?? "none");
   const [type, setType] = useState<TaskType>(task?.task_type ?? "annat");
+  const [parentId, setParentId] = useState<string>(
+    task?.parent_id ?? defaultParentId ?? "none",
+  );
   const kind: TaskKind = EXAM_TYPES.has(type) ? "exam" : "task";
 
-  // Reset when task changes
+  // Reset when task or defaultParentId changes
   useEffect(() => {
     setTitle(task?.title ?? "");
     setDescription(task?.description ?? "");
     setDueAt(task?.due_at ? task.due_at.slice(0, 16) : "");
     setCourseId(task?.course_id ?? "none");
     setType(task?.task_type ?? "annat");
-  }, [task, defaultKind]);
+    setParentId(task?.parent_id ?? defaultParentId ?? "none");
+  }, [task, defaultKind, defaultParentId]);
 
   const submit = () => {
     onSave({
@@ -74,9 +87,16 @@ export function TaskDialog({
       course_id: courseId === "none" ? null : courseId,
       task_type: type,
       task_kind: kind,
+      parent_id: parentId === "none" ? null : parentId,
       ...(task ? {} : { status: "todo", pending_review: false }),
     });
   };
+
+  const canPickParent = !hasChildren && rootTasks && rootTasks.length > 0;
+  const parentOptions =
+    rootTasks?.filter(
+      (t) => courseId === "none" || !t.course_id || t.course_id === courseId,
+    ) ?? [];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -142,6 +162,32 @@ export function TaskDialog({
               </Select>
             </div>
           </div>
+          {canPickParent && (
+            <div className="space-y-1.5">
+              <Label>Underuppgift till</Label>
+              <Select value={parentId} onValueChange={setParentId}>
+                <SelectTrigger className="rounded-xl">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="rounded-xl">
+                  <SelectItem value="none">Ingen (huvuduppgift)</SelectItem>
+                  {parentOptions.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-[11px] text-muted-foreground">
+                Endast en nivå av underuppgifter tillåts.
+              </p>
+            </div>
+          )}
+          {hasChildren && (
+            <p className="text-[11px] text-muted-foreground">
+              Denna uppgift har egna underuppgifter och kan inte själv bli en underuppgift.
+            </p>
+          )}
         </div>
         <DialogFooter className="gap-2">
           {onDelete && (
