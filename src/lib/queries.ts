@@ -53,6 +53,8 @@ export type Task = {
   grade: string | null;
   points: string | null;
   pending_review: boolean;
+  completed_at: string | null;
+  parent_id: string | null;
 };
 
 export const tasksQuery = queryOptions({
