@@ -127,7 +127,13 @@ function TasksPage() {
         const course = coursesMap.get(t.course_id);
         if (course?.archived || course?.completed) return false;
       }
-      if (filterCourse !== "all" && t.course_id !== filterCourse) return false;
+      if (filterCourse !== "all") {
+        if (filterCourse === "none") {
+          if (t.course_id) return false;
+        } else if (t.course_id !== filterCourse) {
+          return false;
+        }
+      }
       if (filterType !== "all" && t.task_type !== filterType) return false;
       if (filterDue !== "all" && t.due_at) {
         const diff = parseISO(t.due_at).getTime() - now;
@@ -233,6 +239,7 @@ function TasksPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Alla kurser</SelectItem>
+              <SelectItem value="none">Utan kurs</SelectItem>
               {courses.map((c) => (
                 <SelectItem key={c.id} value={c.id}>
                   {c.name}

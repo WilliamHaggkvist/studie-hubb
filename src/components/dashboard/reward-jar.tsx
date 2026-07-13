@@ -17,6 +17,7 @@ export function RewardJar({
   totalWeeklyGoalSeconds,
   weekDoneCount,
   weekTasksCount,
+  weekDoneWithDeadlineCount,
 }: {
   isJarFull: boolean;
   beads: Bead[];
@@ -24,6 +25,7 @@ export function RewardJar({
   totalWeeklyGoalSeconds: number;
   weekDoneCount: number;
   weekTasksCount: number;
+  weekDoneWithDeadlineCount: number;
 }) {
   return (
     <Card className="glass border-white/5 shadow-lg flex flex-col h-full min-h-[350px]">
@@ -118,7 +120,10 @@ export function RewardJar({
           <p className="text-[10px] text-muted-foreground leading-normal">
             Studietid: {formatHoursCompact(weekCompletedSeconds)} /{" "}
             {formatHoursCompact(totalWeeklyGoalSeconds)} <br />
-            Uppgifter med deadline: {weekDoneCount} av {weekTasksCount} klara
+            Klara uppgifter: {weekDoneCount}
+            {weekTasksCount > 0 && (
+              <> (varav {weekDoneWithDeadlineCount} av {weekTasksCount} med deadline)</>
+            )}
           </p>
         </div>
       </CardContent>

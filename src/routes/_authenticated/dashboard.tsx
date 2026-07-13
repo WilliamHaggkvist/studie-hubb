@@ -273,19 +273,37 @@ function Dashboard() {
   });
 
   const weekTasks = allTasks.filter((t) => {
-    if (!t.due_at) return false;
-    const due = parseISO(t.due_at);
-    if (due < weekStart || due > weekEnd) return false;
     if (t.course_id) {
       const course = coursesMap.get(t.course_id);
       if (course?.archived) return false;
     }
-    return true;
+    if (t.due_at) {
+      const due = parseISO(t.due_at);
+      if (due >= weekStart && due <= weekEnd) return true;
+    }
+    const isCompleted = t.status === "done" || t.pending_review;
+    if (isCompleted) {
+      if (t.completed_at) {
+        const compDate = parseISO(t.completed_at);
+        if (compDate >= weekStart && compDate <= weekEnd) return true;
+      } else if (t.due_at) {
+        const due = parseISO(t.due_at);
+        if (due >= weekStart && due <= weekEnd) return true;
+      }
+    }
+    return false;
   });
 
   const weekTodoCount = weekTasks.filter((t) => t.status === "todo" && !t.pending_review).length;
   const weekDoingCount = weekTasks.filter((t) => t.status === "doing" && !t.pending_review).length;
   const weekDoneCount = weekTasks.filter((t) => t.status === "done" || t.pending_review).length;
+  const weekDoneWithDeadlineCount = weekTasks.filter(
+    (t) =>
+      (t.status === "done" || t.pending_review) &&
+      t.due_at &&
+      parseISO(t.due_at) >= weekStart &&
+      parseISO(t.due_at) <= weekEnd,
+  ).length;
 
   const activePeriod = todayPeriod(terms);
   const activeCourses = courses.filter(
@@ -399,12 +417,22 @@ function Dashboard() {
 
   const todayTasks = useMemo(() => {
     return allTasks.filter((t) => {
-      if (!t.due_at) return false;
       if (t.course_id) {
         const course = coursesMap.get(t.course_id);
         if (course?.archived) return false;
       }
-      return isSameDay(parseISO(t.due_at), new Date());
+      if (t.due_at && isSameDay(parseISO(t.due_at), new Date())) {
+        return true;
+      }
+      const isCompleted = t.status === "done" || t.pending_review;
+      if (isCompleted) {
+        if (t.completed_at) {
+          return isSameDay(parseISO(t.completed_at), new Date());
+        } else if (t.due_at) {
+          return isSameDay(parseISO(t.due_at), new Date());
+        }
+      }
+      return false;
     });
   }, [allTasks, coursesMap]);
 
@@ -502,9 +530,9 @@ function Dashboard() {
 
   const isJarFull = useMemo(() => {
     const timeGoalMet = weekCompletedSeconds >= totalWeeklyGoalSeconds;
-    const tasksGoalMet = weekTasks.length === 0 || weekDoneCount === weekTasks.length;
+    const tasksGoalMet = weekTasks.length === 0 || weekDoneWithDeadlineCount === weekTasks.length;
     return timeGoalMet && tasksGoalMet;
-  }, [weekCompletedSeconds, totalWeeklyGoalSeconds, weekTasks.length, weekDoneCount]);
+  }, [weekCompletedSeconds, totalWeeklyGoalSeconds, weekTasks.length, weekDoneWithDeadlineCount]);
 
   const now = new Date();
   const hour = now.getHours();
@@ -767,10 +795,10 @@ function Dashboard() {
             </div>
             <div>
               <div className="mb-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                Deadlines idag
+                Dagens uppgifter
               </div>
               {todayTasks.length === 0 && (
-                <div className="text-sm text-muted-foreground">Inga deadlines idag.</div>
+                <div className="text-sm text-muted-foreground">Inga uppgifter idag.</div>
               )}
               {todayTasks.map((t) => {
                 const c = courses.find((x) => x.id === t.course_id);
@@ -816,6 +844,7 @@ function Dashboard() {
                         pending_review: false,
                         grade: "-",
                         points: "-",
+                        completed_at: new Date().toISOString(),
                       });
                     } else {
                       setCompleteFor(t);
@@ -827,6 +856,7 @@ function Dashboard() {
                       pending_review: false,
                       grade: null,
                       points: null,
+                      completed_at: null,
                     });
                   }
                 };
@@ -984,7 +1014,7 @@ function Dashboard() {
             >
               <div className="flex items-center justify-between font-medium text-[11px] text-muted-foreground uppercase tracking-wider">
                 <span className="flex items-center gap-2">
-                  <ListTodo className="h-3.5 w-3.5 text-sunset-amber" /> Uppgifter med deadline
+                  <ListTodo className="h-3.5 w-3.5 text-sunset-amber" /> Veckans uppgifter
                 </span>
                 <span className="tabular-nums font-semibold text-foreground">
                   {weekTasks.length} totalt
@@ -1114,6 +1144,7 @@ function Dashboard() {
           totalWeeklyGoalSeconds={totalWeeklyGoalSeconds}
           weekDoneCount={weekDoneCount}
           weekTasksCount={weekTasks.length}
+          weekDoneWithDeadlineCount={weekDoneWithDeadlineCount}
         />
       </div>
 
@@ -1138,6 +1169,7 @@ function Dashboard() {
           const patch: Record<string, any> = { id: t.id, grade, points, pending_review: false };
           if (grade.trim() && points.trim()) {
             patch.status = "done";
+            patch.completed_at = new Date().toISOString();
           }
           updateTaskStatus.mutate(patch as Partial<Task> & { id: string });
           setCompleteFor(null);

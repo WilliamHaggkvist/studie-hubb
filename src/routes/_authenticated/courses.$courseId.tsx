@@ -383,6 +383,11 @@ function CourseDetail() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["courses"] });
+      qc.invalidateQueries({ queryKey: ["tasks"] });
+      qc.invalidateQueries({ queryKey: ["study_sessions"] });
+      qc.invalidateQueries({ queryKey: ["time_entries"] });
+      qc.invalidateQueries({ queryKey: ["stats"] });
+      qc.invalidateQueries({ queryKey: ["events"] });
       toast.success("Kurs borttagen");
       navigate({ to: "/courses" });
     },
