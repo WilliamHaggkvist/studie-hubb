@@ -599,6 +599,7 @@ export type Database = {
           due_at: string | null
           grade: string | null
           id: string
+          parent_id: string | null
           pending_review: boolean
           points: string | null
           priority: Database["public"]["Enums"]["task_priority"]
@@ -618,6 +619,7 @@ export type Database = {
           due_at?: string | null
           grade?: string | null
           id?: string
+          parent_id?: string | null
           pending_review?: boolean
           points?: string | null
           priority?: Database["public"]["Enums"]["task_priority"]
@@ -637,6 +639,7 @@ export type Database = {
           due_at?: string | null
           grade?: string | null
           id?: string
+          parent_id?: string | null
           pending_review?: boolean
           points?: string | null
           priority?: Database["public"]["Enums"]["task_priority"]
@@ -654,6 +657,13 @@ export type Database = {
             columns: ["course_id"]
             isOneToOne: false
             referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
             referencedColumns: ["id"]
           },
         ]
