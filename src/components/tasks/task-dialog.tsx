@@ -80,7 +80,7 @@ export function TaskDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg glass rounded-2xl border-white/5">
+      <DialogContent className="max-w-lg glass rounded-2xl border-white/5 max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="font-display">
             {task ? "Redigera" : "Ny"} {kind === "exam" ? "examination" : "uppgift"}
@@ -115,7 +115,7 @@ export function TaskDialog({
               </SelectContent>
             </Select>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>Deadline</Label>
               <Input
