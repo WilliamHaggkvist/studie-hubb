@@ -391,9 +391,8 @@ function CourseDetail() {
   });
 
   const setTaskStatus = (t: Task, s: TaskStatus) => {
-    const isChild = t.parent_id !== null;
     if (s === "done") {
-      if (isChild || t.task_type === "annat" || t.task_type === "modul") {
+      if (t.task_type === "annat" || t.task_type === "modul") {
         upsertTask.mutate({
           id: t.id,
           status: "done",
@@ -790,6 +789,11 @@ function CourseDetail() {
                                 <span className={cn("rounded-full px-1.5 py-0.25 text-[9px] border border-white/5 shrink-0", TYPE_COLORS[k.task_type])}>
                                   {TYPE_LABELS[k.task_type]}
                                 </span>
+                                {k.grade && k.task_type !== "annat" && k.task_type !== "modul" && (
+                                  <span className="rounded-full bg-surface-2 px-1 py-0.25 text-[9px] shrink-0">
+                                    Betyg: {k.grade}
+                                  </span>
+                                )}
                                 {kValidDue && (
                                   <span className={cn("text-[10px] text-muted-foreground shrink-0", kOverdue && "text-sunset-rose font-medium")}>
                                     {format(kDue, "d MMM", { locale: sv })}

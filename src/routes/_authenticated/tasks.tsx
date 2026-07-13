@@ -187,10 +187,8 @@ function TasksPage() {
   });
 
   const setStatus = (t: Task, s: TaskStatus) => {
-    // Barn: aldrig betygsdialog
-    const isChild = t.parent_id !== null;
     if (s === "done") {
-      if (isChild || t.task_type === "annat" || t.task_type === "modul") {
+      if (t.task_type === "annat" || t.task_type === "modul") {
         upsert.mutate({
           id: t.id,
           status: "done",
@@ -642,6 +640,11 @@ function ChildRow({
       <span className={cn("rounded-full px-1.5 py-0.25 text-[9px] border border-white/5 shrink-0", TYPE_COLORS[child.task_type])}>
         {TYPE_LABELS[child.task_type]}
       </span>
+      {child.grade && child.task_type !== "annat" && child.task_type !== "modul" && (
+        <span className="rounded-full bg-surface-2 px-1.5 py-0.5 text-[9px] shrink-0">
+          Betyg: {child.grade}
+        </span>
+      )}
       {child.due_at && (
         <span className="text-[10px] text-muted-foreground shrink-0">
           {format(parseISO(child.due_at), "d MMM", { locale: sv })}
