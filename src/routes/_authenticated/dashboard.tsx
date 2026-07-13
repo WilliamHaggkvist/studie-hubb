@@ -186,7 +186,6 @@ function Dashboard() {
   const { data: recentStudyDays = [] } = useQuery({
     queryKey: ["recent_study_days"],
     queryFn: async () => {
-      await supabase.auth.getUser();
       const limitDate = subDays(new Date(), 90).toISOString();
       const { data: entries } = await supabase
         .from("time_entries")
@@ -249,7 +248,7 @@ function Dashboard() {
     if (t.status === "done") return false;
     if (t.course_id) {
       const course = coursesMap.get(t.course_id);
-      if (course?.archived || course?.completed) return false;
+      if (course?.archived) return false;
     }
     return true;
   });
@@ -257,7 +256,7 @@ function Dashboard() {
     if (!t.pending_review || t.status === "done") return false;
     if (t.course_id) {
       const course = coursesMap.get(t.course_id);
-      if (course?.archived || course?.completed) return false;
+      if (course?.archived) return false;
     }
     return true;
   });
@@ -268,7 +267,7 @@ function Dashboard() {
     if (due < weekStart || due > weekEnd) return false;
     if (t.course_id) {
       const course = coursesMap.get(t.course_id);
-      if (course?.archived || course?.completed) return false;
+      if (course?.archived) return false;
     }
     return true;
   });
@@ -279,7 +278,7 @@ function Dashboard() {
     if (due < weekStart || due > weekEnd) return false;
     if (t.course_id) {
       const course = coursesMap.get(t.course_id);
-      if (course?.archived || course?.completed) return false;
+      if (course?.archived) return false;
     }
     return true;
   });
@@ -289,7 +288,10 @@ function Dashboard() {
   const weekDoneCount = weekTasks.filter((t) => t.status === "done" || t.pending_review).length;
 
   const activePeriod = todayPeriod(terms);
-  const activeCourses = courses.filter((c) => !c.completed);
+  const activeCourses = courses.filter(
+    (c) =>
+      !c.completed && (currentYear === null || c.arskurs === null || c.arskurs === currentYear),
+  );
 
   const groupedCourses = activeCourses.reduce(
     (acc, c) => {
@@ -313,7 +315,6 @@ function Dashboard() {
   const { data: weekEntries = [] } = useQuery({
     queryKey: ["time_entries", "week", weekStart.toISOString()],
     queryFn: async () => {
-      await supabase.auth.getUser();
       const { data } = await supabase
         .from("time_entries")
         .select("id,started_at,duration_seconds,course_id,source")
@@ -327,7 +328,6 @@ function Dashboard() {
   const { data: weekSessions = [] } = useQuery({
     queryKey: ["study_sessions", "week", weekStart.toISOString()],
     queryFn: async () => {
-      await supabase.auth.getUser();
       const { data } = await supabase
         .from("study_sessions")
         .select("id,course_id,planned_start,planned_end,actual_start,actual_end,completed")
@@ -346,7 +346,7 @@ function Dashboard() {
       if (e.source === "session") continue;
       if (e.course_id) {
         const course = coursesMap.get(e.course_id);
-        if (course?.archived || course?.completed) continue;
+        if (course?.archived) continue;
       }
       out.push({
         started_at: e.started_at,
@@ -357,7 +357,7 @@ function Dashboard() {
     for (const s of weekSessions) {
       if (s.course_id) {
         const course = coursesMap.get(s.course_id);
-        if (course?.archived || course?.completed) continue;
+        if (course?.archived) continue;
       }
       const start = s.actual_start ?? s.planned_start;
       const end = s.actual_end ?? s.planned_end;
@@ -377,7 +377,6 @@ function Dashboard() {
   const { data: rawTodaysSessions = [] } = useQuery({
     queryKey: ["sessions", "today"],
     queryFn: async () => {
-      await supabase.auth.getUser();
       const { data } = await supabase
         .from("study_sessions")
         .select("id,planned_start,planned_end,completed,course_id")
@@ -394,7 +393,7 @@ function Dashboard() {
     return rawTodaysSessions.filter((s) => {
       if (!s.course_id) return true;
       const course = coursesMap.get(s.course_id);
-      return course ? (!course.archived && !course.completed) : true;
+      return course ? !course.archived : true;
     });
   }, [rawTodaysSessions, coursesMap]);
 
@@ -403,7 +402,7 @@ function Dashboard() {
       if (!t.due_at) return false;
       if (t.course_id) {
         const course = coursesMap.get(t.course_id);
-        if (course?.archived || course?.completed) return false;
+        if (course?.archived) return false;
       }
       return isSameDay(parseISO(t.due_at), new Date());
     });
@@ -947,8 +946,8 @@ function Dashboard() {
                         "w-6 h-6 transition-all duration-500",
                         currentStreak <= 3 && "text-amber-500 opacity-80 animate-pulse scale-75",
                         currentStreak > 3 &&
-                          currentStreak <= 7 &&
-                          "text-orange-500 animate-flicker-orange",
+                        currentStreak <= 7 &&
+                        "text-orange-500 animate-flicker-orange",
                         currentStreak > 7 && "text-violet-400 animate-flicker-indigo",
                       )}
                       style={{
