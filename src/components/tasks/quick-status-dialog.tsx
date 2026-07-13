@@ -1,6 +1,6 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Pencil } from "lucide-react";
+import { Pencil, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { type Task, type TaskStatus } from "@/lib/queries";
 
@@ -15,11 +15,13 @@ export function QuickStatusDialog({
   onClose,
   onChangeStatus,
   onEdit,
+  onAddSubtask,
 }: {
   task: Task | null;
   onClose: () => void;
   onChangeStatus: (t: Task, s: TaskStatus) => void;
   onEdit: (t: Task) => void;
+  onAddSubtask?: (t: Task) => void;
 }) {
   if (!task) return null;
   return (
@@ -62,11 +64,20 @@ export function QuickStatusDialog({
             </div>
           )}
         </div>
-        <DialogFooter>
+        <div className="flex flex-col gap-2 pt-2 border-t border-white/5">
+          {task.parent_id === null && (
+            <Button
+              variant="outline"
+              className="w-full gap-1.5 rounded-xl cursor-pointer"
+              onClick={() => onAddSubtask?.(task)}
+            >
+              <Plus className="h-3.5 w-3.5" /> Skapa underuppgift
+            </Button>
+          )}
           <Button variant="outline" className="w-full gap-1.5 rounded-xl cursor-pointer" onClick={() => onEdit(task)}>
             <Pencil className="h-3.5 w-3.5" /> Redigera uppgift
           </Button>
-        </DialogFooter>
+        </div>
       </DialogContent>
     </Dialog>
   );

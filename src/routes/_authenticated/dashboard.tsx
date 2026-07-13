@@ -167,6 +167,32 @@ function Dashboard() {
         .update(rest as any)
         .eq("id", id);
       if (error) throw error;
+
+      if (rest.status === "done" || rest.pending_review === true) {
+        const { error: subtasksError } = await supabase
+          .from("tasks")
+          .update({
+            status: "done",
+            completed_at: new Date().toISOString(),
+            grade: null,
+            points: null,
+            pending_review: false,
+          })
+          .eq("parent_id", id);
+        if (subtasksError) throw subtasksError;
+      } else if (rest.status === "todo") {
+        const { error: subtasksError } = await supabase
+          .from("tasks")
+          .update({
+            status: "todo",
+            completed_at: null,
+            grade: null,
+            points: null,
+            pending_review: false,
+          })
+          .eq("parent_id", id);
+        if (subtasksError) throw subtasksError;
+      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["tasks"] });
@@ -890,14 +916,24 @@ function Dashboard() {
                     >
                       {statusInfo.label}
                     </button>
-                    <span
-                      className={cn(
-                        "min-w-0 flex-1 truncate",
-                        t.status === "done" && "line-through text-muted-foreground",
-                      )}
-                    >
-                      {t.title}
-                    </span>
+                    <div className="flex-1 min-w-0 flex flex-col">
+                      <span
+                        className={cn(
+                          "truncate",
+                          t.status === "done" && "line-through text-muted-foreground",
+                        )}
+                      >
+                        {t.title}
+                      </span>
+                      {t.parent_id && (() => {
+                        const parent = allTasks.find((x) => x.id === t.parent_id);
+                        return parent ? (
+                          <span className="text-[10px] text-muted-foreground truncate">
+                            Deluppgift till: <span className="italic">{parent.title}</span>
+                          </span>
+                        ) : null;
+                      })()}
+                    </div>
                     {c && (
                       <span className="text-[10px] text-muted-foreground/60 shrink-0 font-medium">
                         {c.name}
@@ -1103,7 +1139,17 @@ function Dashboard() {
                           to="/tasks"
                           className="flex items-center gap-3 rounded-md px-2 py-2 text-sm hover:bg-white/5"
                         >
-                          <span className="min-w-0 flex-1 truncate">{t.title}</span>
+                          <div className="flex-1 min-w-0 flex flex-col">
+                            <span className="truncate">{t.title}</span>
+                            {t.parent_id && (() => {
+                              const parent = allTasks.find((x) => x.id === t.parent_id);
+                              return parent ? (
+                                <span className="text-[10px] text-muted-foreground truncate">
+                                  Deluppgift till: <span className="italic">{parent.title}</span>
+                                </span>
+                              ) : null;
+                            })()}
+                          </div>
                           <span
                             className={`rounded-full px-1.5 py-0.5 text-[9px] uppercase shrink-0 ${TYPE_COLORS[t.task_type]}`}
                           >

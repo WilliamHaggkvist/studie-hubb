@@ -719,11 +719,11 @@ function TimerWidget() {
   }, [running]);
 
   const { data: courses = [] } = useQuery({
-    queryKey: ["courses"],
+    queryKey: ["courses", "active-only"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("courses")
-        .select("id,name,color,completed")
+        .select("id,name,color,completed,archived")
         .eq("archived", false)
         .eq("completed", false);
       if (error) throw error;
@@ -857,7 +857,7 @@ function TimerWidget() {
               <SelectContent>
                 <SelectItem value="none">Ingen kurs</SelectItem>
                 {courses
-                  .filter((c) => !c.completed)
+                  .filter((c) => !c.completed && !c.archived)
                   .map((c) => (
                     <SelectItem key={c.id} value={c.id}>
                       {c.name}

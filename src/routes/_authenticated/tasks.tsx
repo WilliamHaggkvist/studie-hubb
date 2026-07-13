@@ -131,6 +131,32 @@ function TasksPage() {
         const { id, ...rest } = patch;
         const { error } = await supabase.from("tasks").update(rest).eq("id", id);
         if (error) throw error;
+
+        if (rest.status === "done" || rest.pending_review === true) {
+          const { error: subtasksError } = await supabase
+            .from("tasks")
+            .update({
+              status: "done",
+              completed_at: new Date().toISOString(),
+              grade: null,
+              points: null,
+              pending_review: false,
+            })
+            .eq("parent_id", id);
+          if (subtasksError) throw subtasksError;
+        } else if (rest.status === "todo") {
+          const { error: subtasksError } = await supabase
+            .from("tasks")
+            .update({
+              status: "todo",
+              completed_at: null,
+              grade: null,
+              points: null,
+              pending_review: false,
+            })
+            .eq("parent_id", id);
+          if (subtasksError) throw subtasksError;
+        }
       } else {
         const { data: u } = await supabase.auth.getUser();
         if (!u.user) throw new Error("no user");
@@ -281,7 +307,6 @@ function TasksPage() {
                 expanded={expanded}
                 onToggleExpand={toggleExpand}
                 onOpen={setQuickActionFor}
-                onAddChild={openCreateChild}
                 onToggleChild={setStatus}
               />
             ))}
@@ -305,7 +330,6 @@ function TasksPage() {
                     expanded={expanded}
                     onToggleExpand={toggleExpand}
                     onOpen={setQuickActionFor}
-                    onAddChild={openCreateChild}
                     onToggleChild={setStatus}
                   />
                 ))}
@@ -405,6 +429,10 @@ function TasksPage() {
           setQuickActionFor(null);
           setEditing(t);
         }}
+        onAddSubtask={(t) => {
+          setQuickActionFor(null);
+          openCreateChild(t.id);
+        }}
       />
     </div>
   );
@@ -416,7 +444,6 @@ type CardCommon = {
   expanded: Set<string>;
   onToggleExpand: (id: string) => void;
   onOpen: (t: Task) => void;
-  onAddChild: (parentId: string) => void;
   onToggleChild: (t: Task, s: TaskStatus) => void;
 };
 
@@ -484,7 +511,6 @@ function Card({
   expanded,
   onToggleExpand,
   onOpen,
-  onAddChild,
   onToggleChild,
 }: {
   task: Task;
@@ -571,18 +597,6 @@ function Card({
           ))}
         </div>
       )}
-      <div className="border-t border-border/40 px-2 py-1">
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onAddChild(task.id);
-          }}
-          className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-[10px] text-muted-foreground hover:bg-white/5 hover:text-foreground"
-        >
-          <Plus className="h-3 w-3" /> Underuppgift
-        </button>
-      </div>
     </div>
   );
 }
@@ -625,8 +639,11 @@ function ChildRow({
       >
         {child.title}
       </button>
+      <span className={cn("rounded-full px-1.5 py-0.25 text-[9px] border border-white/5 shrink-0", TYPE_COLORS[child.task_type])}>
+        {TYPE_LABELS[child.task_type]}
+      </span>
       {child.due_at && (
-        <span className="text-[10px] text-muted-foreground">
+        <span className="text-[10px] text-muted-foreground shrink-0">
           {format(parseISO(child.due_at), "d MMM", { locale: sv })}
         </span>
       )}

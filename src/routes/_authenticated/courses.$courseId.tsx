@@ -46,6 +46,8 @@ import {
   StickyNote,
   CalendarClock,
   TrendingUp,
+  ChevronRight,
+  ChevronDown,
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatHoursCompact } from "@/lib/timer-store";
@@ -127,7 +129,7 @@ function CourseDetail() {
     queryFn: async () => {
       const { data } = await supabase
         .from("tasks")
-        .select("id,title,description,status,due_at,course_id,task_type,task_kind,grade,points,pending_review")
+        .select("id,title,description,status,due_at,course_id,task_type,task_kind,grade,points,pending_review,completed_at,parent_id")
         .eq("course_id", courseId)
         .order("due_at", { ascending: true, nullsFirst: false })
         .order("title", { ascending: true });
@@ -289,6 +291,32 @@ function CourseDetail() {
   const [completeFor, setCompleteFor] = useState<Task | null>(null);
   const [quickActionFor, setQuickActionFor] = useState<Task | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
+  const [createParentId, setCreateParentId] = useState<string | null>(null);
+  const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
+
+  const rootTasks = useMemo(() => {
+    return tasks.filter((t) => t.parent_id === null);
+  }, [tasks]);
+
+  const childrenByParent = useMemo(() => {
+    const m = new Map<string, Task[]>();
+    for (const t of tasks) {
+      if (t.parent_id) {
+        const arr = m.get(t.parent_id) ?? [];
+        arr.push(t);
+        m.set(t.parent_id, arr);
+      }
+    }
+    return m;
+  }, [tasks]);
+
+  const toggleExpandTask = (id: string) =>
+    setExpandedTasks((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
 
   const coursesOption = useMemo(() => {
     return course ? [{ id: course.id, name: course.name, color: course.color }] : [];
@@ -300,6 +328,32 @@ function CourseDetail() {
         const { id, ...rest } = patch;
         const { error } = await supabase.from("tasks").update(rest).eq("id", id);
         if (error) throw error;
+
+        if (rest.status === "done" || rest.pending_review === true) {
+          const { error: subtasksError } = await supabase
+            .from("tasks")
+            .update({
+              status: "done",
+              completed_at: new Date().toISOString(),
+              grade: null,
+              points: null,
+              pending_review: false,
+            })
+            .eq("parent_id", id);
+          if (subtasksError) throw subtasksError;
+        } else if (rest.status === "todo") {
+          const { error: subtasksError } = await supabase
+            .from("tasks")
+            .update({
+              status: "todo",
+              completed_at: null,
+              grade: null,
+              points: null,
+              pending_review: false,
+            })
+            .eq("parent_id", id);
+          if (subtasksError) throw subtasksError;
+        }
       } else {
         const { data: u } = await supabase.auth.getUser();
         if (!u.user) throw new Error("no user");
@@ -337,8 +391,9 @@ function CourseDetail() {
   });
 
   const setTaskStatus = (t: Task, s: TaskStatus) => {
+    const isChild = t.parent_id !== null;
     if (s === "done") {
-      if (t.task_type === "annat" || t.task_type === "modul") {
+      if (isChild || t.task_type === "annat" || t.task_type === "modul") {
         upsertTask.mutate({
           id: t.id,
           status: "done",
@@ -671,15 +726,83 @@ function CourseDetail() {
             </Button>
           </CardHeader>
           <CardContent>
-            {assignments.length === 0 ? (
+            {rootTasks.length === 0 ? (
               <div className="rounded-xl border border-dashed border-border/60 p-4 text-center text-xs text-muted-foreground">
                 Inga uppgifter.
               </div>
             ) : (
               <div className="space-y-2">
-                {assignments.slice(0, 15).map((t) => (
-                  <TaskRow key={t.id} task={t} onClick={() => setQuickActionFor(t)} />
-                ))}
+                {rootTasks.slice(0, 15).map((t) => {
+                  const kids = childrenByParent.get(t.id) ?? [];
+                  const isExpanded = expandedTasks.has(t.id);
+                  return (
+                    <div key={t.id} className={cn(kids.length > 0 && "rounded-xl border border-border/40 bg-surface/30 overflow-hidden")}>
+                      <div className="flex items-center">
+                        {kids.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => toggleExpandTask(t.id)}
+                            className="p-2.5 text-muted-foreground hover:text-foreground shrink-0"
+                          >
+                            {isExpanded ? (
+                              <ChevronDown className="h-4 w-4" />
+                            ) : (
+                              <ChevronRight className="h-4 w-4" />
+                            )}
+                          </button>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <TaskRow
+                            task={t}
+                            onClick={() => setQuickActionFor(t)}
+                            hasChevron={kids.length > 0}
+                          />
+                        </div>
+                      </div>
+                      {isExpanded && kids.length > 0 && (
+                        <div className="border-t border-border/40 bg-black/10 px-4 py-2 space-y-1.5">
+                          {kids.map((k) => {
+                            const kDue = k.due_at ? new Date(k.due_at) : null;
+                            const kValidDue = kDue && !isNaN(kDue.getTime());
+                            const kDone = k.status === "done";
+                            const kOverdue = kValidDue && kDue.getTime() < Date.now() && !kDone;
+                            return (
+                              <div key={k.id} className="flex items-center gap-2 rounded-lg px-2 py-1 text-xs hover:bg-white/5">
+                                <span
+                                  className={cn(
+                                    "h-1.5 w-1.5 rounded-full shrink-0",
+                                    k.status === "done"
+                                      ? "bg-c-7"
+                                      : k.status === "doing"
+                                      ? "bg-amber-500"
+                                      : "bg-muted-foreground/40"
+                                  )}
+                                />
+                                <button
+                                  onClick={() => setQuickActionFor(k)}
+                                  className={cn(
+                                    "flex-1 text-left truncate font-medium",
+                                    k.status === "done" && "line-through text-muted-foreground"
+                                  )}
+                                >
+                                  {k.title}
+                                </button>
+                                <span className={cn("rounded-full px-1.5 py-0.25 text-[9px] border border-white/5 shrink-0", TYPE_COLORS[k.task_type])}>
+                                  {TYPE_LABELS[k.task_type]}
+                                </span>
+                                {kValidDue && (
+                                  <span className={cn("text-[10px] text-muted-foreground shrink-0", kOverdue && "text-sunset-rose font-medium")}>
+                                    {format(kDue, "d MMM", { locale: sv })}
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
             <div className="mt-3 text-right">
@@ -862,6 +985,11 @@ function CourseDetail() {
           setQuickActionFor(null);
           setEditingTask(t);
         }}
+        onAddSubtask={(t) => {
+          setQuickActionFor(null);
+          setCreateParentId(t.id);
+          setCreateOpen(true);
+        }}
       />
 
       <TaskDialog
@@ -869,6 +997,8 @@ function CourseDetail() {
         onOpenChange={(o) => !o && setEditingTask(null)}
         courses={coursesOption}
         task={editingTask ?? undefined}
+        rootTasks={tasks.filter((t) => t.parent_id === null && t.id !== editingTask?.id)}
+        hasChildren={editingTask ? (childrenByParent.get(editingTask.id)?.length ?? 0) > 0 : false}
         onDelete={
           editingTask
             ? () => {
@@ -891,12 +1021,18 @@ function CourseDetail() {
 
       <TaskDialog
         open={createOpen}
-        onOpenChange={setCreateOpen}
+        onOpenChange={(o) => {
+          setCreateOpen(o);
+          if (!o) setCreateParentId(null);
+        }}
         courses={coursesOption}
+        rootTasks={tasks.filter((t) => t.parent_id === null)}
+        defaultParentId={createParentId}
         onSave={(v) => {
-          upsertTask.mutate(v, {
+          upsertTask.mutate({ ...v, parent_id: createParentId }, {
             onSuccess: () => {
               setCreateOpen(false);
+              setCreateParentId(null);
               toast.success("Uppgift skapad");
             },
           });
@@ -940,9 +1076,11 @@ function StatBox({ label, value, sub }: { label: string; value: string; sub?: st
 function TaskRow({
   task,
   onClick,
+  hasChevron,
 }: {
   task: Task;
   onClick: () => void;
+  hasChevron?: boolean;
 }) {
   const done = task.status === "done";
   const due = task.due_at ? new Date(task.due_at) : null;
@@ -963,7 +1101,12 @@ function TaskRow({
   return (
     <button
       onClick={onClick}
-      className="w-full flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-xl border border-border/40 bg-surface/30 p-2.5 text-left text-sm hover:bg-surface-2/40 hover:border-primary/30 transition-all cursor-pointer"
+      className={cn(
+        "w-full flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 text-left text-sm hover:bg-surface-2/40 transition-all cursor-pointer",
+        hasChevron
+          ? "pl-1 hover:text-primary"
+          : "rounded-xl border border-border/40 bg-surface/30 hover:border-primary/30"
+      )}
     >
       <div className="flex items-center gap-2 min-w-0 flex-1">
         <span
