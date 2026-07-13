@@ -89,41 +89,48 @@ function TasksPage() {
     return m;
   }, [allTasks]);
 
-  // Filtrera rot-uppgifter (barn följer med sin förälder)
-  const filteredRoots = useMemo(() => {
+  // Filtrera alla uppgifter (för både rot- och underuppgifter)
+  const filteredAllTasks = useMemo(() => {
     const now = Date.now();
     const day = 24 * 3600 * 1000;
     const coursesMap = new Map(allCourses.map((c) => [c.id, c]));
-    return allTasks
-      .filter((t) => t.parent_id === null)
-      .filter((t) => {
-        if (t.course_id) {
-          const course = coursesMap.get(t.course_id);
-          if (course?.archived || course?.completed) return false;
-        }
-        if (filterCourse !== "all") {
-          if (filterCourse === "none") {
-            if (t.course_id) return false;
-          } else if (t.course_id !== filterCourse) {
-            return false;
-          }
-        }
-        if (filterType !== "all" && t.task_type !== filterType) return false;
-        if (filterDue !== "all" && t.due_at) {
-          const diff = parseISO(t.due_at).getTime() - now;
-          if (filterDue === "overdue" && diff >= 0) return false;
-          if (filterDue === "today" && (diff < 0 || diff > day)) return false;
-          if (filterDue === "week" && (diff < 0 || diff > 7 * day)) return false;
-          if (filterDue === "month" && (diff < 0 || diff > 30 * day)) return false;
-        } else if (filterDue !== "all" && !t.due_at) {
+    return allTasks.filter((t) => {
+      if (t.course_id) {
+        const course = coursesMap.get(t.course_id);
+        if (course?.archived || course?.completed) return false;
+      }
+      if (filterCourse !== "all") {
+        if (filterCourse === "none") {
+          if (t.course_id) return false;
+        } else if (t.course_id !== filterCourse) {
           return false;
         }
-        return true;
-      });
+      }
+      if (filterType !== "all" && t.task_type !== filterType) return false;
+      if (filterDue !== "all" && t.due_at) {
+        const diff = parseISO(t.due_at).getTime() - now;
+        if (filterDue === "overdue" && diff >= 0) return false;
+        if (filterDue === "today" && (diff < 0 || diff > day)) return false;
+        if (filterDue === "week" && (diff < 0 || diff > 7 * day)) return false;
+        if (filterDue === "month" && (diff < 0 || diff > 30 * day)) return false;
+      } else if (filterDue !== "all" && !t.due_at) {
+        return false;
+      }
+      return true;
+    });
   }, [allTasks, allCourses, filterCourse, filterType, filterDue]);
 
-  const pending = filteredRoots.filter((t) => t.pending_review && t.status !== "done");
-  const board = filteredRoots.filter((t) => !t.pending_review);
+  const filteredRoots = useMemo(() => {
+    return filteredAllTasks.filter((t) => t.parent_id === null);
+  }, [filteredAllTasks]);
+
+  const pending = useMemo(() => {
+    return filteredAllTasks.filter((t) => t.pending_review && t.status !== "done");
+  }, [filteredAllTasks]);
+
+  const board = useMemo(() => {
+    return filteredRoots.filter((t) => !t.pending_review);
+  }, [filteredRoots]);
 
   const upsert = useMutation({
     mutationFn: async (patch: Partial<Task> & { id?: string }) => {
@@ -306,6 +313,7 @@ function TasksPage() {
                 onToggleExpand={toggleExpand}
                 onOpen={setQuickActionFor}
                 onToggleChild={setStatus}
+                allTasks={allTasks}
               />
             ))}
           </div>
@@ -329,6 +337,7 @@ function TasksPage() {
                     onToggleExpand={toggleExpand}
                     onOpen={setQuickActionFor}
                     onToggleChild={setStatus}
+                    allTasks={allTasks}
                   />
                 ))}
               </div>
@@ -443,6 +452,7 @@ type CardCommon = {
   onToggleExpand: (id: string) => void;
   onOpen: (t: Task) => void;
   onToggleChild: (t: Task, s: TaskStatus) => void;
+  allTasks: Task[];
 };
 
 function Column({
@@ -510,6 +520,7 @@ function Card({
   onToggleExpand,
   onOpen,
   onToggleChild,
+  allTasks,
 }: {
   task: Task;
   dragHandle: Record<string, unknown>;
@@ -520,6 +531,7 @@ function Card({
   const kids = childrenByParent.get(task.id) ?? [];
   const doneKids = kids.filter((k) => k.status === "done").length;
   const isOpen = expanded.has(task.id);
+  const parent = task.parent_id ? allTasks.find((x) => x.id === task.parent_id) : null;
   return (
     <div className="rounded-xl border border-border/60 bg-surface shadow-sm">
       <div className="flex items-start gap-1 p-1">
@@ -549,6 +561,11 @@ function Card({
             kids.length === 0 && "pl-2",
           )}
         >
+          {parent && (
+            <div className="text-[10px] text-muted-foreground mb-0.5">
+              Deluppgift till: <span className="italic font-medium">{parent.title}</span>
+            </div>
+          )}
           <div
             className={cn(
               "mb-1 text-sm font-medium",
@@ -643,6 +660,11 @@ function ChildRow({
       {child.grade && child.task_type !== "annat" && child.task_type !== "modul" && (
         <span className="rounded-full bg-surface-2 px-1.5 py-0.5 text-[9px] shrink-0">
           Betyg: {child.grade}
+        </span>
+      )}
+      {child.pending_review && (
+        <span className="rounded-full border border-sunset-amber/30 text-sunset-amber bg-sunset-amber/10 px-1.5 py-0.5 text-[9px] shrink-0 font-medium">
+          Väntar på bedömning
         </span>
       )}
       {child.due_at && (
