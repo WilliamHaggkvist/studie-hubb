@@ -73,7 +73,7 @@ import {
 } from "@/lib/queries";
 import { cn } from "@/lib/utils";
 import { QuickLinksCard } from "@/components/dashboard/quick-links-card";
-import { TaskDialog } from "@/components/dashboard/task-dialog";
+import { TaskDialog } from "@/components/tasks/task-dialog";
 import { CompleteDialog } from "@/components/dashboard/complete-dialog";
 import { RewardJar } from "@/components/dashboard/reward-jar";
 
@@ -1156,7 +1156,7 @@ function Dashboard() {
         open={createOpen}
         onOpenChange={setCreateOpen}
         courses={courses}
-        onSave={(v) => createTask.mutate(v)}
+        onSave={(v: Partial<Task>) => createTask.mutate(v)}
       />
       <CompleteDialog
         task={completeFor}
