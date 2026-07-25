@@ -27,6 +27,7 @@ import {
   Download,
   Eye
 } from "lucide-react";
+import { SignedImage, resolveFileUrl } from "@/components/info/signed-file";
 
 export const Route = createFileRoute("/_authenticated/information")({
   component: InformationPage,
@@ -145,6 +146,7 @@ function InformationPage() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewName, setPreviewName] = useState<string | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [previewLoading, setPreviewLoading] = useState(false);
   const [isImageZoomed, setIsImageZoomed] = useState(false);
   const [zoomedImageUrl, setZoomedImageUrl] = useState("");
 
@@ -517,11 +519,23 @@ function InformationPage() {
     }
   };
 
-  const handleOpenPreview = (url: string, name: string) => {
-    setPreviewUrl(url);
+  const handleOpenPreview = async (url: string, name: string) => {
     setPreviewName(name);
+    setPreviewUrl(null);
+    setPreviewLoading(true);
     setIsPreviewOpen(true);
+    const resolved = await resolveFileUrl(url);
+    if (!resolved) toast.error("Kunde inte öppna förhandsvisningen");
+    setPreviewUrl(resolved);
+    setPreviewLoading(false);
   };
+
+  const handleDownloadFile = async (url: string) => {
+    const resolved = await resolveFileUrl(url);
+    if (!resolved) return toast.error("Kunde inte hämta filen");
+    window.open(resolved, "_blank");
+  };
+
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8 lg:px-8 relative min-h-screen">
@@ -616,16 +630,15 @@ function InformationPage() {
                             >
                               <Eye className="h-4 w-4" />
                             </Button>
-                            <a
-                              href={file.url}
-                              download={file.name}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center justify-center h-8 w-8 rounded-lg hover:bg-primary/10 text-primary transition-colors"
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleDownloadFile(file.url)}
+                              className="h-8 w-8 rounded-lg hover:bg-primary/10 text-primary"
                               title="Ladda ned"
                             >
                               <Download className="h-4 w-4" />
-                            </a>
+                            </Button>
                           </div>
                         </div>
                       ))
@@ -762,14 +775,10 @@ function InformationPage() {
                 </CardHeader>
                 <CardContent className="pt-0 space-y-2">
                   {card.imageUrl && (
-                    <img 
-                      src={card.imageUrl} 
-                      alt={card.title} 
-                      onClick={() => {
-                        setPreviewUrl(card.imageUrl!);
-                        setPreviewName(card.title);
-                        setIsPreviewOpen(true);
-                      }}
+                    <SignedImage
+                      url={card.imageUrl}
+                      alt={card.title}
+                      onClick={() => handleOpenPreview(card.imageUrl!, card.title)}
                       className="w-full max-h-48 object-cover rounded-xl border border-white/5 shadow-sm cursor-zoom-in hover:opacity-90 transition-opacity"
                     />
                   )}
@@ -1054,7 +1063,7 @@ function InformationPage() {
               {cardImageUrl ? (
                 <div className="flex items-center justify-between bg-primary/5 border border-primary/10 rounded-xl p-2">
                   <div className="flex items-center gap-2 text-xs min-w-0">
-                    <img src={cardImageUrl} alt="Card Image Preview" className="h-10 w-10 object-cover rounded-lg shrink-0" />
+                    <SignedImage url={cardImageUrl} alt="Card Image Preview" className="h-10 w-10 object-cover rounded-lg shrink-0" />
                     <span className="truncate text-muted-foreground text-[10px]">Bild bifogad</span>
                   </div>
                   <Button 
@@ -1106,11 +1115,15 @@ function InformationPage() {
           </DialogHeader>
 
           <div className="flex-1 min-h-0 bg-background/30 rounded-xl border border-border/30 overflow-hidden flex items-center justify-center relative p-2">
-            {previewUrl ? (
-              previewUrl.startsWith("data:application/pdf") || previewUrl.endsWith(".pdf") ? (
-                <iframe 
-                  src={previewUrl} 
-                  className="w-full h-full rounded-lg" 
+            {previewLoading ? (
+              <Loader2 className="h-6 w-6 text-primary animate-spin" />
+            ) : previewUrl ? (
+              previewUrl.startsWith("data:application/pdf") ||
+              /\.pdf(\?|$)/i.test(previewName || "") ||
+              /\.pdf(\?|$)/i.test(previewUrl.split("?")[0]) ? (
+                <iframe
+                  src={previewUrl}
+                  className="w-full h-full rounded-lg bg-white"
                   title="PDF Preview"
                 />
               ) : (
@@ -1131,6 +1144,7 @@ function InformationPage() {
                 variant="outline" 
                 size="sm" 
                 className="rounded-xl text-xs gap-1.5"
+                disabled={!previewUrl}
                 onClick={() => {
                   if (previewUrl) {
                     const win = window.open();
@@ -1152,7 +1166,9 @@ function InformationPage() {
               <a
                 href={previewUrl || ""}
                 download={previewName || "Dokument"}
-                className="inline-flex items-center justify-center border border-primary/20 bg-primary/5 hover:bg-primary/10 text-primary font-bold text-xs px-3 py-1.5 rounded-xl transition-all gap-1.5"
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`inline-flex items-center justify-center border border-primary/20 bg-primary/5 hover:bg-primary/10 text-primary font-bold text-xs px-3 py-1.5 rounded-xl transition-all gap-1.5 ${previewUrl ? "" : "pointer-events-none opacity-50"}`}
               >
                 <Download className="h-3.5 w-3.5" />
                 Ladda ned
