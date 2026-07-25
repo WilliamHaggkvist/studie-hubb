@@ -18,6 +18,7 @@ import {
   XAxis,
   YAxis,
   Legend,
+  ReferenceLine,
 } from "recharts";
 import {
   Archive,
@@ -26,6 +27,10 @@ import {
   Target,
   TrendingUp,
   ListTodo,
+  Flame,
+  Zap,
+  CalendarDays,
+  BookOpen,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -446,6 +451,153 @@ function StatsPage() {
     { name: "Klar", value: statusCounts.done, color: "#8B5CF6" },
   ];
 
+  // --- Veckodag-fördelning ---
+  const weekdayData = useMemo(() => {
+    const labels = ["Mån", "Tis", "Ons", "Tor", "Fre", "Lör", "Sön"];
+    const totals = [0, 0, 0, 0, 0, 0, 0];
+    for (const e of combined) {
+      if (!e.started_at || !e.duration_seconds) continue;
+      const d = new Date(e.started_at);
+      if (isNaN(d.getTime())) continue;
+      let dow = d.getDay(); // 0=Sön
+      dow = dow === 0 ? 6 : dow - 1; // 0=Mån, 6=Sön
+      totals[dow] += e.duration_seconds / 3600;
+    }
+    return labels.map((name, i) => ({ name, timmar: +totals[i].toFixed(2) }));
+  }, [combined]);
+
+  // --- Klockslags-fördelning ---
+  const hourData = useMemo(() => {
+    const totals = Array.from({ length: 24 }, (_, h) => ({ hour: h, timmar: 0 }));
+    for (const e of combined) {
+      if (!e.started_at || !e.duration_seconds) continue;
+      const d = new Date(e.started_at);
+      if (isNaN(d.getTime())) continue;
+      totals[d.getHours()].timmar += e.duration_seconds / 3600;
+    }
+    return totals.map((r) => ({ ...r, timmar: +r.timmar.toFixed(2), label: r.hour.toString().padStart(2, "0") }));
+  }, [combined]);
+
+  // --- Studiestreaks (från heatmapData – senaste 364 dagarna) ---
+  const streaks = useMemo(() => {
+    const todayKey = format(new Date(), "yyyy-MM-dd");
+    const hasStudyToday = (heatmapData[todayKey] ?? 0) > 0;
+
+    // Nuvarande streak
+    let currentStreak = 0;
+    const cur = new Date();
+    if (!hasStudyToday) cur.setDate(cur.getDate() - 1);
+    while (true) {
+      const key = format(cur, "yyyy-MM-dd");
+      if ((heatmapData[key] ?? 0) > 0) {
+        currentStreak++;
+        cur.setDate(cur.getDate() - 1);
+      } else {
+        break;
+      }
+    }
+
+    // Längsta streak
+    const sortedKeys = Object.keys(heatmapData)
+      .filter((k) => heatmapData[k] > 0)
+      .sort();
+    let longest = 0;
+    let running = 0;
+    let prevMs: number | null = null;
+    for (const k of sortedKeys) {
+      const ms = new Date(k).getTime();
+      if (prevMs !== null && ms - prevMs === 86400000) {
+        running++;
+      } else {
+        running = 1;
+      }
+      if (running > longest) longest = running;
+      prevMs = ms;
+    }
+
+    return { current: currentStreak, longest };
+  }, [heatmapData]);
+
+  // --- Planerat vs Faktiskt per dag ---
+  const goalVsActual = useMemo(() => {
+    const grouped = new Map<string, { planned: number; actual: number }>();
+    for (const s of filteredSessionRows) {
+      if (!s.planned_start || !s.planned_end) continue;
+      const d = new Date(s.planned_start);
+      if (isNaN(d.getTime())) continue;
+      const key = format(d, "yyyy-MM-dd");
+      if (!grouped.has(key)) grouped.set(key, { planned: 0, actual: 0 });
+      const entry = grouped.get(key)!;
+      const planned = Math.max(0, (new Date(s.planned_end).getTime() - new Date(s.planned_start).getTime()) / 3600000);
+      const actual =
+        s.actual_start && s.actual_end
+          ? Math.max(0, (new Date(s.actual_end).getTime() - new Date(s.actual_start).getTime()) / 3600000)
+          : 0;
+      entry.planned += planned;
+      entry.actual += actual;
+    }
+    return [...grouped.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([day, { planned, actual }]) => ({
+        day: format(new Date(day), "d/M", { locale: sv }),
+        Planerat: +planned.toFixed(2),
+        Faktiskt: +actual.toFixed(2),
+      }));
+  }, [filteredSessionRows]);
+
+  // --- Slutförandegrad per kurs ---
+  const courseCompletion = useMemo(() => {
+    return courses
+      .map((c) => {
+        const courseTasks = tasks.filter((t) => t.course_id === c.id);
+        const total = courseTasks.length;
+        const done = courseTasks.filter((t) => t.status === "done").length;
+        const hours = +(
+          combined.filter((e) => e.course_id === c.id).reduce((s, e) => s + (e.duration_seconds ?? 0), 0) / 3600
+        ).toFixed(1);
+        return {
+          name: c.name,
+          color: c.color,
+          done,
+          total,
+          pct: total > 0 ? Math.round((done / total) * 100) : 0,
+          hours,
+        };
+      })
+      .filter((c) => c.total > 0)
+      .sort((a, b) => b.pct - a.pct);
+  }, [courses, tasks, combined]);
+
+  // --- Period-jämförelse (nuvarande vs föregående period, via heatmapData) ---
+  const periodComparison = useMemo(() => {
+    if (isAllTime) return null;
+    const periodLen = Math.max(1, differenceInCalendarDays(range.end, range.start) + 1);
+    const prevStart = subDays(range.start, periodLen);
+    const prevEnd = subDays(range.start, 1);
+
+    let currentHours = 0;
+    let prevHours = 0;
+
+    const cur = new Date(range.start);
+    while (cur <= range.end) {
+      currentHours += heatmapData[format(cur, "yyyy-MM-dd")] ?? 0;
+      cur.setDate(cur.getDate() + 1);
+    }
+    const prev = new Date(prevStart);
+    while (prev <= prevEnd) {
+      prevHours += heatmapData[format(prev, "yyyy-MM-dd")] ?? 0;
+      prev.setDate(prev.getDate() + 1);
+    }
+
+    const change = prevHours > 0 ? Math.round(((currentHours - prevHours) / prevHours) * 100) : null;
+    return {
+      current: +currentHours.toFixed(1),
+      previous: +prevHours.toFixed(1),
+      change,
+      prevLabel: `${format(prevStart, "d MMM", { locale: sv })} – ${format(prevEnd, "d MMM", { locale: sv })}`,
+    };
+  }, [isAllTime, range, heatmapData]);
+
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 lg:px-8">
       <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
@@ -787,6 +939,281 @@ function StatsPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* ── Streaks & Period-jämförelse ── */}
+      <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {/* Nuvarande streak */}
+        <Card className="relative overflow-hidden border-border/60 bg-surface/60">
+          <CardContent className="p-5">
+            <div className="mb-1 flex items-center gap-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+              <Flame className="h-4 w-4 text-orange-400" /> Nuvarande streak
+            </div>
+            <div className="font-display text-3xl font-bold tabular-nums">{streaks.current}</div>
+            <p className="mt-1 text-[10px] text-muted-foreground">
+              {streaks.current === 1 ? "dag i rad" : "dagar i rad"}
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Längsta streak */}
+        <Card className="relative overflow-hidden border-border/60 bg-surface/60">
+          <CardContent className="p-5">
+            <div className="mb-1 flex items-center gap-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+              <Zap className="h-4 w-4 text-yellow-400" /> Längsta streak
+            </div>
+            <div className="font-display text-3xl font-bold tabular-nums">{streaks.longest}</div>
+            <p className="mt-1 text-[10px] text-muted-foreground">
+              {streaks.longest === 1 ? "dag i rad (rekord)" : "dagar i rad (rekord)"}
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Period-jämförelse */}
+        {periodComparison && (
+          <>
+            <Card className="relative overflow-hidden border-border/60 bg-surface/60">
+              <CardContent className="p-5">
+                <div className="mb-1 flex items-center gap-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                  <CalendarDays className="h-4 w-4 text-sky-400" /> Denna period
+                </div>
+                <div className="font-display text-3xl font-bold tabular-nums">
+                  {periodComparison.current}h
+                </div>
+                {periodComparison.change !== null && (
+                  <p
+                    className={cn(
+                      "mt-1 text-[10px] font-medium",
+                      periodComparison.change >= 0 ? "text-emerald-400" : "text-red-400",
+                    )}
+                  >
+                    {periodComparison.change >= 0 ? "+" : ""}
+                    {periodComparison.change}% vs föregående
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+            <Card className="relative overflow-hidden border-border/60 bg-surface/60">
+              <CardContent className="p-5">
+                <div className="mb-1 flex items-center gap-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                  <CalendarDays className="h-4 w-4 text-muted-foreground" /> Föregående period
+                </div>
+                <div className="font-display text-3xl font-bold tabular-nums">
+                  {periodComparison.previous}h
+                </div>
+                <p className="mt-1 text-[10px] text-muted-foreground">{periodComparison.prevLabel}</p>
+              </CardContent>
+            </Card>
+          </>
+        )}
+      </div>
+
+      {/* ── Aktivitetsmönster: Veckodag & Klockslag ── */}
+      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+        <Card className="border-border/60 bg-surface/60">
+          <CardHeader className="pb-2">
+            <CardTitle className="font-display text-base">Studietid per veckodag</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-56">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={weekdayData} barSize={28}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                  <XAxis
+                    dataKey="name"
+                    stroke="var(--muted-foreground)"
+                    fontSize={11}
+                    tickLine={false}
+                    axisLine={false}
+                  />
+                  <YAxis
+                    stroke="var(--muted-foreground)"
+                    fontSize={10}
+                    tickLine={false}
+                    axisLine={false}
+                    width={28}
+                    tickFormatter={(v: number) => `${v}h`}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      background: "var(--popover)",
+                      border: "1px solid var(--border)",
+                      borderRadius: 8,
+                      fontSize: 12,
+                      color: "var(--foreground)",
+                    }}
+                    formatter={(v: number) => [`${v} h`, "Studietid"]}
+                  />
+                  <Bar dataKey="timmar" radius={[4, 4, 0, 0]}>
+                    {weekdayData.map((d, i) => (
+                      <Cell
+                        key={d.name}
+                        fill={
+                          i <= 4
+                            ? "hsl(var(--primary))"
+                            : "hsl(var(--muted-foreground))"
+                        }
+                        fillOpacity={0.85}
+                      />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-border/60 bg-surface/60">
+          <CardHeader className="pb-2">
+            <CardTitle className="font-display text-base">Studietid per klockslag</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-56">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={hourData} barSize={10}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                  <XAxis
+                    dataKey="label"
+                    stroke="var(--muted-foreground)"
+                    fontSize={9}
+                    tickLine={false}
+                    axisLine={false}
+                    interval={2}
+                  />
+                  <YAxis
+                    stroke="var(--muted-foreground)"
+                    fontSize={10}
+                    tickLine={false}
+                    axisLine={false}
+                    width={28}
+                    tickFormatter={(v: number) => `${v}h`}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      background: "var(--popover)",
+                      border: "1px solid var(--border)",
+                      borderRadius: 8,
+                      fontSize: 12,
+                      color: "var(--foreground)",
+                    }}
+                    formatter={(v: number, _: string, props: { payload?: { hour: number } }) => [
+                      `${v} h`,
+                      `Kl. ${props.payload?.hour?.toString().padStart(2, "0") ?? ""}:00`,
+                    ]}
+                    labelFormatter={() => ""}
+                  />
+                  <ReferenceLine x="06" stroke="var(--border)" strokeDasharray="3 3" />
+                  <ReferenceLine x="12" stroke="var(--border)" strokeDasharray="3 3" />
+                  <ReferenceLine x="18" stroke="var(--border)" strokeDasharray="3 3" />
+                  <Bar dataKey="timmar" radius={[3, 3, 0, 0]} fill="hsl(var(--primary))" fillOpacity={0.8} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="mt-2 flex justify-around text-[9px] text-muted-foreground select-none">
+              <span>🌙 Natt (0–6)</span>
+              <span>☀️ Morgon (6–12)</span>
+              <span>🌤 Middag (12–18)</span>
+              <span>🌆 Kväll (18–24)</span>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* ── Slutförandegrad per kurs ── */}
+      {courseCompletion.length > 0 && (
+        <Card className="mt-4 border-border/60 bg-surface/60">
+          <CardHeader className="pb-2">
+            <CardTitle className="font-display flex items-center gap-2 text-base">
+              <BookOpen className="h-4 w-4 text-primary" /> Slutförandegrad per kurs
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {courseCompletion.map((c) => (
+                <div key={c.name}>
+                  <div className="mb-1 flex items-center justify-between text-xs">
+                    <span className="flex items-center gap-2 font-medium">
+                      <span
+                        className="inline-block h-2.5 w-2.5 shrink-0 rounded-sm"
+                        style={{ background: c.color }}
+                      />
+                      {c.name}
+                    </span>
+                    <span className="flex items-center gap-3 text-muted-foreground">
+                      <span className="font-mono tabular-nums">{c.hours}h studerad</span>
+                      <span className="font-medium text-foreground">
+                        {c.done}/{c.total} uppg.
+                      </span>
+                      <span
+                        className="w-10 text-right font-bold"
+                        style={{ color: c.pct >= 80 ? "#34d399" : c.pct >= 40 ? "#fbbf24" : "#f87171" }}
+                      >
+                        {c.pct}%
+                      </span>
+                    </span>
+                  </div>
+                  <div className="h-2 overflow-hidden rounded-full bg-surface-2">
+                    <div
+                      className="h-full rounded-full transition-all duration-700 ease-in-out"
+                      style={{
+                        width: `${c.pct}%`,
+                        background: c.color,
+                      }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ── Planerat vs Faktiskt ── */}
+      {goalVsActual.length > 0 && (
+        <Card className="mt-4 border-border/60 bg-surface/60">
+          <CardHeader className="pb-2">
+            <CardTitle className="font-display text-base">Planerat vs Faktiskt (studiepass)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={goalVsActual} barGap={2} barCategoryGap="30%">
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                  <XAxis
+                    dataKey="day"
+                    stroke="var(--muted-foreground)"
+                    fontSize={10}
+                    tickLine={false}
+                    axisLine={false}
+                  />
+                  <YAxis
+                    stroke="var(--muted-foreground)"
+                    fontSize={10}
+                    tickLine={false}
+                    axisLine={false}
+                    width={28}
+                    tickFormatter={(v: number) => `${v}h`}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      background: "var(--popover)",
+                      border: "1px solid var(--border)",
+                      borderRadius: 8,
+                      fontSize: 12,
+                      color: "var(--foreground)",
+                    }}
+                    itemStyle={{ color: "var(--foreground)" }}
+                    labelStyle={{ color: "var(--muted-foreground)" }}
+                    formatter={(v: number, name: string) => [`${v} h`, name]}
+                  />
+                  <Legend wrapperStyle={{ fontSize: 11 }} />
+                  <Bar dataKey="Planerat" fill="#6366f1" fillOpacity={0.5} radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="Faktiskt" fill="#8b5cf6" fillOpacity={0.9} radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
