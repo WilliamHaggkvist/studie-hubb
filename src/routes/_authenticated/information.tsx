@@ -27,6 +27,7 @@ import {
   Download,
   Eye
 } from "lucide-react";
+import { SignedImage, resolveFileUrl } from "@/components/info/signed-file";
 
 export const Route = createFileRoute("/_authenticated/information")({
   component: InformationPage,
