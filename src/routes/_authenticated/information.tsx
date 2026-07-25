@@ -775,14 +775,10 @@ function InformationPage() {
                 </CardHeader>
                 <CardContent className="pt-0 space-y-2">
                   {card.imageUrl && (
-                    <img 
-                      src={card.imageUrl} 
-                      alt={card.title} 
-                      onClick={() => {
-                        setPreviewUrl(card.imageUrl!);
-                        setPreviewName(card.title);
-                        setIsPreviewOpen(true);
-                      }}
+                    <SignedImage
+                      url={card.imageUrl}
+                      alt={card.title}
+                      onClick={() => handleOpenPreview(card.imageUrl!, card.title)}
                       className="w-full max-h-48 object-cover rounded-xl border border-white/5 shadow-sm cursor-zoom-in hover:opacity-90 transition-opacity"
                     />
                   )}
