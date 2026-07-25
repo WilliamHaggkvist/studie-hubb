@@ -810,8 +810,12 @@ function CourseDetail() {
               </div>
             )}
             <div className="mt-3 text-right">
-              <Link to="/tasks" className="text-[11px] text-muted-foreground hover:text-foreground">
-                Öppna alla uppgifter i listvy →
+              <Link
+                to="/tasks"
+                search={{ courseId: course.id }}
+                className="text-[11px] text-muted-foreground hover:text-foreground"
+              >
+                Visa alla uppgifter →
               </Link>
             </div>
           </CardContent>

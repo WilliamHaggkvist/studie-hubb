@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -37,7 +37,15 @@ import {
   useSensors,
 } from "@dnd-kit/core";
 
+import { z } from "zod";
+
+const tasksSearchSchema = z.object({
+  courseId: z.string().optional(),
+  course: z.string().optional(),
+});
+
 export const Route = createFileRoute("/_authenticated/tasks")({
+  validateSearch: (search) => tasksSearchSchema.parse(search || {}),
   component: TasksPage,
 });
 
@@ -59,11 +67,21 @@ function daysLeftLabel(due: string): string {
 }
 
 function TasksPage() {
+  const search = Route.useSearch();
   const qc = useQueryClient();
-  const [filterCourse, setFilterCourse] = useState<string>("all");
+  const [filterCourse, setFilterCourse] = useState<string>(
+    search.courseId || search.course || "all"
+  );
   const [filterType, setFilterType] = useState<string>("all");
   const [filterDue, setFilterDue] = useState<string>("all");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    const targetCourse = search.courseId || search.course;
+    if (targetCourse) {
+      setFilterCourse(targetCourse);
+    }
+  }, [search.courseId, search.course]);
 
   const [createOpen, setCreateOpen] = useState(false);
   const [editing, setEditing] = useState<Task | null>(null);
