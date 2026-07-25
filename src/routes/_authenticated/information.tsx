@@ -1063,7 +1063,7 @@ function InformationPage() {
               {cardImageUrl ? (
                 <div className="flex items-center justify-between bg-primary/5 border border-primary/10 rounded-xl p-2">
                   <div className="flex items-center gap-2 text-xs min-w-0">
-                    <img src={cardImageUrl} alt="Card Image Preview" className="h-10 w-10 object-cover rounded-lg shrink-0" />
+                    <SignedImage url={cardImageUrl} alt="Card Image Preview" className="h-10 w-10 object-cover rounded-lg shrink-0" />
                     <span className="truncate text-muted-foreground text-[10px]">Bild bifogad</span>
                   </div>
                   <Button 
