@@ -9,6 +9,8 @@ import {
   Cell,
   Line,
   LineChart,
+  Area,
+  AreaChart,
   Pie,
   PieChart,
   ResponsiveContainer,
@@ -17,6 +19,16 @@ import {
   YAxis,
   Legend,
 } from "recharts";
+import {
+  Archive,
+  CheckCircle2,
+  Clock,
+  Target,
+  TrendingUp,
+  ListTodo,
+} from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import {
   format,
   subDays,
@@ -58,9 +70,10 @@ function termLabel(t: TermRow) {
 
 function StatsPage() {
   const [period, setPeriod] = useState<string>("30");
+  const [includeArchived, setIncludeArchived] = useState<boolean>(true);
 
   const { data: allCourses = [] } = useQuery(coursesQuery);
-  const courses = allCourses.filter((c) => !c.archived);
+  const courses = includeArchived ? allCourses : allCourses.filter((c) => !c.archived);
   const { data: terms = [] } = useQuery(termsQuery);
 
   const heatmapStart = useMemo(() => subDays(new Date(), 364), []);
@@ -101,7 +114,10 @@ function StatsPage() {
     const dailyHours: Record<string, number> = {};
 
     const addHours = (isoString: string, seconds: number) => {
-      const dayKey = format(new Date(isoString), "yyyy-MM-dd");
+      if (!isoString) return;
+      const d = new Date(isoString);
+      if (isNaN(d.getTime())) return;
+      const dayKey = format(d, "yyyy-MM-dd");
       dailyHours[dayKey] = (dailyHours[dayKey] ?? 0) + seconds / 3600;
     };
 
@@ -158,7 +174,14 @@ function StatsPage() {
     return weeks;
   }, [heatmapDays]);
 
+  const isAllTime = period === "all";
+
+  // range måste definieras FÖRE queries som använder den som queryKey
   const range = useMemo(() => {
+    if (period === "all") {
+      // Använd fast startdatum för att undvika cirkulär beroende (entries -> range -> entries)
+      return { start: new Date("2020-01-01"), end: new Date(), label: "All tid (totalt)" };
+    }
     if (period === "7") return { start: subDays(new Date(), 6), end: new Date(), label: "7 dagar" };
     if (period === "30")
       return { start: subDays(new Date(), 29), end: new Date(), label: "30 dagar" };
@@ -175,28 +198,42 @@ function StatsPage() {
     return { start: subDays(new Date(), 29), end: new Date(), label: "30 dagar" };
   }, [period, terms]);
 
+  // Stabil sträng-nyckel för queries (undviker ny Date() på varje render)
+  const rangeStartKey = isAllTime ? "all" : range.start.toISOString().slice(0, 10);
+  const rangeEndKey = range.end.toISOString().slice(0, 10);
+
   const { data: entries = [] } = useQuery({
-    queryKey: ["stats", "entries", range.start.toISOString(), range.end.toISOString()],
+    queryKey: ["stats", "entries", rangeStartKey, rangeEndKey],
     queryFn: async () => {
-      const { data } = await supabase
+      let q = supabase
         .from("time_entries")
         .select("id,started_at,duration_seconds,course_id,task_id,source")
         .neq("source", "session")
-        .gte("started_at", range.start.toISOString())
-        .lte("started_at", range.end.toISOString());
+        .lte("started_at", new Date().toISOString());
+
+      if (!isAllTime) {
+        q = q.gte("started_at", range.start.toISOString());
+      }
+
+      const { data } = await q;
       return (data ?? []) as Entry[];
     },
   });
 
   const { data: sessionRows = [] } = useQuery({
-    queryKey: ["stats", "sessions-rows", range.start.toISOString(), range.end.toISOString()],
+    queryKey: ["stats", "sessions-rows", rangeStartKey, rangeEndKey],
     queryFn: async () => {
-      const { data } = await supabase
+      let q = supabase
         .from("study_sessions")
         .select("id,course_id,planned_start,planned_end,actual_start,actual_end,completed")
         .eq("needs_review", false)
-        .gte("planned_start", range.start.toISOString())
-        .lte("planned_start", range.end.toISOString());
+        .lte("planned_start", new Date().toISOString());
+
+      if (!isAllTime) {
+        q = q.gte("planned_start", range.start.toISOString());
+      }
+
+      const { data } = await q;
       return (data ?? []) as {
         id: string;
         course_id: string | null;
@@ -209,6 +246,28 @@ function StatsPage() {
     },
   });
 
+  // earliestDate beräknas ur faktisk data men används bara för display, inte för query-nycklar
+  const earliestDateTimestamp = useMemo(() => {
+    let minTime = Infinity;
+    for (const e of entries) {
+      if (!e.started_at) continue;
+      const t = new Date(e.started_at).getTime();
+      if (!isNaN(t) && t < minTime) minTime = t;
+    }
+    for (const s of sessionRows) {
+      const start = s.actual_start ?? s.planned_start;
+      if (!start) continue;
+      const t = new Date(start).getTime();
+      if (!isNaN(t) && t < minTime) minTime = t;
+    }
+    return minTime === Infinity ? subDays(new Date(), 30).getTime() : minTime;
+  }, [entries, sessionRows]);
+
+  // Visa faktiskt startdatum i UI ("All tid sedan YYYY-MM-DD")
+  const displayRangeStart = isAllTime && earliestDateTimestamp
+    ? new Date(earliestDateTimestamp)
+    : range.start;
+
   const { data: sessionTaskRows = [] } = useQuery({
     queryKey: ["stats", "session-tasks"],
     queryFn: async () => {
@@ -217,19 +276,30 @@ function StatsPage() {
     },
   });
 
-  const coursesMap = new Map(allCourses.map((c) => [c.id, c]));
+  const coursesMap = useMemo(
+    () => new Map(allCourses.map((c) => [c.id, c])),
+    [allCourses],
+  );
 
-  const filteredEntries = entries.filter((e) => {
-    if (!e.course_id) return true;
-    const course = coursesMap.get(e.course_id);
-    return course ? !course.archived : true;
-  });
+  const filteredEntries = useMemo(
+    () =>
+      entries.filter((e) => {
+        if (!e.course_id) return true;
+        const course = coursesMap.get(e.course_id);
+        return course ? (includeArchived ? true : !course.archived) : true;
+      }),
+    [entries, coursesMap, includeArchived],
+  );
 
-  const filteredSessionRows = sessionRows.filter((s) => {
-    if (!s.course_id) return true;
-    const course = coursesMap.get(s.course_id);
-    return course ? !course.archived : true;
-  });
+  const filteredSessionRows = useMemo(
+    () =>
+      sessionRows.filter((s) => {
+        if (!s.course_id) return true;
+        const course = coursesMap.get(s.course_id);
+        return course ? (includeArchived ? true : !course.archived) : true;
+      }),
+    [sessionRows, coursesMap, includeArchived],
+  );
 
   // Studiepass (bekräftade) räknas som studietid, oavsett completed-status.
   // Timer-poster (time_entries) räknas separat men vi filtrerar bort source="session"
@@ -279,33 +349,44 @@ function StatsPage() {
     return allTasks.filter((t) => {
       if (!t.course_id) return true;
       const course = coursesMap.get(t.course_id);
-      return course ? !course.archived : true;
+      return course ? (includeArchived ? true : !course.archived) : true;
     });
-  }, [allTasks, coursesMap]);
+  }, [allTasks, coursesMap, includeArchived]);
 
   const sessionsCount = filteredSessionRows.length;
 
   const totalDays = Math.max(1, differenceInCalendarDays(range.end, range.start) + 1);
-  const days = Array.from({ length: totalDays }).map((_, i) => {
-    const d = subDays(range.end, totalDays - 1 - i);
-    const row: Record<string, number | string> = { day: format(d, "d/M", { locale: sv }) };
-    let total = 0;
-    for (const c of courses) {
-      const h =
-        combined
-          .filter(
-            (e) =>
-              e.course_id === c.id &&
-              e.started_at >= startOfDay(d).toISOString() &&
-              e.started_at <= endOfDay(d).toISOString(),
-          )
-          .reduce((s, e) => s + (e.duration_seconds ?? 0), 0) / 3600;
-      row[c.id] = +h.toFixed(2);
-      total += h;
+  const days = useMemo(() => {
+    const grouped = new Map<string, Map<string, number>>();
+    
+    for (const e of combined) {
+      if (!e.course_id || !e.duration_seconds || !e.started_at) continue;
+      const d = new Date(e.started_at);
+      if (isNaN(d.getTime())) continue;
+      const dayKey = format(d, "yyyy-MM-dd");
+      if (!grouped.has(dayKey)) grouped.set(dayKey, new Map());
+      const courseMap = grouped.get(dayKey)!;
+      courseMap.set(e.course_id, (courseMap.get(e.course_id) ?? 0) + e.duration_seconds);
     }
-    row.total = +total.toFixed(2);
-    return row;
-  });
+
+    return Array.from({ length: totalDays }).map((_, i) => {
+      const d = subDays(range.end, totalDays - 1 - i);
+      const dayKey = format(d, "yyyy-MM-dd");
+      const row: Record<string, number | string> = { day: format(d, "d/M", { locale: sv }) };
+      
+      let total = 0;
+      const courseMap = grouped.get(dayKey);
+      
+      for (const c of courses) {
+        const seconds = courseMap?.get(c.id) ?? 0;
+        const h = seconds / 3600;
+        row[c.id] = +h.toFixed(2);
+        total += h;
+      }
+      row.total = +total.toFixed(2);
+      return row;
+    });
+  }, [totalDays, range.end, courses, combined]);
 
   const perCourse = courses
     .map((c) => ({
@@ -347,10 +428,17 @@ function StatsPage() {
   const totalSec = combined.reduce((s, e) => s + (e.duration_seconds ?? 0), 0);
   const avgPerDay = totalSec / totalDays;
 
+  const tasksInPeriod = tasks.filter((t) => {
+    if (period === "all") return true;
+    if (!t.due_date) return false;
+    const d = new Date(t.due_date);
+    return d >= range.start && d <= range.end;
+  });
+
   const statusCounts = {
-    todo: tasks.filter((t) => t.status === "todo").length,
-    doing: tasks.filter((t) => t.status === "doing").length,
-    done: tasks.filter((t) => t.status === "done").length,
+    todo: tasksInPeriod.filter((t) => t.status === "todo").length,
+    doing: tasksInPeriod.filter((t) => t.status === "doing").length,
+    done: tasksInPeriod.filter((t) => t.status === "done").length,
   };
   const statusData = [
     { name: "Ej startad", value: statusCounts.todo, color: "#FF7A59" },
@@ -365,46 +453,77 @@ function StatsPage() {
           <h1 className="font-display text-3xl font-bold tracking-tight">Statistik</h1>
           <p className="text-sm text-muted-foreground">{range.label}</p>
         </div>
-        <Select value={period} onValueChange={setPeriod}>
-          <SelectTrigger className="w-[14rem]">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="week">Denna vecka</SelectItem>
-            <SelectItem value="7">Senaste 7 dagarna</SelectItem>
-            <SelectItem value="30">Senaste 30 dagarna</SelectItem>
-            {terms.map((t) => (
-              <SelectItem key={t.id} value={`term:${t.id}`}>
-                {termLabel(t)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-surface/60 px-3 py-1.5 shadow-sm">
+            <Switch
+              id="include-archived"
+              checked={includeArchived}
+              onCheckedChange={setIncludeArchived}
+            />
+            <Label
+              htmlFor="include-archived"
+              className="cursor-pointer text-xs font-medium text-muted-foreground"
+            >
+              Inkludera arkiverade
+            </Label>
+          </div>
+          <Select value={period} onValueChange={setPeriod}>
+            <SelectTrigger className="w-[14rem]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All tid (totalt)</SelectItem>
+              <SelectItem value="week">Denna vecka</SelectItem>
+              <SelectItem value="7">Senaste 7 dagarna</SelectItem>
+              <SelectItem value="30">Senaste 30 dagarna</SelectItem>
+              {terms.map((t) => (
+                <SelectItem key={t.id} value={`term:${t.id}`}>
+                  {termLabel(t)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
-      <div className="mb-6 grid gap-4 sm:grid-cols-3">
-        <Card className="border-border/60 bg-surface/60">
-          <CardContent className="pt-5">
-            <div className="text-xs uppercase tracking-wider text-muted-foreground">Total tid</div>
-            <div className="mt-2 font-display text-3xl font-bold tabular-nums">
+      <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Card className="relative overflow-hidden border-border/60 bg-surface/60">
+          <CardContent className="p-5">
+            <div className="mb-1 flex items-center gap-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+              <Clock className="h-4 w-4 text-primary" /> Total tid
+            </div>
+            <div className="font-display text-3xl font-bold tabular-nums">
               {formatHoursCompact(totalSec)}
             </div>
           </CardContent>
         </Card>
-        <Card className="border-border/60 bg-surface/60">
-          <CardContent className="pt-5">
-            <div className="text-xs uppercase tracking-wider text-muted-foreground">
-              Snitt per dag
+        <Card className="relative overflow-hidden border-border/60 bg-surface/60">
+          <CardContent className="p-5">
+            <div className="mb-1 flex items-center gap-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+              <TrendingUp className="h-4 w-4 text-sunset-orange" /> Snitt per dag
             </div>
-            <div className="mt-2 font-display text-3xl font-bold tabular-nums">
+            <div className="font-display text-3xl font-bold tabular-nums">
               {formatHoursCompact(avgPerDay)}
             </div>
           </CardContent>
         </Card>
-        <Card className="border-border/60 bg-surface/60">
-          <CardContent className="pt-5">
-            <div className="text-xs uppercase tracking-wider text-muted-foreground">Studiepass</div>
-            <div className="mt-2 font-display text-3xl font-bold tabular-nums">{sessionsCount}</div>
+        <Card className="relative overflow-hidden border-border/60 bg-surface/60">
+          <CardContent className="p-5">
+            <div className="mb-1 flex items-center gap-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+              <Target className="h-4 w-4 text-emerald-500" /> Studiepass
+            </div>
+            <div className="font-display text-3xl font-bold tabular-nums">{sessionsCount}</div>
+          </CardContent>
+        </Card>
+        <Card className="relative overflow-hidden border-border/60 bg-surface/60">
+          <CardContent className="p-5">
+            <div className="mb-1 flex items-center gap-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+              <CheckCircle2 className="h-4 w-4 text-purple-500" /> Klara uppgifter
+            </div>
+            <div className="font-display text-3xl font-bold tabular-nums">{statusCounts.done}</div>
+            <p className="mt-1 text-[10px] text-muted-foreground">
+              Med deadline {range.label.toLowerCase()}
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -478,7 +597,15 @@ function StatsPage() {
           <CardContent>
             <div className="h-72">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={days}>
+                <AreaChart data={days}>
+                  <defs>
+                    {courses.map((c) => (
+                      <linearGradient key={c.id} id={`color-${c.id}`} x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor={c.color} stopOpacity={0.3} />
+                        <stop offset="95%" stopColor={c.color} stopOpacity={0} />
+                      </linearGradient>
+                    ))}
+                  </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
                   <XAxis
                     dataKey="day"
@@ -508,17 +635,19 @@ function StatsPage() {
                   />
                   <Legend wrapperStyle={{ fontSize: 11 }} />
                   {courses.map((c) => (
-                    <Line
+                    <Area
                       key={c.id}
                       type="monotone"
                       dataKey={c.id}
                       name={c.name}
                       stroke={c.color}
                       strokeWidth={2}
+                      fillOpacity={1}
+                      fill={`url(#color-${c.id})`}
                       dot={false}
                     />
                   ))}
-                </LineChart>
+                </AreaChart>
               </ResponsiveContainer>
             </div>
           </CardContent>
@@ -541,9 +670,10 @@ function StatsPage() {
                     <Pie
                       data={perCourse}
                       dataKey="value"
-                      innerRadius={50}
+                      innerRadius={65}
                       outerRadius={90}
-                      paddingAngle={2}
+                      paddingAngle={4}
+                      stroke="none"
                     >
                       {perCourse.map((r) => (
                         <Cell key={r.name} fill={r.color} />
@@ -580,20 +710,25 @@ function StatsPage() {
             )}
             <div className="space-y-2">
               {perTask.map((t) => (
-                <div key={t.id}>
-                  <div className="mb-1 flex items-center justify-between text-xs">
-                    <span className="flex items-center gap-2 min-w-0">
+                <div
+                  key={t.id}
+                  className="group relative rounded-md border border-border/40 bg-surface-2/30 p-2 transition-colors hover:bg-surface-2/60"
+                >
+                  <div className="mb-1.5 flex items-center justify-between text-xs">
+                    <span className="flex min-w-0 items-center gap-2">
                       <span
-                        className="inline-block h-2 w-2 shrink-0 rounded-full"
+                        className="inline-block h-2.5 w-2.5 shrink-0 rounded-sm"
                         style={{ background: t.color }}
                       />
-                      <span className="truncate">{t.title}</span>
+                      <span className="truncate font-medium">{t.title}</span>
                     </span>
-                    <span className="font-mono tabular-nums text-muted-foreground">{t.hours}h</span>
+                    <span className="font-mono tabular-nums text-muted-foreground">
+                      {t.hours}h
+                    </span>
                   </div>
                   <div className="h-1.5 overflow-hidden rounded-full bg-surface-2">
                     <div
-                      className="h-full rounded-full"
+                      className="h-full rounded-full transition-all duration-500 ease-in-out"
                       style={{
                         width: `${Math.min(100, (t.hours / (perTask[0]?.hours || 1)) * 100)}%`,
                         background: t.color,
