@@ -519,11 +519,23 @@ function InformationPage() {
     }
   };
 
-  const handleOpenPreview = (url: string, name: string) => {
-    setPreviewUrl(url);
+  const handleOpenPreview = async (url: string, name: string) => {
     setPreviewName(name);
+    setPreviewUrl(null);
+    setPreviewLoading(true);
     setIsPreviewOpen(true);
+    const resolved = await resolveFileUrl(url);
+    if (!resolved) toast.error("Kunde inte öppna förhandsvisningen");
+    setPreviewUrl(resolved);
+    setPreviewLoading(false);
   };
+
+  const handleDownloadFile = async (url: string) => {
+    const resolved = await resolveFileUrl(url);
+    if (!resolved) return toast.error("Kunde inte hämta filen");
+    window.open(resolved, "_blank");
+  };
+
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8 lg:px-8 relative min-h-screen">
