@@ -8,13 +8,13 @@ import {
   Preview,
   Section,
   Text,
-  Button,
 } from "@react-email/components";
 import type { TemplateEntry } from "./registry";
 
 interface Props {
   taskTitle?: string;
   courseName?: string | null;
+  courseCode?: string | null;
   dueLabel?: string;
   timeLeftLabel?: string;
   taskType?: string;
@@ -24,43 +24,48 @@ interface Props {
 const Email = ({
   taskTitle = "Uppgift",
   courseName = null,
+  courseCode = null,
   dueLabel = "",
   timeLeftLabel = "",
   taskType = "",
-  appUrl = "https://studiehubb-xyz.lovable.app/tasks",
-}: Props) => (
-  <Html lang="sv" dir="ltr">
-    <Head />
-    <Preview>{`Påminnelse: ${taskTitle} · ${timeLeftLabel}`}</Preview>
-    <Body style={main}>
-      <Container style={container}>
-        <Section style={header}>
-          <Text style={brand}>StudieHubb</Text>
-        </Section>
-        <Section style={card}>
-          <Text style={eyebrow}>Påminnelse · {timeLeftLabel}</Text>
-          <Heading style={h1}>{taskTitle}</Heading>
-          {courseName && (
-            <Text style={meta}>
-              {courseName}
-              {taskType ? ` · ${taskType}` : ""}
+}: Props) => {
+  const courseDisplay = courseCode
+    ? courseName
+      ? `${courseCode} · ${courseName}`
+      : courseCode
+    : courseName;
+
+  return (
+    <Html lang="sv" dir="ltr">
+      <Head />
+      <Preview>{`Påminnelse: ${taskTitle} · ${timeLeftLabel}`}</Preview>
+      <Body style={main}>
+        <Container style={container}>
+          <Section style={header}>
+            <Text style={brand}>StudieHubb</Text>
+          </Section>
+          <Section style={card}>
+            <Text style={eyebrow}>Påminnelse · {timeLeftLabel}</Text>
+            <Heading style={h1}>{taskTitle}</Heading>
+            {courseDisplay && (
+              <Text style={meta}>
+                {courseDisplay}
+                {taskType ? ` · ${taskType}` : ""}
+              </Text>
+            )}
+            {!courseDisplay && taskType && <Text style={meta}>{taskType}</Text>}
+            <Text style={due}>
+              Deadline: <strong>{dueLabel}</strong>
             </Text>
-          )}
-          {!courseName && taskType && <Text style={meta}>{taskType}</Text>}
-          <Text style={due}>
-            Deadline: <strong>{dueLabel}</strong>
+          </Section>
+          <Text style={footer}>
+            Du får detta mejl eftersom du har påminnelser aktiverade i StudieHubb.
           </Text>
-          <Button href={appUrl} style={button}>
-            Öppna uppgiften
-          </Button>
-        </Section>
-        <Text style={footer}>
-          Du får detta mejl eftersom du har påminnelser aktiverade i StudieHubb.
-        </Text>
-      </Container>
-    </Body>
-  </Html>
-);
+        </Container>
+      </Body>
+    </Html>
+  );
+};
 
 export const template = {
   component: Email,
@@ -69,7 +74,8 @@ export const template = {
   displayName: "Deadline-påminnelse",
   previewData: {
     taskTitle: "Inlämning: Analys av datastrukturer",
-    courseName: "DD1338 Algoritmer",
+    courseCode: "DD1338",
+    courseName: "Algoritmer och datastrukturer",
     dueLabel: "imorgon 23:59",
     timeLeftLabel: "1 dag kvar",
     taskType: "Inlämning",
@@ -82,22 +88,24 @@ const main = {
   fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
 };
 const container = { margin: "0 auto", padding: "24px 20px", maxWidth: "560px" };
-const header = { padding: "4px 0 20px" };
+const header = {
+  backgroundColor: "#18181b",
+  borderRadius: "12px 12px 0 0",
+  padding: "16px 20px",
+};
 const brand = {
-  fontFamily: '"Space Grotesk", sans-serif',
+  fontFamily: '"Space Grotesk", -apple-system, BlinkMacSystemFont, sans-serif',
   fontSize: "20px",
   fontWeight: 700,
   margin: 0,
-  background: "linear-gradient(90deg,#f94144,#f8961e,#f9c74f)",
-  WebkitBackgroundClip: "text",
-  WebkitTextFillColor: "transparent" as const,
-  color: "#f94144",
+  color: "#ffffff",
 };
 const card = {
-  borderRadius: "16px",
+  borderRadius: "0 0 16px 16px",
   padding: "24px",
   backgroundColor: "#faf5f0",
   border: "1px solid #f3e5d5",
+  borderTop: "none",
 };
 const eyebrow = {
   fontSize: "12px",
@@ -115,16 +123,7 @@ const h1 = {
   margin: "0 0 6px",
 };
 const meta = { fontSize: "13px", color: "#6b7280", margin: "0 0 12px" };
-const due = { fontSize: "15px", color: "#111827", margin: "8px 0 20px" };
-const button = {
-  backgroundImage: "linear-gradient(90deg,#f94144,#f8961e)",
-  color: "#ffffff",
-  padding: "12px 20px",
-  borderRadius: "10px",
-  fontWeight: 600,
-  textDecoration: "none",
-  display: "inline-block",
-};
+const due = { fontSize: "15px", color: "#111827", margin: "8px 0 0" };
 const footer = {
   fontSize: "11px",
   color: "#9ca3af",

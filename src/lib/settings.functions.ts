@@ -148,7 +148,8 @@ export const sendTestReminderEmail = createServerFn({ method: "POST" })
       idempotencyKey: mockDedupeKey,
       templateData: {
         taskTitle: "Testpåminnelse: Öva på datastrukturer",
-        courseName: "KTH - Programutveckling",
+        courseCode: "DD1338",
+        courseName: "Programutveckling",
         dueLabel: new Intl.DateTimeFormat("sv-SE", {
           dateStyle: "short",
           timeStyle: "short",

@@ -81,7 +81,7 @@ export const Route = createFileRoute("/api/public/hooks/email-jobs")({
               .from("task_reminder_overrides")
               .select("task_id,offsets,disabled")
               .in("user_id", userIds),
-            supabase.from("courses").select("id,name").in("user_id", userIds),
+            supabase.from("courses").select("id,name,code").in("user_id", userIds),
             supabase
               .from("study_sessions")
               .select("id,user_id,course_id,planned_start")
@@ -93,8 +93,8 @@ export const Route = createFileRoute("/api/public/hooks/email-jobs")({
         const overrideMap = new Map<string, { offsets: number[] | null; disabled: boolean }>();
         for (const o of overrides ?? [])
           overrideMap.set(o.task_id, { offsets: o.offsets, disabled: o.disabled });
-        const courseMap = new Map<string, string>();
-        for (const c of courses ?? []) courseMap.set(c.id, c.name);
+        const courseMap = new Map<string, { name: string; code: string | null }>();
+        for (const c of courses ?? []) courseMap.set(c.id, { name: c.name, code: c.code ?? null });
 
         // Helper: is a datetime string "date-only" (midnight in user tz)?
         function isMidnightInTz(iso: string, tz: string): boolean {
@@ -241,7 +241,7 @@ export const Route = createFileRoute("/api/public/hooks/email-jobs")({
                 });
                 if (dupErr) continue; // already sent
 
-                const courseName = t.course_id ? (courseMap.get(t.course_id) ?? null) : null;
+                const cInfo = t.course_id ? courseMap.get(t.course_id) : null;
                 const res = await enqueueTemplateEmail({
                   supabase,
                   templateName: "deadline-reminder",
@@ -249,11 +249,11 @@ export const Route = createFileRoute("/api/public/hooks/email-jobs")({
                   idempotencyKey: dedupeKey,
                   templateData: {
                     taskTitle: t.title,
-                    courseName,
+                    courseName: cInfo?.name ?? null,
+                    courseCode: cInfo?.code ?? null,
                     dueLabel: fmtDue(t.due_at, tz),
                     timeLeftLabel: daysLeftLabel(dueDate, now),
                     taskType: t.task_type ?? "",
-                    appUrl: "https://studiehubb-xyz.lovable.app/tasks",
                   },
                 });
                 if (res.success) results.reminders++;

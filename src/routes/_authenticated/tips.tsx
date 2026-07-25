@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import STUDY_PLACES_RAW from "@/lib/study-places.json";
+import STUDY_METHODS_RAW from "@/lib/study-methods.json";
 import { 
   MapPin, 
   Brain, 
@@ -36,7 +37,8 @@ import {
   Upload,
   Eye,
   Loader2,
-  X
+  X,
+  CheckCircle2
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/tips")({
@@ -69,6 +71,21 @@ interface StudyPlace {
   hours: string;
   fileUrl?: string;
   fileName?: string;
+}
+
+interface StudyMethod {
+  id: string;
+  name: string;
+  category: string;
+  difficulty: "Lätt" | "Medel" | "Avancerad";
+  rating: number;
+  bestFor: string;
+  description: string;
+  steps: string[];
+  tips: string;
+  tools: string;
+  icon?: string;
+  isCustom?: boolean;
 }
 
 const BUTTON_GRADIENTS = [
@@ -447,6 +464,234 @@ function TipsPage() {
     setShowSavedOnly(false);
   };
 
+  // ----------------------------------------------------
+  // STUDY METHODS STATE & LOGIC
+  // ----------------------------------------------------
+  const [studyMethods, setStudyMethods] = useState<StudyMethod[]>([]);
+  const [methodSearchQuery, setMethodSearchQuery] = useState("");
+  const [selectedMethodCategory, setSelectedMethodCategory] = useState("all");
+  const [selectedMethodDifficulty, setSelectedMethodDifficulty] = useState("all");
+  const [showSavedMethodsOnly, setShowSavedMethodsOnly] = useState(false);
+  const [savedMethods, setSavedMethods] = useState<string[]>([]);
+
+  // Load study methods
+  useEffect(() => {
+    const saved = localStorage.getItem("custom_study_methods");
+    if (saved) {
+      try {
+        setStudyMethods(JSON.parse(saved));
+      } catch (e) {
+        console.error(e);
+        setStudyMethods(STUDY_METHODS_RAW as StudyMethod[]);
+      }
+    } else {
+      setStudyMethods(STUDY_METHODS_RAW as StudyMethod[]);
+    }
+  }, []);
+
+  const saveStudyMethods = (newMethods: StudyMethod[]) => {
+    setStudyMethods(newMethods);
+    localStorage.setItem("custom_study_methods", JSON.stringify(newMethods));
+  };
+
+  // Load saved method bookmarks
+  useEffect(() => {
+    const saved = localStorage.getItem("saved_study_methods");
+    if (saved) {
+      try {
+        setSavedMethods(JSON.parse(saved));
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  }, []);
+
+  const toggleSaveMethod = (id: string) => {
+    const next = savedMethods.includes(id)
+      ? savedMethods.filter((x) => x !== id)
+      : [...savedMethods, id];
+    setSavedMethods(next);
+    localStorage.setItem("saved_study_methods", JSON.stringify(next));
+  };
+
+  // Method Dialog states
+  const [isAddEditMethodDialogOpen, setIsAddEditMethodDialogOpen] = useState(false);
+  const [editingMethod, setEditingMethod] = useState<StudyMethod | null>(null);
+  const [previewMethod, setPreviewMethod] = useState<StudyMethod | null>(null);
+  const [isPreviewMethodOpen, setIsPreviewMethodOpen] = useState(false);
+
+  // Method Form inputs
+  const [methodFormName, setMethodFormName] = useState("");
+  const [methodFormCategory, setMethodFormCategory] = useState("Tidshantering & Fokus");
+  const [methodFormDifficulty, setMethodFormDifficulty] = useState<"Lätt" | "Medel" | "Avancerad">("Medel");
+  const [methodFormRating, setMethodFormRating] = useState(5);
+  const [methodFormBestFor, setMethodFormBestFor] = useState("");
+  const [methodFormDescription, setMethodFormDescription] = useState("");
+  const [methodFormStepsText, setMethodFormStepsText] = useState("");
+  const [methodFormTips, setMethodFormTips] = useState("");
+  const [methodFormTools, setMethodFormTools] = useState("");
+
+  const handleOpenAddMethodDialog = () => {
+    setEditingMethod(null);
+    setMethodFormName("");
+    setMethodFormCategory("Tidshantering & Fokus");
+    setMethodFormDifficulty("Medel");
+    setMethodFormRating(5);
+    setMethodFormBestFor("");
+    setMethodFormDescription("");
+    setMethodFormStepsText("");
+    setMethodFormTips("");
+    setMethodFormTools("");
+    setIsAddEditMethodDialogOpen(true);
+  };
+
+  const handleOpenEditMethodDialog = (method: StudyMethod) => {
+    setEditingMethod(method);
+    setMethodFormName(method.name);
+    setMethodFormCategory(method.category);
+    setMethodFormDifficulty(method.difficulty);
+    setMethodFormRating(method.rating);
+    setMethodFormBestFor(method.bestFor);
+    setMethodFormDescription(method.description);
+    setMethodFormStepsText(method.steps ? method.steps.join("\n") : "");
+    setMethodFormTips(method.tips || "");
+    setMethodFormTools(method.tools || "");
+    setIsAddEditMethodDialogOpen(true);
+  };
+
+  const handleSaveMethod = () => {
+    if (!methodFormName.trim()) {
+      toast.error("Metodens namn måste anges");
+      return;
+    }
+
+    const stepsArray = methodFormStepsText
+      .split("\n")
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    if (editingMethod) {
+      const updated = studyMethods.map((m) => {
+        if (m.id === editingMethod.id) {
+          return {
+            ...m,
+            name: methodFormName.trim(),
+            category: methodFormCategory,
+            difficulty: methodFormDifficulty,
+            rating: methodFormRating,
+            bestFor: methodFormBestFor.trim(),
+            description: methodFormDescription.trim(),
+            steps: stepsArray,
+            tips: methodFormTips.trim(),
+            tools: methodFormTools.trim(),
+          };
+        }
+        return m;
+      });
+      saveStudyMethods(updated);
+      toast.success("Studiemetod uppdaterad!");
+    } else {
+      const newMethod: StudyMethod = {
+        id: Date.now().toString(),
+        name: methodFormName.trim(),
+        category: methodFormCategory,
+        difficulty: methodFormDifficulty,
+        rating: methodFormRating,
+        bestFor: methodFormBestFor.trim(),
+        description: methodFormDescription.trim(),
+        steps: stepsArray,
+        tips: methodFormTips.trim(),
+        tools: methodFormTools.trim(),
+        isCustom: true,
+      };
+      saveStudyMethods([...studyMethods, newMethod]);
+      toast.success("Studiemetod tillagd!");
+    }
+    setIsAddEditMethodDialogOpen(false);
+  };
+
+  const handleDeleteMethod = (id: string, name: string) => {
+    if (confirm(`Är du säker på att du vill ta bort metoden "${name}"?`)) {
+      const updated = studyMethods.filter((m) => m.id !== id);
+      saveStudyMethods(updated);
+      if (savedMethods.includes(id)) {
+        const nextSaved = savedMethods.filter((x) => x !== id);
+        setSavedMethods(nextSaved);
+        localStorage.setItem("saved_study_methods", JSON.stringify(nextSaved));
+      }
+      toast.success("Studiemetod borttagen");
+    }
+  };
+
+  const handleOpenPreviewMethod = (method: StudyMethod) => {
+    setPreviewMethod(method);
+    setIsPreviewMethodOpen(true);
+  };
+
+  // Method categories list
+  const methodCategories = useMemo(() => {
+    const cats = new Set<string>();
+    studyMethods.forEach((m) => {
+      if (m.category) cats.add(m.category);
+    });
+    return ["all", ...Array.from(cats).sort()];
+  }, [studyMethods]);
+
+  // Filtered methods
+  const filteredMethods = useMemo(() => {
+    return studyMethods.filter((method) => {
+      if (methodSearchQuery.trim()) {
+        const q = methodSearchQuery.toLowerCase();
+        const matchName = method.name.toLowerCase().includes(q);
+        const matchDesc = method.description.toLowerCase().includes(q);
+        const matchBest = method.bestFor.toLowerCase().includes(q);
+        const matchTools = method.tools?.toLowerCase().includes(q);
+        const matchSteps = method.steps?.some((s) => s.toLowerCase().includes(q));
+        if (!matchName && !matchDesc && !matchBest && !matchTools && !matchSteps) return false;
+      }
+      if (selectedMethodCategory !== "all" && method.category !== selectedMethodCategory) {
+        return false;
+      }
+      if (selectedMethodDifficulty !== "all" && method.difficulty !== selectedMethodDifficulty) {
+        return false;
+      }
+      if (showSavedMethodsOnly && !savedMethods.includes(method.id)) {
+        return false;
+      }
+      return true;
+    });
+  }, [studyMethods, methodSearchQuery, selectedMethodCategory, selectedMethodDifficulty, showSavedMethodsOnly, savedMethods]);
+
+  const clearMethodFilters = () => {
+    setMethodSearchQuery("");
+    setSelectedMethodCategory("all");
+    setSelectedMethodDifficulty("all");
+    setShowSavedMethodsOnly(false);
+  };
+
+  const getDifficultyColor = (diff: "Lätt" | "Medel" | "Avancerad") => {
+    switch (diff) {
+      case "Lätt":
+        return "bg-emerald-500/10 text-emerald-400 border-emerald-500/20";
+      case "Medel":
+        return "bg-amber-500/10 text-amber-400 border-amber-500/20";
+      case "Avancerad":
+        return "bg-rose-500/10 text-rose-400 border-rose-500/20";
+      default:
+        return "bg-slate-500/10 text-slate-400 border-slate-500/20";
+    }
+  };
+
+  const getCategoryColor = (cat: string) => {
+    if (cat.includes("Tidshantering") || cat.includes("Fokus")) return "bg-purple-500/10 text-purple-400 border-purple-500/20";
+    if (cat.includes("Inlärning") || cat.includes("Förståelse")) return "bg-cyan-500/10 text-cyan-400 border-cyan-500/20";
+    if (cat.includes("Repetition") || cat.includes("Minne")) return "bg-emerald-500/10 text-emerald-400 border-emerald-500/20";
+    if (cat.includes("Anteckning")) return "bg-indigo-500/10 text-indigo-400 border-indigo-500/20";
+    if (cat.includes("Tentaplugg") || cat.includes("Test")) return "bg-rose-500/10 text-rose-400 border-rose-500/20";
+    if (cat.includes("Prioritering") || cat.includes("Organisation")) return "bg-orange-500/10 text-orange-400 border-orange-500/20";
+    return "bg-primary/10 text-primary border-primary/20";
+  };
+
   const getBusyLevelColor = (level: "Låg" | "Medel" | "Hög") => {
     switch (level) {
       case "Låg":
@@ -765,47 +1010,173 @@ function TipsPage() {
           </div>
         </TabsContent>
 
-        {/* METHODS */}
-        <TabsContent value="methods" className="grid gap-6 md:grid-cols-2">
-          <Card className="border-border/60 bg-gradient-to-br from-purple-500/5 via-surface/60 to-surface/40 backdrop-blur-md rounded-2xl hover:border-purple-500/30 hover:shadow-xl transition-all duration-300 hover:-translate-y-0.5">
-            <CardHeader className="flex flex-row items-center gap-4 pb-2">
-              <div className="p-3 rounded-2xl bg-purple-500/10 text-purple-400 shadow-inner">
-                <Brain className="h-6 w-6" />
-              </div>
-              <div>
-                <CardTitle className="text-base font-bold text-foreground">Pomodoro & Tidsblockering</CardTitle>
-                <CardDescription className="text-[11px] text-purple-400/80 font-medium">Effektivisera din tid och behåll fokus</CardDescription>
-              </div>
-            </CardHeader>
-            <CardContent className="text-xs text-muted-foreground space-y-3 pt-2">
-              <p className="leading-relaxed">
-                <strong className="text-foreground">Pomodoro:</strong> Plugga fokuserat i 25 minuter, ta 5 minuters paus. Efter 4 cykler tar du en längre paus på 15-30 minuter. Använd timern här på StudieHubb för att hålla koll!
-              </p>
-              <p className="leading-relaxed">
-                <strong className="text-foreground">Tidsblockering:</strong> Planera din dag i block (t.ex. 09-11: Skriva rapport, 13-15: Läsa kapitel 4) istället för en oändlig att göra-lista.
-              </p>
-            </CardContent>
-          </Card>
+        {/* METHODS DATABASE */}
+        <TabsContent value="methods" className="space-y-6">
+          <div className="grid gap-6 lg:grid-cols-4">
+            
+            {/* Sidebar / Filter panel */}
+            <div className="lg:col-span-1 space-y-4">
+              <Card className="border-border/60 bg-surface/60 backdrop-blur-md rounded-2xl p-4 space-y-4 sticky top-4">
+                <div className="flex items-center justify-between border-b border-border/40 pb-2">
+                  <div className="flex items-center gap-2 font-semibold text-sm">
+                    <Filter className="h-4 w-4 text-primary" />
+                    Filtrera metoder
+                  </div>
+                  {(methodSearchQuery || selectedMethodCategory !== "all" || selectedMethodDifficulty !== "all" || showSavedMethodsOnly) && (
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={clearMethodFilters}
+                      className="h-7 text-[10px] text-muted-foreground hover:text-foreground"
+                    >
+                      Rensa allt
+                    </Button>
+                  )}
+                </div>
 
-          <Card className="border-border/60 bg-gradient-to-br from-emerald-500/5 via-surface/60 to-surface/40 backdrop-blur-md rounded-2xl hover:border-emerald-500/30 hover:shadow-xl transition-all duration-300 hover:-translate-y-0.5">
-            <CardHeader className="flex flex-row items-center gap-4 pb-2">
-              <div className="p-3 rounded-2xl bg-emerald-500/10 text-emerald-400 shadow-inner">
-                <Brain className="h-6 w-6" />
+                {/* Free text search */}
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium">Sök metod</Label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                    <Input
+                      placeholder="Sök namn, steg, verktyg..."
+                      value={methodSearchQuery}
+                      onChange={(e) => setMethodSearchQuery(e.target.value)}
+                      className="pl-9 h-9 rounded-xl bg-background/50 text-xs"
+                    />
+                  </div>
+                </div>
+
+                {/* Category filter */}
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium">Kategori</Label>
+                  <Select value={selectedMethodCategory} onValueChange={setSelectedMethodCategory}>
+                    <SelectTrigger className="h-9 rounded-xl bg-background/50 text-xs">
+                      <SelectValue placeholder="Alla kategorier" />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl">
+                      {methodCategories.map((cat) => (
+                        <SelectItem key={cat} value={cat} className="text-xs rounded-lg">
+                          {cat === "all" ? "Alla kategorier" : cat}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+
+
+                {/* Saved methods toggle */}
+                <div className="space-y-3 pt-2">
+                  <div className="flex items-center justify-between border-t border-border/40 pt-3">
+                    <Label htmlFor="saved-methods-toggle" className="text-xs font-medium cursor-pointer flex items-center gap-1.5 text-sunset-orange">
+                      <Heart className="h-3.5 w-3.5 fill-current" />
+                      Mina sparade metoder
+                    </Label>
+                    <Switch
+                      id="saved-methods-toggle"
+                      checked={showSavedMethodsOnly}
+                      onCheckedChange={setShowSavedMethodsOnly}
+                    />
+                  </div>
+                </div>
+              </Card>
+            </div>
+
+            {/* Methods Cards Grid */}
+            <div className="lg:col-span-3 space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="text-xs text-muted-foreground">
+                  Visar {filteredMethods.length} av {studyMethods.length} studiemetoder
+                </div>
+                <Button 
+                  onClick={handleOpenAddMethodDialog}
+                  size="sm"
+                  className="rounded-xl text-xs gap-1.5 gradient-sunset text-white border-0 hover:opacity-90"
+                >
+                  <Plus className="h-3.5 w-3.5" /> Lägg till studiemetod
+                </Button>
               </div>
-              <div>
-                <CardTitle className="text-base font-bold text-foreground">Aktiv återkallning (Active Recall)</CardTitle>
-                <CardDescription className="text-[11px] text-emerald-400/80 font-medium">Förstå och minns informationen längre</CardDescription>
-              </div>
-            </CardHeader>
-            <CardContent className="text-xs text-muted-foreground space-y-3 pt-2">
-              <p className="leading-relaxed">
-                <strong className="text-foreground">Feynman-tekniken:</strong> Förklara ett svårt koncept med dina egna ord som om du förklarade det för ett barn. Då märker du direkt var dina kunskapsluckor finns.
-              </p>
-              <p className="leading-relaxed">
-                <strong className="text-foreground">Flashcards:</strong> Testa dig själv istället för att bara passivt läsa om anteckningarna. Det tvingar hjärnan att hämta informationen, vilket stärker minnesspåren.
-              </p>
-            </CardContent>
-          </Card>
+
+              {filteredMethods.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-border/60 bg-surface/40 p-16 text-center">
+                  <Brain className="mx-auto h-8 w-8 text-muted-foreground/50 mb-3" />
+                  <p className="text-sm font-medium text-foreground">Inga studiemetoder hittades</p>
+                  <p className="text-xs text-muted-foreground mt-1">Prova att ändra dina sök- eller filterinställningar.</p>
+                  <Button variant="outline" size="sm" onClick={clearMethodFilters} className="mt-4 rounded-xl text-xs">
+                    Återställ sökning
+                  </Button>
+                </div>
+              ) : (
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {filteredMethods.map((method) => {
+                    const isSaved = savedMethods.includes(method.id);
+                    return (
+                      <Card key={method.id} className="border-border/60 bg-surface/60 backdrop-blur-md rounded-2xl flex flex-col justify-between overflow-hidden relative group hover:shadow-lg transition-all duration-300">
+                        <CardHeader className="p-3.5 pb-2 relative">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0 flex-1">
+                              <CardTitle className="text-sm font-semibold group-hover:text-primary transition-colors truncate pr-16">
+                                {method.name}
+                              </CardTitle>
+                              <span className={`inline-block mt-1 text-[9px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full border ${getCategoryColor(method.category)}`}>
+                                {method.category}
+                              </span>
+                            </div>
+                            <div className="absolute top-3 right-3 flex items-center gap-0.5">
+                              <button
+                                onClick={() => handleOpenEditMethodDialog(method)}
+                                className="p-1 rounded-full hover:bg-background/80 text-muted-foreground hover:text-foreground transition-colors"
+                                title="Redigera"
+                              >
+                                <Edit2 className="h-3 w-3" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteMethod(method.id, method.name)}
+                                className="p-1 rounded-full hover:bg-background/80 text-red-500/70 hover:text-red-500 transition-colors"
+                                title="Ta bort"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </button>
+                              <button
+                                onClick={() => toggleSaveMethod(method.id)}
+                                className="p-1 rounded-full hover:bg-background/80 transition-colors"
+                                title={isSaved ? "Ta bort bokmärke" : "Spara"}
+                              >
+                                <Heart 
+                                  className={`h-3.5 w-3.5 transition-all ${isSaved ? "fill-red-500 text-red-500 scale-110" : "text-muted-foreground hover:text-foreground"}`}
+                                />
+                              </button>
+                            </div>
+                          </div>
+                        </CardHeader>
+
+                        <CardContent className="p-3.5 pt-0 space-y-3 flex-1 flex flex-col justify-between">
+                          <p className="text-[11px] text-muted-foreground leading-relaxed line-clamp-3">
+                            {method.description}
+                          </p>
+
+                          <div className="pt-2 border-t border-border/40 mt-auto">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleOpenPreviewMethod(method)}
+                              className="w-full h-8 text-[11px] rounded-xl font-medium gap-1.5 bg-primary/5 hover:bg-primary/10 border border-primary/10 text-primary hover:text-primary transition-all"
+                            >
+                              <Brain className="h-3.5 w-3.5 shrink-0" />
+                              <span>Visa metod & steg-för-steg →</span>
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+          </div>
         </TabsContent>
 
         {/* GOOD ADVICE */}
@@ -1291,6 +1662,199 @@ function TipsPage() {
             </Button>
             <Button variant="ghost" size="sm" onClick={() => setIsPreviewOpen(false)} className="rounded-xl text-xs">
               Stäng
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Method Detail Preview Dialog */}
+      <Dialog open={isPreviewMethodOpen} onOpenChange={setIsPreviewMethodOpen}>
+        <DialogContent className="glass max-w-2xl rounded-2xl border-white/5 shadow-2xl backdrop-blur-xl max-h-[85vh] overflow-y-auto p-6">
+          <DialogHeader className="pb-3 border-b border-border/20">
+            <div className="flex items-center justify-between">
+              <span className={`text-[10px] font-semibold uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${previewMethod ? getCategoryColor(previewMethod.category) : ""}`}>
+                {previewMethod?.category}
+              </span>
+            </div>
+            <DialogTitle className="font-display text-xl font-bold mt-2">
+              {previewMethod?.name}
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground mt-1">
+              {previewMethod?.description}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-5 py-3">
+            {previewMethod?.bestFor && (
+              <div className="space-y-1">
+                <span className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider block">Passar bäst för</span>
+                <div className="flex flex-wrap gap-1">
+                  {previewMethod.bestFor.split(",").map((tag, idx) => (
+                    <span key={idx} className="text-[10px] rounded-full bg-primary/10 text-primary border border-primary/20 px-2.5 py-0.5 font-medium">
+                      {tag.trim()}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+            {/* Steg-för-steg */}
+            {previewMethod?.steps && previewMethod.steps.length > 0 && (
+              <div className="space-y-2">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-foreground flex items-center gap-1.5">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-400" /> Steg för steg
+                </h4>
+                <div className="space-y-2 rounded-2xl border border-border/40 bg-surface/40 p-4">
+                  {previewMethod.steps.map((step, idx) => (
+                    <div key={idx} className="text-xs text-muted-foreground flex items-start gap-2.5 leading-relaxed">
+                      <span className="h-5 w-5 rounded-full bg-primary/10 text-primary text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">
+                        {idx + 1}
+                      </span>
+                      <span>{step.replace(/^\d+\.\s*/, "")}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Experttips */}
+            {previewMethod?.tips && (
+              <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-4 space-y-1">
+                <h4 className="text-xs font-bold text-amber-400 flex items-center gap-1.5">
+                  <Sparkles className="h-4 w-4" /> Experttips
+                </h4>
+                <p className="text-xs text-muted-foreground leading-relaxed">{previewMethod.tips}</p>
+              </div>
+            )}
+
+            {/* Rekommenderade verktyg */}
+            {previewMethod?.tools && (
+              <div className="rounded-2xl border border-purple-500/30 bg-purple-500/5 p-4 space-y-1">
+                <h4 className="text-xs font-bold text-purple-400 flex items-center gap-1.5">
+                  <Monitor className="h-4 w-4" /> Rekommenderade verktyg & appar
+                </h4>
+                <p className="text-xs text-muted-foreground leading-relaxed">{previewMethod.tools}</p>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="pt-3 border-t border-border/20 flex justify-between">
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => {
+                if (previewMethod) toggleSaveMethod(previewMethod.id);
+              }}
+              className="rounded-xl text-xs gap-1.5"
+            >
+              <Heart className={`h-3.5 w-3.5 ${previewMethod && savedMethods.includes(previewMethod.id) ? "fill-red-500 text-red-500" : ""}`} />
+              {previewMethod && savedMethods.includes(previewMethod.id) ? "Sparad i mina favoriter" : "Spara metod"}
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => setIsPreviewMethodOpen(false)} className="rounded-xl text-xs">
+              Stäng
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add/Edit Method Dialog */}
+      <Dialog open={isAddEditMethodDialogOpen} onOpenChange={setIsAddEditMethodDialogOpen}>
+        <DialogContent className="glass max-w-lg rounded-2xl border-white/5 shadow-2xl backdrop-blur-xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="font-display text-lg font-semibold bg-gradient-to-r from-primary to-sunset-orange bg-clip-text text-transparent">
+              {editingMethod ? "Redigera studiemetod" : "Lägg till studiemetod"}
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Fyll i detaljerna för studiemetoden.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Namn på metoden</Label>
+              <Input 
+                value={methodFormName}
+                onChange={(e) => setMethodFormName(e.target.value)}
+                placeholder="T.ex. Pomodoro, Blurting..."
+                className="h-9 rounded-xl bg-background/50 text-xs"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Kategori</Label>
+              <Select value={methodFormCategory} onValueChange={setMethodFormCategory}>
+                <SelectTrigger className="h-9 rounded-xl bg-background/50 text-xs">
+                  <SelectValue placeholder="Välj kategori" />
+                </SelectTrigger>
+                <SelectContent className="rounded-xl">
+                  <SelectItem value="Tidshantering & Fokus" className="text-xs">Tidshantering & Fokus</SelectItem>
+                  <SelectItem value="Inlärning & Förståelse" className="text-xs">Inlärning & Förståelse</SelectItem>
+                  <SelectItem value="Repetition & Minne" className="text-xs">Repetition & Minne</SelectItem>
+                  <SelectItem value="Anteckningsteknik" className="text-xs">Anteckningsteknik</SelectItem>
+                  <SelectItem value="Tentaplugg & Test" className="text-xs">Tentaplugg & Test</SelectItem>
+                  <SelectItem value="Lästeknik & Förståelse" className="text-xs">Lästeknik & Förståelse</SelectItem>
+                  <SelectItem value="Prioritering & Organisation" className="text-xs">Prioritering & Organisation</SelectItem>
+                  <SelectItem value="Strategi & Effektivitet" className="text-xs">Strategi & Effektivitet</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Passar bäst för (kommaseparerade taggar)</Label>
+              <Input 
+                value={methodFormBestFor}
+                onChange={(e) => setMethodFormBestFor(e.target.value)}
+                placeholder="T.ex. Tentaplugg, Matte, Långa texter"
+                className="h-9 rounded-xl bg-background/50 text-xs"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Kort beskrivning</Label>
+              <Textarea 
+                value={methodFormDescription}
+                onChange={(e) => setMethodFormDescription(e.target.value)}
+                placeholder="Sammanfatta metoden i 1-2 meningar..."
+                className="rounded-xl bg-background/50 text-xs min-h-[70px]"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Steg för steg (ett steg per rad)</Label>
+              <Textarea 
+                value={methodFormStepsText}
+                onChange={(e) => setMethodFormStepsText(e.target.value)}
+                placeholder="1. Första steget&#10;2. Andra steget&#10;3. Tredje steget"
+                className="rounded-xl bg-background/50 text-xs min-h-[90px]"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Experttips</Label>
+              <Input 
+                value={methodFormTips}
+                onChange={(e) => setMethodFormTips(e.target.value)}
+                placeholder="T.ex. Gör detta inom 24 timmar..."
+                className="h-9 rounded-xl bg-background/50 text-xs"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Rekommenderade verktyg</Label>
+              <Input 
+                value={methodFormTools}
+                onChange={(e) => setMethodFormTools(e.target.value)}
+                placeholder="T.ex. Anki, Forest, Timer..."
+                className="h-9 rounded-xl bg-background/50 text-xs"
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="border-t border-border/20 pt-3 gap-2">
+            <Button variant="ghost" size="sm" onClick={() => setIsAddEditMethodDialogOpen(false)} className="rounded-xl text-xs">
+              Avbryt
+            </Button>
+            <Button size="sm" onClick={handleSaveMethod} className="rounded-xl text-xs gradient-sunset text-white border-0 hover:opacity-90">
+              Spara
             </Button>
           </DialogFooter>
         </DialogContent>

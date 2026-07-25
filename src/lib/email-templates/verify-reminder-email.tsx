@@ -57,22 +57,24 @@ const main = {
   fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
 };
 const container = { margin: "0 auto", padding: "24px 20px", maxWidth: "560px" };
-const header = { padding: "4px 0 20px" };
+const header = {
+  backgroundColor: "#18181b",
+  borderRadius: "12px 12px 0 0",
+  padding: "16px 20px",
+};
 const brand = {
-  fontFamily: '"Space Grotesk", sans-serif',
+  fontFamily: '"Space Grotesk", -apple-system, BlinkMacSystemFont, sans-serif',
   fontSize: "20px",
   fontWeight: 700,
   margin: 0,
-  background: "linear-gradient(90deg,#f94144,#f8961e,#f9c74f)",
-  WebkitBackgroundClip: "text",
-  WebkitTextFillColor: "transparent" as const,
-  color: "#f94144",
+  color: "#ffffff",
 };
 const card = {
-  borderRadius: "16px",
+  borderRadius: "0 0 16px 16px",
   padding: "24px",
   backgroundColor: "#faf5f0",
   border: "1px solid #f3e5d5",
+  borderTop: "none",
 };
 const eyebrow = {
   fontSize: "12px",

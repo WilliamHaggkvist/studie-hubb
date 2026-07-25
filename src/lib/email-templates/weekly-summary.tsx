@@ -37,7 +37,9 @@ const Email = ({
     <Preview>{`Veckan som kommer: ${tasks.length} uppgifter`}</Preview>
     <Body style={main}>
       <Container style={container}>
-        <Text style={brand}>StudieHubb</Text>
+        <Section style={header}>
+          <Text style={brand}>StudieHubb</Text>
+        </Section>
         <Section style={card}>
           <Text style={eyebrow}>Veckoöversikt · {weekLabel}</Text>
           <Heading style={h1}>God kväll{displayName ? `, ${displayName}` : ""}!</Heading>
@@ -88,18 +90,24 @@ const main = {
   fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
 };
 const container = { margin: "0 auto", padding: "24px 20px", maxWidth: "560px" };
+const header = {
+  backgroundColor: "#18181b",
+  borderRadius: "12px 12px 0 0",
+  padding: "16px 20px",
+};
 const brand = {
-  fontFamily: '"Space Grotesk", sans-serif',
+  fontFamily: '"Space Grotesk", -apple-system, BlinkMacSystemFont, sans-serif',
   fontSize: "20px",
   fontWeight: 700,
-  margin: "0 0 16px",
-  color: "#f94144",
+  margin: 0,
+  color: "#ffffff",
 };
 const card = {
-  borderRadius: "16px",
+  borderRadius: "0 0 16px 16px",
   padding: "24px",
   backgroundColor: "#faf5f0",
   border: "1px solid #f3e5d5",
+  borderTop: "none",
 };
 const eyebrow = {
   fontSize: "12px",

@@ -1,0 +1,185 @@
+[
+  {
+    "id": "pomodoro-tekniken",
+    "name": "Pomodoro-tekniken",
+    "category": "Tidshantering & Fokus",
+    "difficulty": "Lätt",
+    "rating": 5,
+    "bestFor": "Enskilt plugg, Fokus, Alla ämnen",
+    "description": "Arbeta i 25 minuter med 100% fokus utan distraktioner, ta sedan 5 minuter paus. Efter 4 cykler tar du en längre paus på 15-30 minuter.",
+    "steps": [
+      "1. Välj en specifik och avgränsad uppgift.",
+      "2. Sätt en timer på 25 minuter.",
+      "3. Arbeta helt utan avbrott tills timern ringer.",
+      "4. Ta 5 minuters paus (res dig och lämna skärmen).",
+      "5. Upprepa 4 gånger, ta sedan 20 minuters långpaus."
+    ],
+    "tips": "Var stenhård med pauser. Öppna inte sociala medier under 25-minuterspassen.",
+    "tools": "Forest app, Pomofocus.io, Klockans timer",
+    "icon": "Clock"
+  },
+  {
+    "id": "feynman-tekniken",
+    "name": "Feynman-tekniken",
+    "category": "Inlärning & Förståelse",
+    "difficulty": "Medel",
+    "rating": 5,
+    "bestFor": "Formeltunga ämnen, Svåra koncept, Teori",
+    "description": "Förklara ett svårt koncept eller teorem med dina egna ord som om du förklarade det för ett 10-årigt barn utan fackspråk.",
+    "steps": [
+      "1. Välj det koncept du vill förstå på djupet.",
+      "2. Förklara det skriftligt eller muntligt med enkla ord.",
+      "3. Identifiera var du kör fast eller behöver använda svåra ord.",
+      "4. Gå tillbaka till kurslitteraturen och fyll kunskapsluckan.",
+      "5. Förenkla förklaringen ytterligare med en vardaglig analogi."
+    ],
+    "tips": "Om du inte kan förklara det enkelt har du inte förstått det tillräckligt väl ännu.",
+    "tools": "Anteckningsblock, Whiteboard, Prata högt",
+    "icon": "Brain"
+  },
+  {
+    "id": "active-recall",
+    "name": "Active Recall (Aktiv Återkallning)",
+    "category": "Repetition & Minne",
+    "difficulty": "Medel",
+    "rating": 5,
+    "bestFor": "Tentaplugg, Flashcards, Begrepp & Fakta",
+    "description": "Tvinga hjärnan att aktivt hämta information ur minnet istället för att passivt läsa om anteckningar eller kursboken.",
+    "steps": [
+      "1. Läs ett avsnitt eller en föreläsning en gång.",
+      "2. Stäng boken och skriv ner eller säg högt allt du kommer ihåg.",
+      "3. Jämför ditt svar med facit eller boken.",
+      "4. Fokusera nästa repetition på det du missade."
+    ],
+    "tips": "Skapa egna testfrågor direkt när du antecknar under föreläsningen.",
+    "tools": "Anki, Quizlet, Svarsark",
+    "icon": "Sparkles"
+  },
+  {
+    "id": "spaced-repetition",
+    "name": "Spaced Repetition (Intervalldistansering)",
+    "category": "Repetition & Minne",
+    "difficulty": "Medel",
+    "rating": 5,
+    "bestFor": "Långtidsminne, Språk, Medicin, Formler",
+    "description": "Repetera studiematerialet med allt längre tidsintervall (dag 1, 3, 7, 14, 30) precis innan du är på väg att glömma det.",
+    "steps": [
+      "1. Skapa kort/frågor på det material du vill lära dig.",
+      "2. Repetera nya kort dag 1.",
+      "3. Om du svarar rätt ökas intervallet till nästa repetition.",
+      "4. Om du svarar fel nollställs intervallet för det kortet."
+    ],
+    "tips": "Konsekvens är nyckeln – gör 10-15 minuter varje dag istället för ryckigt plugg.",
+    "tools": "Anki, RemNote, Flashcards",
+    "icon": "Compass"
+  },
+  {
+    "id": "cornell-metoden",
+    "name": "Cornell-anteckningsmetoden",
+    "category": "Anteckningsteknik",
+    "difficulty": "Lätt",
+    "rating": 4,
+    "bestFor": "Föreläsningar, Semestrar, Litteraturstudier",
+    "description": "Dela upp anteckningsbladet i tre zoner: Huvudanteckningar (höger), Nyckelord/frågor (vänster) och Sammanfattning längst ner.",
+    "steps": [
+      "1. Anteckna under föreläsningen i den stora högerspalten.",
+      "2. Efter föreläsningen: Skriv nyckelord och tentafrågor i vänsterspalten.",
+      "3. Längst ner: Skriv en sammanfattning på 2-3 meningar.",
+      "4. Dölj högerspalten och testa dig själv med hjälp av vänsterspalten."
+    ],
+    "tips": "Gör sammanfattningen inom 24 timmar efter föreläsningen för bäst effekt.",
+    "tools": "Notion, GoodNotes, Papper och penna",
+    "icon": "FileText"
+  },
+  {
+    "id": "blurting-metoden",
+    "name": "Blurting-metoden",
+    "category": "Tentaplugg & Test",
+    "difficulty": "Lätt",
+    "rating": 4,
+    "bestFor": "Snabbrepetition, Tentavecka, Begreppskontroll",
+    "description": "Läs ett kapitel intensivt i 10 minuter. Stäng sedan boken och skriv ner exakt allt du kan komma ihåg på ett blankt papper utan stopp.",
+    "steps": [
+      "1. Välj ett begränsat ämne eller kapitel.",
+      "2. Läs igenom materialet uppmärksamt i 10-15 minuter.",
+      "3. Ta ett tomt papper och skriv/rita allt du minns med röd penna.",
+      "4. Öppna boken och fyll i det du missade med grön penna."
+    ],
+    "tips": "De gröna anteckningarna visar exakt vad du behöver lägga fokus på härnäst.",
+    "tools": "Blankt papper, Tvåfärgade pennor",
+    "icon": "Edit2"
+  },
+  {
+    "id": "sq3r-metoden",
+    "name": "SQ3R / PQ4R-metoden",
+    "category": "Lästeknik & Förståelse",
+    "difficulty": "Avancerad",
+    "rating": 4,
+    "bestFor": "Tung kurslitteratur, Akademiska artiklar",
+    "description": "En struktur i 5-6 steg (Survey, Question, Read, Recite, Review) för att maximera förståelsen vid läsning av svår litteratur.",
+    "steps": [
+      "1. Survey/Preview: Skumma rubriker, bilder och sammanfattning.",
+      "2. Question: Omvandla rubriker till frågor du söker svar på.",
+      "3. Read: Läs avsnittet aktivt för att besvara dina frågor.",
+      "4. Recite: Säg svaren högt med egna ord utan att titta i boken.",
+      "5. Review: Repetera hela kapitlet i sammanhang."
+    ],
+    "tips": "Skumma alltid kapitlet i 2 minuter innan du börjar läsa rad för rad.",
+    "tools": "Överstrukningspenna, Anteckningsbok",
+    "icon": "Search"
+  },
+  {
+    "id": "timeboxing",
+    "name": "Timeboxing & Tidsblockering",
+    "category": "Tidshantering & Fokus",
+    "difficulty": "Medel",
+    "rating": 5,
+    "bestFor": "Projekt, Veckoplanering, Undvika prokrastinering",
+    "description": "Tilldela fasta tidsblock i kalendern för varje specifik uppgift istället för att arbeta från en lång och osorterad att göra-lista.",
+    "steps": [
+      "1. Lista veckans viktigaste uppgifter och uppskatta tidsåtgång.",
+      "2. Öppna din kalender och boka in exakta tidsblock för varje moment.",
+      "3. Behandla studieblocken som viktiga möten med dig själv.",
+      "4. Utvärdera och justera tidsuppskattningarna i slutet av veckan."
+    ],
+    "tips": "Boka även in pauser, lunch och träning i kalendern för realistisk planering.",
+    "tools": "Google Calendar, StudieHubb Kalender, Outlook",
+    "icon": "Clock"
+  },
+  {
+    "id": "eisenhower-matrisen",
+    "name": "Eisenhower-matrisen",
+    "category": "Prioritering & Organisation",
+    "difficulty": "Lätt",
+    "rating": 4,
+    "bestFor": "Stora arbetsmängder, Prioritering, Stresshantering",
+    "description": "Sortera dina uppgifter i 4 kvadranter baserat på Viktigt vs. Brådskande för att veta exakt vad du ska göra först.",
+    "steps": [
+      "1. Gör nu: Viktigt & Brådskande (morgondagens deadline).",
+      "2. Schemalägg: Viktigt men Ej brådskande (tentaplugg i god tid).",
+      "3. Delegera/Förenkla: Ej viktigt men Brådskande.",
+      "4. Eliminera: Ej viktigt & Ej brådskande (tidstjuvar)."
+    ],
+    "tips": "Lägg största delen av din energi i kvadrant 2 (Viktigt men ej brådskande).",
+    "tools": "Kanban-board, StudieHubb Tasks",
+    "icon": "Filter"
+  },
+  {
+    "id": "pareto-principen",
+    "name": "80/20 Pareto-principen",
+    "category": "Strategi & Effektivitet",
+    "difficulty": "Medel",
+    "rating": 5,
+    "bestFor": "Snabbrepetition, Tentastrateger, Tidsbrist",
+    "description": "80% av tentamenspoängen kommer ofta från 20% av kursmaterialet. Identifiera kärnkoncepten och prioritera dem högst.",
+    "steps": [
+      "1. Analysera 3-5 tidigare tentor för att se vilka frågor som återkommer.",
+      "2. Identifiera de 20% koncept som täcker störst del av kursmålen.",
+      "3. Lägg 80% av din studietid på dessa kärnområden först.",
+      "4. Gå vidare till detaljer först när kärnan sitter stenhårt."
+    ],
+    "tips": "Gamla tentor och kursmål är den bästa källan för att hitta Paretos 20%.",
+    "tools": "Gamla tentor, Kursmål, Matrisöversikt",
+    "icon": "Star"
+  }
+]
