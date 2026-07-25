@@ -1115,11 +1115,15 @@ function InformationPage() {
           </DialogHeader>
 
           <div className="flex-1 min-h-0 bg-background/30 rounded-xl border border-border/30 overflow-hidden flex items-center justify-center relative p-2">
-            {previewUrl ? (
-              previewUrl.startsWith("data:application/pdf") || previewUrl.endsWith(".pdf") ? (
-                <iframe 
-                  src={previewUrl} 
-                  className="w-full h-full rounded-lg" 
+            {previewLoading ? (
+              <Loader2 className="h-6 w-6 text-primary animate-spin" />
+            ) : previewUrl ? (
+              previewUrl.startsWith("data:application/pdf") ||
+              /\.pdf(\?|$)/i.test(previewName || "") ||
+              /\.pdf(\?|$)/i.test(previewUrl.split("?")[0]) ? (
+                <iframe
+                  src={previewUrl}
+                  className="w-full h-full rounded-lg bg-white"
                   title="PDF Preview"
                 />
               ) : (
@@ -1140,6 +1144,7 @@ function InformationPage() {
                 variant="outline" 
                 size="sm" 
                 className="rounded-xl text-xs gap-1.5"
+                disabled={!previewUrl}
                 onClick={() => {
                   if (previewUrl) {
                     const win = window.open();
@@ -1161,7 +1166,9 @@ function InformationPage() {
               <a
                 href={previewUrl || ""}
                 download={previewName || "Dokument"}
-                className="inline-flex items-center justify-center border border-primary/20 bg-primary/5 hover:bg-primary/10 text-primary font-bold text-xs px-3 py-1.5 rounded-xl transition-all gap-1.5"
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`inline-flex items-center justify-center border border-primary/20 bg-primary/5 hover:bg-primary/10 text-primary font-bold text-xs px-3 py-1.5 rounded-xl transition-all gap-1.5 ${previewUrl ? "" : "pointer-events-none opacity-50"}`}
               >
                 <Download className="h-3.5 w-3.5" />
                 Ladda ned
