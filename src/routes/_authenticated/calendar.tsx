@@ -20,7 +20,7 @@ import {
 import { sv } from "date-fns/locale";
 import { ChevronLeft, ChevronRight, Clock, Flag, GraduationCap } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { coursesQuery } from "@/lib/queries";
+import { coursesQuery, TYPE_LABELS, TYPE_COLORS, type TaskType } from "@/lib/queries";
 
 export const Route = createFileRoute("/_authenticated/calendar")({
   component: CalendarPage,
@@ -295,13 +295,23 @@ function CalendarPage() {
                           </div>
                         );
                       }
+                      const dueTime = it.ref.due_at ? format(parseISO(it.ref.due_at), "HH:mm") : null;
+                      const typeLabel = it.ref.task_type ? (TYPE_LABELS[it.ref.task_type as TaskType] || it.ref.task_type) : null;
                       return (
                         <div
                           key={"t" + it.ref.id}
-                          className="truncate rounded border border-dashed px-1 py-0.5 text-[10px] text-sunset-amber"
+                          className="truncate rounded border border-dashed px-1 py-0.5 text-[10px] text-sunset-amber flex items-center gap-1 min-w-0"
                           style={{ borderColor: "var(--sunset-amber)" }}
+                          title={`${dueTime ? dueTime + " " : ""}${typeLabel ? "[" + typeLabel + "] " : ""}${it.ref.title}`}
                         >
-                          ⚑ {it.ref.title}
+                          <span className="shrink-0">⚑</span>
+                          {dueTime && <span className="font-semibold shrink-0">{dueTime}</span>}
+                          {typeLabel && (
+                            <span className="rounded bg-sunset-amber/20 px-1 py-0.25 text-[8px] shrink-0 font-medium">
+                              {typeLabel}
+                            </span>
+                          )}
+                          <span className="truncate">{it.ref.title}</span>
                         </div>
                       );
                     })}
@@ -386,18 +396,31 @@ function CalendarPage() {
             })}
             {selectedTasks.map((t) => {
               const c = courses.find((c) => c.id === t.course_id);
+              const typeLabel = t.task_type ? (TYPE_LABELS[t.task_type as TaskType] || t.task_type) : null;
               return (
                 <div
                   key={t.id}
                   className="rounded-lg border border-dashed border-sunset-amber/60 bg-surface p-3 text-sm"
                 >
-                  <div className="flex items-center gap-1 text-xs uppercase tracking-wider text-sunset-amber">
-                    <Flag className="h-3 w-3" /> Deadline
+                  <div className="flex items-center justify-between gap-2 text-xs uppercase tracking-wider text-sunset-amber">
+                    <span className="flex items-center gap-1">
+                      <Flag className="h-3 w-3" /> Deadline
+                    </span>
+                    {typeLabel && (
+                      <span
+                        className={cn(
+                          "rounded-full px-1.5 py-0.25 text-[9px] font-medium border border-white/5 uppercase tracking-normal",
+                          t.task_type ? TYPE_COLORS[t.task_type as TaskType] : "bg-sunset-amber/20 text-sunset-amber"
+                        )}
+                      >
+                        {typeLabel}
+                      </span>
+                    )}
                   </div>
-                  <div>{t.title}</div>
+                  <div className="mt-1 font-medium">{t.title}</div>
                   <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
                     <Clock className="h-3 w-3" />
-                    {format(parseISO(t.due_at!), "HH:mm")}
+                    {t.due_at ? format(parseISO(t.due_at), "HH:mm") : "--:--"}
                     {c && (
                       <span className="inline-flex items-center gap-1" style={{ color: c.color }}>
                         <span

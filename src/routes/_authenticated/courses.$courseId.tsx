@@ -796,7 +796,7 @@ function CourseDetail() {
                                 )}
                                 {kValidDue && (
                                   <span className={cn("text-[10px] text-muted-foreground shrink-0", kOverdue && "text-sunset-rose font-medium")}>
-                                    {format(kDue, "d MMM", { locale: sv })}
+                                    {format(kDue, "d MMM HH:mm", { locale: sv })}
                                   </span>
                                 )}
                               </div>
@@ -1137,7 +1137,7 @@ function TaskRow({
         </span>
         {validDue && (
           <span className={cn("inline-flex items-center gap-1 text-muted-foreground", overdue && "text-sunset-rose font-medium")}>
-            <span>{format(due, "d MMM", { locale: sv })}</span>
+            <span>{format(due, "d MMM HH:mm", { locale: sv })}</span>
             {daysLeftStr && <span>· {daysLeftStr}</span>}
           </span>
         )}

@@ -1164,7 +1164,7 @@ function Dashboard() {
                             <span
                               className={`text-xs shrink-0 ${daysLeft !== null && daysLeft < 0 ? "text-sunset-rose" : "text-muted-foreground"}`}
                             >
-                              {format(parseISO(t.due_at), "d MMM", { locale: sv })}
+                              {format(parseISO(t.due_at), "d MMM HH:mm", { locale: sv })}
                               {daysLeft !== null && (
                                 <span className="ml-1">
                                   ({daysLeft < 0 ? `${Math.abs(daysLeft)}d sen` : `${daysLeft}d`})
