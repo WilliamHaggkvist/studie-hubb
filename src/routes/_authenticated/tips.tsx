@@ -717,9 +717,6 @@ function TipsPage() {
           <h1 className="font-display text-4xl font-bold tracking-tight bg-gradient-to-r from-primary via-sunset-orange to-sunset-amber bg-clip-text text-transparent">
             Tips och guider
           </h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Hitta inspiration, studiemetoder och resurser för att optimera din studietid på campus.
-          </p>
         </div>
         <Compass className="h-10 w-10 text-primary/40 animate-pulse hidden sm:block" />
       </div>
