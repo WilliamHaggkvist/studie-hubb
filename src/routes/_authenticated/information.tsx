@@ -630,16 +630,15 @@ function InformationPage() {
                             >
                               <Eye className="h-4 w-4" />
                             </Button>
-                            <a
-                              href={file.url}
-                              download={file.name}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center justify-center h-8 w-8 rounded-lg hover:bg-primary/10 text-primary transition-colors"
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleDownloadFile(file.url)}
+                              className="h-8 w-8 rounded-lg hover:bg-primary/10 text-primary"
                               title="Ladda ned"
                             >
                               <Download className="h-4 w-4" />
-                            </a>
+                            </Button>
                           </div>
                         </div>
                       ))
