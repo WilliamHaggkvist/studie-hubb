@@ -1049,8 +1049,8 @@ function StatsPage() {
                         key={d.name}
                         fill={
                           i <= 4
-                            ? "hsl(var(--primary))"
-                            : "hsl(var(--muted-foreground))"
+                            ? "var(--primary)"
+                            : "var(--muted-foreground)"
                         }
                         fillOpacity={0.85}
                       />
@@ -1104,7 +1104,7 @@ function StatsPage() {
                   <ReferenceLine x="06" stroke="var(--border)" strokeDasharray="3 3" />
                   <ReferenceLine x="12" stroke="var(--border)" strokeDasharray="3 3" />
                   <ReferenceLine x="18" stroke="var(--border)" strokeDasharray="3 3" />
-                  <Bar dataKey="timmar" radius={[3, 3, 0, 0]} fill="hsl(var(--primary))" fillOpacity={0.8} />
+                  <Bar dataKey="timmar" radius={[3, 3, 0, 0]} fill="var(--primary)" fillOpacity={0.8} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
