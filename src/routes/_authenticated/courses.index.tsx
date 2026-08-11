@@ -315,6 +315,18 @@ function CoursesPage() {
                   />
                 </div>
               </div>
+              <div className="space-y-1.5">
+                <Label>Undervisningsform</Label>
+                <Select value={mode} onValueChange={(v) => setMode(v as "campus" | "distans")}>
+                  <SelectTrigger className="rounded-xl">
+                    <SelectValue placeholder="Välj form" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="campus">Campus</SelectItem>
+                    <SelectItem value="distans">Distans</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             <DialogFooter>
               <Button variant="ghost" className="rounded-xl" onClick={() => setOpen(false)}>
