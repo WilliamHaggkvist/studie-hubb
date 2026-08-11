@@ -31,7 +31,10 @@ import {
   Zap,
   CalendarDays,
   BookOpen,
+  GraduationCap,
+  Award,
 } from "lucide-react";
+import { formatPeriods } from "@/lib/course-presets";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import {
@@ -363,7 +366,7 @@ function StatsPage() {
   const totalDays = Math.max(1, differenceInCalendarDays(range.end, range.start) + 1);
   const days = useMemo(() => {
     const grouped = new Map<string, Map<string, number>>();
-    
+
     for (const e of combined) {
       if (!e.course_id || !e.duration_seconds || !e.started_at) continue;
       const d = new Date(e.started_at);
@@ -378,10 +381,10 @@ function StatsPage() {
       const d = subDays(range.end, totalDays - 1 - i);
       const dayKey = format(d, "yyyy-MM-dd");
       const row: Record<string, number | string> = { day: format(d, "d/M", { locale: sv }) };
-      
+
       let total = 0;
       const courseMap = grouped.get(dayKey);
-      
+
       for (const c of courses) {
         const seconds = courseMap?.get(c.id) ?? 0;
         const h = seconds / 3600;
@@ -597,6 +600,138 @@ function StatsPage() {
       prevLabel: `${format(prevStart, "d MMM", { locale: sv })} – ${format(prevEnd, "d MMM", { locale: sv })}`,
     };
   }, [isAllTime, range, heatmapData]);
+
+  // --- Högskolepoäng (HP) & Terminsstatistik ---
+  const hpStats = useMemo(() => {
+    let completedHp = 0;
+    let ongoingHp = 0;
+    let totalHp = 0;
+    let completedCount = 0;
+    let ongoingCount = 0;
+
+    type CourseItem = (typeof courses)[number];
+    const termMap = new Map<
+      string,
+      {
+        label: string;
+        sortKey: string;
+        completedHp: number;
+        ongoingHp: number;
+        totalHp: number;
+        courses: CourseItem[];
+      }
+    >();
+
+    const periodMap = new Map<
+      string,
+      { label: string; completedHp: number; ongoingHp: number; totalHp: number }
+    >([
+      ["P1", { label: "P1 (Höst)", completedHp: 0, ongoingHp: 0, totalHp: 0 }],
+      ["P2", { label: "P2 (Höst)", completedHp: 0, ongoingHp: 0, totalHp: 0 }],
+      ["P3", { label: "P3 (Vår)", completedHp: 0, ongoingHp: 0, totalHp: 0 }],
+      ["P4", { label: "P4 (Vår)", completedHp: 0, ongoingHp: 0, totalHp: 0 }],
+      ["P5", { label: "P5 (Sommar)", completedHp: 0, ongoingHp: 0, totalHp: 0 }],
+    ]);
+
+    for (const c of courses) {
+      const courseHp = c.hp ?? 0;
+      totalHp += courseHp;
+
+      if (c.completed) {
+        completedHp += courseHp;
+        completedCount++;
+      } else {
+        ongoingHp += courseHp;
+        ongoingCount++;
+      }
+
+      // Bestäm termin (e.g. "År 1 HT", "År 1 VT", "HT", "VT" etc.)
+      const firstP = c.periods && c.periods.length > 0 ? c.periods[0] : c.period;
+      let termType = "";
+      if (firstP === "P1" || firstP === "P2") termType = "HT";
+      else if (firstP === "P3" || firstP === "P4") termType = "VT";
+      else if (firstP === "P5") termType = "ST";
+
+      let termKey = "övrigt";
+      let termLabelStr = "Övriga kurser";
+      let sortKey = "99-9";
+
+      if (c.arskurs && termType) {
+        termKey = `ar${c.arskurs}-${termType}`;
+        termLabelStr = `År ${c.arskurs} ${termType === "HT" ? "Hösttermin" : termType === "VT" ? "Vårtermin" : "Sommartermin"}`;
+        sortKey = `${c.arskurs}-${termType === "HT" ? "1" : termType === "VT" ? "2" : "3"}`;
+      } else if (c.arskurs) {
+        termKey = `ar${c.arskurs}`;
+        termLabelStr = `Årskurs ${c.arskurs}`;
+        sortKey = `${c.arskurs}-0`;
+      } else if (termType) {
+        termKey = termType;
+        termLabelStr = termType === "HT" ? "Hösttermin" : termType === "VT" ? "Vårtermin" : "Sommartermin";
+        sortKey = `50-${termType === "HT" ? "1" : termType === "VT" ? "2" : "3"}`;
+      }
+
+      if (!termMap.has(termKey)) {
+        termMap.set(termKey, {
+          label: termLabelStr,
+          sortKey,
+          completedHp: 0,
+          ongoingHp: 0,
+          totalHp: 0,
+          courses: [],
+        });
+      }
+
+      const tObj = termMap.get(termKey)!;
+      tObj.totalHp += courseHp;
+      if (c.completed) {
+        tObj.completedHp += courseHp;
+      } else {
+        tObj.ongoingHp += courseHp;
+      }
+      tObj.courses.push(c);
+
+      // Period map aggregation
+      const coursePeriods = c.periods && c.periods.length > 0 ? c.periods : c.period ? [c.period] : [];
+      for (const p of coursePeriods) {
+        if (periodMap.has(p)) {
+          const pObj = periodMap.get(p)!;
+          pObj.totalHp += courseHp;
+          if (c.completed) pObj.completedHp += courseHp;
+          else pObj.ongoingHp += courseHp;
+        }
+      }
+    }
+
+    const termData = Array.from(termMap.values())
+      .sort((a, b) => a.sortKey.localeCompare(b.sortKey))
+      .map((t) => ({
+        ...t,
+        completedHp: +t.completedHp.toFixed(1),
+        ongoingHp: +t.ongoingHp.toFixed(1),
+        totalHp: +t.totalHp.toFixed(1),
+      }));
+
+    const periodData = Array.from(periodMap.entries()).map(([p, data]) => ({
+      period: p,
+      name: data.label,
+      "Avklarade HP": +data.completedHp.toFixed(1),
+      "Pågående HP": +data.ongoingHp.toFixed(1),
+      totalHp: +data.totalHp.toFixed(1),
+    }));
+
+    const pctCompleted = totalHp > 0 ? Math.round((completedHp / totalHp) * 100) : 0;
+
+    return {
+      completedHp: +completedHp.toFixed(1),
+      ongoingHp: +ongoingHp.toFixed(1),
+      totalHp: +totalHp.toFixed(1),
+      completedCount,
+      ongoingCount,
+      pctCompleted,
+      termData,
+      periodData,
+    };
+  }, [courses]);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 lg:px-8">
@@ -1214,6 +1349,295 @@ function StatsPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* ── Högskolepoäng & Terminsöversikt (HP) ── */}
+      <div className="mt-8 space-y-4">
+        <div className="flex items-center gap-2">
+          <GraduationCap className="h-5 w-5 text-primary" />
+          <h2 className="font-display text-xl font-bold tracking-tight">
+            Högskolepoäng & Terminsöversikt
+          </h2>
+        </div>
+
+        {/* HP KPI Kort */}
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <Card className="relative overflow-hidden border-border/60 bg-surface/60">
+            <CardContent className="p-5">
+              <div className="mb-1 flex items-center justify-between text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                <span className="flex items-center gap-1.5 text-emerald-400">
+                  <CheckCircle2 className="h-4 w-4" /> Avklarade HP
+                </span>
+                <span className="text-[10px] font-semibold text-emerald-400/90">
+                  {hpStats.completedCount} kurser
+                </span>
+              </div>
+              <div className="font-display text-3xl font-bold tabular-nums text-emerald-400">
+                {hpStats.completedHp}{" "}
+                <span className="text-sm font-normal text-muted-foreground">HP</span>
+              </div>
+              <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-surface-2">
+                <div
+                  className="h-full rounded-full bg-emerald-500 transition-all duration-500"
+                  style={{ width: `${Math.min(100, hpStats.pctCompleted)}%` }}
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="relative overflow-hidden border-border/60 bg-surface/60">
+            <CardContent className="p-5">
+              <div className="mb-1 flex items-center justify-between text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                <span className="flex items-center gap-1.5 text-sky-400">
+                  <BookOpen className="h-4 w-4" /> Pågående HP
+                </span>
+                <span className="text-[10px] font-semibold text-sky-400/90">
+                  {hpStats.ongoingCount} kurser
+                </span>
+              </div>
+              <div className="font-display text-3xl font-bold tabular-nums text-sky-400">
+                {hpStats.ongoingHp}{" "}
+                <span className="text-sm font-normal text-muted-foreground">HP</span>
+              </div>
+              <p className="mt-1 text-[10px] text-muted-foreground">Läses just nu i aktiva kurser</p>
+            </CardContent>
+          </Card>
+
+          <Card className="relative overflow-hidden border-border/60 bg-surface/60">
+            <CardContent className="p-5">
+              <div className="mb-1 flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                <GraduationCap className="h-4 w-4 text-purple-400" /> Totalt registrerat
+              </div>
+              <div className="font-display text-3xl font-bold tabular-nums text-purple-300">
+                {hpStats.totalHp}{" "}
+                <span className="text-sm font-normal text-muted-foreground">HP</span>
+              </div>
+              <p className="mt-1 text-[10px] text-muted-foreground">Totalt i din studieplan</p>
+            </CardContent>
+          </Card>
+
+          <Card className="relative overflow-hidden border-border/60 bg-surface/60">
+            <CardContent className="p-5">
+              <div className="mb-1 flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                <Award className="h-4 w-4 text-amber-400" /> Slutförandegrad
+              </div>
+              <div className="font-display text-3xl font-bold tabular-nums text-amber-400">
+                {hpStats.pctCompleted}%
+              </div>
+              <p className="mt-1 text-[10px] text-muted-foreground">
+                Avklarat av totala antalet poäng
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Diagram: HP per Termin & Läsperiod */}
+        <div className="grid gap-4 lg:grid-cols-3">
+          {/* Stapeldiagram per Termin */}
+          <Card className="border-border/60 bg-surface/60 lg:col-span-2">
+            <CardHeader className="pb-2">
+              <CardTitle className="font-display text-base">HP per Termin & Årskurs</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {hpStats.termData.length === 0 ? (
+                <div className="p-8 text-center text-xs text-muted-foreground">
+                  Inga kurser med HP registrerade än.
+                </div>
+              ) : (
+                <div className="h-64">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={hpStats.termData} barSize={32}>
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        stroke="var(--border)"
+                        vertical={false}
+                      />
+                      <XAxis
+                        dataKey="label"
+                        stroke="var(--muted-foreground)"
+                        fontSize={11}
+                        tickLine={false}
+                        axisLine={false}
+                      />
+                      <YAxis
+                        stroke="var(--muted-foreground)"
+                        fontSize={10}
+                        tickLine={false}
+                        axisLine={false}
+                        width={32}
+                        tickFormatter={(v: number) => `${v} HP`}
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          background: "var(--popover)",
+                          border: "1px solid var(--border)",
+                          borderRadius: 8,
+                          fontSize: 12,
+                          color: "var(--foreground)",
+                        }}
+                        formatter={(v: number, name: string) => [
+                          `${v} HP`,
+                          name === "completedHp" ? "Avklarat" : "Pågående",
+                        ]}
+                      />
+                      <Legend
+                        wrapperStyle={{ fontSize: 11 }}
+                        formatter={(value) =>
+                          value === "completedHp" ? "Avklarade HP" : "Pågående HP"
+                        }
+                      />
+                      <Bar dataKey="completedHp" stackId="a" fill="#10b981" radius={[0, 0, 4, 4]} />
+                      <Bar
+                        dataKey="ongoingHp"
+                        stackId="a"
+                        fill="#3b82f6"
+                        fillOpacity={0.85}
+                        radius={[4, 4, 0, 0]}
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Läsperioder (P1-P5) */}
+          <Card className="border-border/60 bg-surface/60">
+            <CardHeader className="pb-2">
+              <CardTitle className="font-display text-base">HP per Läsperiod</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={hpStats.periodData} barSize={20}>
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      stroke="var(--border)"
+                      vertical={false}
+                    />
+                    <XAxis
+                      dataKey="period"
+                      stroke="var(--muted-foreground)"
+                      fontSize={11}
+                      tickLine={false}
+                      axisLine={false}
+                    />
+                    <YAxis
+                      stroke="var(--muted-foreground)"
+                      fontSize={10}
+                      tickLine={false}
+                      axisLine={false}
+                      width={28}
+                      tickFormatter={(v: number) => `${v}`}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        background: "var(--popover)",
+                        border: "1px solid var(--border)",
+                        borderRadius: 8,
+                        fontSize: 12,
+                        color: "var(--foreground)",
+                      }}
+                      formatter={(v: number, name: string) => [`${v} HP`, name]}
+                    />
+                    <Bar dataKey="Avklarade HP" stackId="b" fill="#10b981" radius={[0, 0, 3, 3]} />
+                    <Bar
+                      dataKey="Pågående HP"
+                      stackId="b"
+                      fill="#8b5cf6"
+                      fillOpacity={0.85}
+                      radius={[3, 3, 0, 0]}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Detaljerad terminsuppdelning med kurser */}
+        {hpStats.termData.length > 0 && (
+          <Card className="border-border/60 bg-surface/60">
+            <CardHeader className="pb-2">
+              <CardTitle className="font-display text-base">Kursfördelning per Termin</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4 md:grid-cols-2">
+                {hpStats.termData.map((term) => (
+                  <div
+                    key={term.label}
+                    className="rounded-xl border border-border/50 bg-surface-2/30 p-4 transition-colors"
+                  >
+                    <div className="mb-3 flex items-center justify-between border-b border-border/40 pb-2">
+                      <div className="font-display font-semibold text-sm flex items-center gap-2">
+                        <span>{term.label}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs font-mono">
+                        <span className="text-emerald-400 font-medium">
+                          {term.completedHp} HP klart
+                        </span>
+                        {term.ongoingHp > 0 && (
+                          <span className="text-sky-400 font-medium">
+                            + {term.ongoingHp} HP pågår
+                          </span>
+                        )}
+                        <span className="text-muted-foreground">({term.totalHp} HP tot)</span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      {term.courses.map((c) => {
+                        const periodStr = formatPeriods(c.periods, c.period);
+                        return (
+                          <div
+                            key={c.id}
+                            className="flex items-center justify-between gap-2 rounded-lg bg-surface/60 px-3 py-2 text-xs"
+                          >
+                            <div className="flex items-center gap-2 truncate">
+                              <span
+                                className="h-2 w-2 shrink-0 rounded-full"
+                                style={{ background: c.color }}
+                              />
+                              {c.code && (
+                                <span className="font-mono text-[11px] font-semibold text-muted-foreground">
+                                  {c.code}
+                                </span>
+                              )}
+                              <span className="truncate font-medium">{c.name}</span>
+                            </div>
+
+                            <div className="flex items-center gap-2 shrink-0">
+                              {periodStr && (
+                                <span className="rounded bg-white/5 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                                  {periodStr}
+                                </span>
+                              )}
+                              {c.hp != null && (
+                                <span className="font-mono font-semibold tabular-nums text-foreground">
+                                  {c.hp} HP
+                                </span>
+                              )}
+                              {c.completed ? (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 text-[10px] font-semibold text-emerald-400">
+                                  <CheckCircle2 className="h-3 w-3" />
+                                  {c.final_grade ? `Betyg ${c.final_grade}` : "Klart"}
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-sky-500/10 border border-sky-500/20 px-2 py-0.5 text-[10px] font-semibold text-sky-400">
+                                  Pågår
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
     </div>
   );
 }
