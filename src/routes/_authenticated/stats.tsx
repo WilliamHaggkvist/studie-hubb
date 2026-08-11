@@ -439,8 +439,8 @@ function StatsPage() {
 
   const tasksInPeriod = tasks.filter((t) => {
     if (period === "all") return true;
-    if (!t.due_date) return false;
-    const d = new Date(t.due_date);
+    if (!t.due_at) return false;
+    const d = new Date(t.due_at);
     return d >= range.start && d <= range.end;
   });
 
