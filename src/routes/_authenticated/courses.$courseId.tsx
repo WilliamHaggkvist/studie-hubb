@@ -606,6 +606,7 @@ function CourseDetail() {
                 ) : (
                   <Chip>Programkurs</Chip>
                 )}
+                <Chip>{course.mode === "distans" ? "Distans" : "Campus"}</Chip>
                 {!course.archived && course.completed && course.final_grade && (
                   <Chip highlight>Slutbetyg: {course.final_grade}</Chip>
                 )}
