@@ -89,6 +89,7 @@ function CoursesPage() {
     setUniversityId("");
     setWeeklyGoal("");
     setIsStandalone(false);
+    setMode("campus");
   }
 
   const { data: courses = [] } = useQuery(coursesQuery);
