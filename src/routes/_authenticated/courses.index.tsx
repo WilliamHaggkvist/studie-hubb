@@ -118,6 +118,7 @@ function CoursesPage() {
           university_id: universityId || null,
           weekly_goal_hours: weeklyGoal ? Number(weeklyGoal) : 0,
           is_standalone: isStandalone,
+          mode,
         })
         .select("id")
         .single();
