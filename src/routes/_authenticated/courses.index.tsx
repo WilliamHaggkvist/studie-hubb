@@ -78,6 +78,7 @@ function CoursesPage() {
   const [universityId, setUniversityId] = useState<string>("");
   const [weeklyGoal, setWeeklyGoal] = useState<string>("");
   const [isStandalone, setIsStandalone] = useState(false);
+  const [mode, setMode] = useState<"campus" | "distans">("campus");
 
   function resetForm() {
     setName("");
