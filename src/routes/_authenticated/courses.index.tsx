@@ -61,6 +61,7 @@ type CourseRow = {
   completed: boolean;
   final_grade: string | null;
   is_standalone: boolean;
+  mode: "campus" | "distans";
 };
 
 function CoursesPage() {
@@ -78,6 +79,7 @@ function CoursesPage() {
   const [universityId, setUniversityId] = useState<string>("");
   const [weeklyGoal, setWeeklyGoal] = useState<string>("");
   const [isStandalone, setIsStandalone] = useState(false);
+  const [mode, setMode] = useState<"campus" | "distans">("campus");
 
   function resetForm() {
     setName("");
@@ -88,6 +90,7 @@ function CoursesPage() {
     setUniversityId("");
     setWeeklyGoal("");
     setIsStandalone(false);
+    setMode("campus");
   }
 
   const { data: courses = [] } = useQuery(coursesQuery);
@@ -116,6 +119,7 @@ function CoursesPage() {
           university_id: universityId || null,
           weekly_goal_hours: weeklyGoal ? Number(weeklyGoal) : 0,
           is_standalone: isStandalone,
+          mode,
         })
         .select("id")
         .single();
@@ -311,6 +315,18 @@ function CoursesPage() {
                     className="rounded-xl"
                   />
                 </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Undervisningsform</Label>
+                <Select value={mode} onValueChange={(v) => setMode(v as "campus" | "distans")}>
+                  <SelectTrigger className="rounded-xl">
+                    <SelectValue placeholder="Välj form" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="campus">Campus</SelectItem>
+                    <SelectItem value="distans">Distans</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
             <DialogFooter>

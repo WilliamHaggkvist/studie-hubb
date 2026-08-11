@@ -128,6 +128,7 @@ export type Database = {
           id: string
           is_standalone: boolean
           literature: string | null
+          mode: Database["public"]["Enums"]["course_mode"]
           name: string
           period: Database["public"]["Enums"]["course_period"] | null
           periods: Database["public"]["Enums"]["course_period"][] | null
@@ -152,6 +153,7 @@ export type Database = {
           id?: string
           is_standalone?: boolean
           literature?: string | null
+          mode?: Database["public"]["Enums"]["course_mode"]
           name: string
           period?: Database["public"]["Enums"]["course_period"] | null
           periods?: Database["public"]["Enums"]["course_period"][] | null
@@ -176,6 +178,7 @@ export type Database = {
           id?: string
           is_standalone?: boolean
           literature?: string | null
+          mode?: Database["public"]["Enums"]["course_mode"]
           name?: string
           period?: Database["public"]["Enums"]["course_period"] | null
           periods?: Database["public"]["Enums"]["course_period"][] | null
@@ -881,6 +884,7 @@ export type Database = {
       }
     }
     Enums: {
+      course_mode: "campus" | "distans"
       course_period: "P1" | "P2" | "P3" | "P4" | "P5"
       task_priority: "low" | "medium" | "high"
       task_status: "todo" | "doing" | "done"
@@ -1023,6 +1027,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      course_mode: ["campus", "distans"],
       course_period: ["P1", "P2", "P3", "P4", "P5"],
       task_priority: ["low", "medium", "high"],
       task_status: ["todo", "doing", "done"],

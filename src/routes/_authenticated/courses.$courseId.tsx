@@ -93,6 +93,7 @@ type CourseRow = {
   completed: boolean;
   final_grade: string | null;
   is_standalone: boolean;
+  mode: "campus" | "distans";
 };
 
 type CourseFile = {
@@ -115,7 +116,7 @@ function CourseDetail() {
       const { data, error } = await supabase
         .from("courses")
         .select(
-          "id,name,code,color,icon,archived,hp,period,periods,arskurs,university_id,weekly_goal_hours,literature,teacher_name,teacher_contact,completed,final_grade,is_standalone",
+          "id,name,code,color,icon,archived,hp,period,periods,arskurs,university_id,weekly_goal_hours,literature,teacher_name,teacher_contact,completed,final_grade,is_standalone,mode",
         )
         .eq("id", courseId)
         .maybeSingle();
@@ -605,6 +606,7 @@ function CourseDetail() {
                 ) : (
                   <Chip>Programkurs</Chip>
                 )}
+                <Chip>{course.mode === "distans" ? "Distans" : "Campus"}</Chip>
                 {!course.archived && course.completed && course.final_grade && (
                   <Chip highlight>Slutbetyg: {course.final_grade}</Chip>
                 )}
