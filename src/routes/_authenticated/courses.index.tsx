@@ -61,6 +61,7 @@ type CourseRow = {
   completed: boolean;
   final_grade: string | null;
   is_standalone: boolean;
+  mode: "campus" | "distans";
 };
 
 function CoursesPage() {

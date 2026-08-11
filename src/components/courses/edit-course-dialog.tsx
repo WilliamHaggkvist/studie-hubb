@@ -43,6 +43,7 @@ type CourseRow = {
   completed: boolean;
   final_grade: string | null;
   is_standalone: boolean;
+  mode: "campus" | "distans";
 };
 
 export function EditCourseDialog({
@@ -69,6 +70,7 @@ export function EditCourseDialog({
     teacher_name: course.teacher_name ?? "",
     teacher_contact: course.teacher_contact ?? "",
     is_standalone: course.is_standalone,
+    mode: course.mode ?? "campus",
   });
 
   const save = useMutation({
@@ -89,6 +91,7 @@ export function EditCourseDialog({
           teacher_name: form.teacher_name.trim() || null,
           teacher_contact: form.teacher_contact.trim() || null,
           is_standalone: form.is_standalone,
+          mode: form.mode,
         })
         .eq("id", course.id);
       if (error) throw error;
@@ -216,6 +219,21 @@ export function EditCourseDialog({
                 <SelectContent>
                   <SelectItem value="program">Programkurs</SelectItem>
                   <SelectItem value="standalone">Fristående kurs</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Undervisningsform</Label>
+              <Select
+                value={form.mode}
+                onValueChange={(v) => setForm({ ...form, mode: v as "campus" | "distans" })}
+              >
+                <SelectTrigger className="rounded-xl">
+                  <SelectValue placeholder="Välj" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="campus">Campus</SelectItem>
+                  <SelectItem value="distans">Distans</SelectItem>
                 </SelectContent>
               </Select>
             </div>
