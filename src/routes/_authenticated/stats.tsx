@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Bar,
   BarChart,
@@ -733,6 +734,109 @@ function StatsPage() {
     };
   }, [courses]);
 
+  // --- Högskolepoäng (HP) Registrerade statistik ---
+  const registeredStats = useMemo(() => {
+    // Registrerade kurser = aktiva (icke-arkiverade) samt slutförda kurser
+    const registeredCourses = courses.filter((c) => !c.archived || c.completed);
+
+    let completedHp = 0;
+    let ongoingHp = 0;
+    let totalHp = 0;
+    let completedCount = 0;
+    let ongoingCount = 0;
+
+    for (const c of registeredCourses) {
+      const courseHp = c.hp ?? 0;
+      totalHp += courseHp;
+      if (c.completed) {
+        completedHp += courseHp;
+        completedCount++;
+      } else {
+        ongoingHp += courseHp;
+        ongoingCount++;
+      }
+    }
+
+    const pctCompleted = totalHp > 0 ? Math.round((completedHp / totalHp) * 100) : 0;
+
+    return {
+      completedHp: +completedHp.toFixed(1),
+      ongoingHp: +ongoingHp.toFixed(1),
+      totalHp: +totalHp.toFixed(1),
+      completedCount,
+      ongoingCount,
+      pctCompleted,
+      registeredCourses,
+    };
+  }, [courses]);
+
+  // --- Betygsstatistik ---
+  const gradeStats = useMemo(() => {
+    const gradedCourses = courses.filter((c) => c.final_grade && c.final_grade.trim() !== "");
+
+    const gradeCounts: Record<string, { count: number; totalHp: number }> = {};
+    let weightedGradeSum = 0;
+    let totalGradeHp = 0;
+
+    const parseGradeNumeric = (g: string): number | null => {
+      const trimmed = g.trim().toUpperCase();
+      if (trimmed === "5" || trimmed === "A") return 5.0;
+      if (trimmed === "4" || trimmed === "B") return 4.0;
+      if (trimmed === "3" || trimmed === "C") return 3.0;
+      if (trimmed === "D") return 2.0;
+      if (trimmed === "E") return 1.0;
+      const num = parseFloat(trimmed);
+      return isNaN(num) ? null : num;
+    };
+
+    for (const c of gradedCourses) {
+      const g = c.final_grade!.trim().toUpperCase();
+      const hp = c.hp ?? 0;
+
+      if (!gradeCounts[g]) {
+        gradeCounts[g] = { count: 0, totalHp: 0 };
+      }
+      gradeCounts[g].count++;
+      gradeCounts[g].totalHp += hp;
+
+      const numVal = parseGradeNumeric(g);
+      if (numVal !== null && hp > 0) {
+        weightedGradeSum += numVal * hp;
+        totalGradeHp += hp;
+      }
+    }
+
+    const weightedAverage = totalGradeHp > 0 ? +(weightedGradeSum / totalGradeHp).toFixed(2) : null;
+    const simpleAverage = (() => {
+      const numGrades = gradedCourses
+        .map((c) => parseGradeNumeric(c.final_grade!))
+        .filter((val): val is number => val !== null);
+      if (numGrades.length === 0) return null;
+      return +(numGrades.reduce((a, b) => a + b, 0) / numGrades.length).toFixed(2);
+    })();
+
+    const gradeDistributionData = Object.entries(gradeCounts)
+      .map(([grade, data]) => ({
+        grade,
+        Antal: data.count,
+        HP: data.totalHp,
+      }))
+      .sort((a, b) => b.Antal - a.Antal);
+
+    const gradedTasks = tasks.filter(
+      (t) => (t.grade && t.grade.trim() !== "") || (t.points && t.points.trim() !== ""),
+    );
+
+    return {
+      gradedCourses,
+      gradedTasks,
+      totalGradedCourses: gradedCourses.length,
+      weightedAverage,
+      simpleAverage,
+      gradeDistributionData,
+    };
+  }, [courses, tasks]);
+
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 lg:px-8">
       <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
@@ -773,7 +877,21 @@ function StatsPage() {
         </div>
       </div>
 
-      <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <Tabs defaultValue="time" className="w-full">
+        <TabsList className="mb-6 inline-flex h-auto justify-start gap-1 p-1">
+          <TabsTrigger value="time" className="gap-2 justify-start text-left">
+            <Clock className="h-4 w-4" /> Studietid
+          </TabsTrigger>
+          <TabsTrigger value="hp" className="gap-2 justify-start text-left">
+            <GraduationCap className="h-4 w-4" /> Högskolepoäng
+          </TabsTrigger>
+          <TabsTrigger value="betyg" className="gap-2 justify-start text-left">
+            <Award className="h-4 w-4" /> Betyg
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="time" className="space-y-6">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card className="relative overflow-hidden border-border/60 bg-surface/60">
           <CardContent className="p-5">
             <div className="mb-1 flex items-center gap-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
@@ -1349,295 +1467,704 @@ function StatsPage() {
           </CardContent>
         </Card>
       )}
+        </TabsContent>
 
-      {/* ── Högskolepoäng & Terminsöversikt (HP) ── */}
-      <div className="mt-8 space-y-4">
-        <div className="flex items-center gap-2">
-          <GraduationCap className="h-5 w-5 text-primary" />
-          <h2 className="font-display text-xl font-bold tracking-tight">
-            Högskolepoäng & Terminsöversikt
-          </h2>
-        </div>
-
-        {/* HP KPI Kort */}
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Card className="relative overflow-hidden border-border/60 bg-surface/60">
-            <CardContent className="p-5">
-              <div className="mb-1 flex items-center justify-between text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                <span className="flex items-center gap-1.5 text-emerald-400">
-                  <CheckCircle2 className="h-4 w-4" /> Avklarade HP
-                </span>
-                <span className="text-[10px] font-semibold text-emerald-400/90">
-                  {hpStats.completedCount} kurser
-                </span>
-              </div>
-              <div className="font-display text-3xl font-bold tabular-nums text-emerald-400">
-                {hpStats.completedHp}{" "}
-                <span className="text-sm font-normal text-muted-foreground">HP</span>
-              </div>
-              <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-surface-2">
-                <div
-                  className="h-full rounded-full bg-emerald-500 transition-all duration-500"
-                  style={{ width: `${Math.min(100, hpStats.pctCompleted)}%` }}
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="relative overflow-hidden border-border/60 bg-surface/60">
-            <CardContent className="p-5">
-              <div className="mb-1 flex items-center justify-between text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                <span className="flex items-center gap-1.5 text-sky-400">
-                  <BookOpen className="h-4 w-4" /> Pågående HP
-                </span>
-                <span className="text-[10px] font-semibold text-sky-400/90">
-                  {hpStats.ongoingCount} kurser
-                </span>
-              </div>
-              <div className="font-display text-3xl font-bold tabular-nums text-sky-400">
-                {hpStats.ongoingHp}{" "}
-                <span className="text-sm font-normal text-muted-foreground">HP</span>
-              </div>
-              <p className="mt-1 text-[10px] text-muted-foreground">Läses just nu i aktiva kurser</p>
-            </CardContent>
-          </Card>
-
-          <Card className="relative overflow-hidden border-border/60 bg-surface/60">
-            <CardContent className="p-5">
-              <div className="mb-1 flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                <GraduationCap className="h-4 w-4 text-purple-400" /> Totalt registrerat
-              </div>
-              <div className="font-display text-3xl font-bold tabular-nums text-purple-300">
-                {hpStats.totalHp}{" "}
-                <span className="text-sm font-normal text-muted-foreground">HP</span>
-              </div>
-              <p className="mt-1 text-[10px] text-muted-foreground">Totalt i din studieplan</p>
-            </CardContent>
-          </Card>
-
-          <Card className="relative overflow-hidden border-border/60 bg-surface/60">
-            <CardContent className="p-5">
-              <div className="mb-1 flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                <Award className="h-4 w-4 text-amber-400" /> Slutförandegrad
-              </div>
-              <div className="font-display text-3xl font-bold tabular-nums text-amber-400">
-                {hpStats.pctCompleted}%
-              </div>
-              <p className="mt-1 text-[10px] text-muted-foreground">
-                Avklarat av totala antalet poäng
+        <TabsContent value="hp" className="space-y-10">
+          {/* ───────────────────────────────────────────────────────────── */}
+          {/* HUVUDRUBRIK 1: Högskolepoäng - Antagen                         */}
+          {/* ───────────────────────────────────────────────────────────── */}
+          <section className="space-y-4">
+            <div className="border-b border-border/40 pb-3">
+              <h2 className="font-display text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
+                <GraduationCap className="h-5 w-5 text-primary" />
+                Högskolepoäng - Antagen
+              </h2>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Alla antagna poäng och kurser i din kompletta studieplan.
               </p>
-            </CardContent>
-          </Card>
-        </div>
+            </div>
 
-        {/* Diagram: HP per Termin & Läsperiod */}
-        <div className="grid gap-4 lg:grid-cols-3">
-          {/* Stapeldiagram per Termin */}
-          <Card className="border-border/60 bg-surface/60 lg:col-span-2">
-            <CardHeader className="pb-2">
-              <CardTitle className="font-display text-base">HP per Termin & Årskurs</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {hpStats.termData.length === 0 ? (
-                <div className="p-8 text-center text-xs text-muted-foreground">
-                  Inga kurser med HP registrerade än.
-                </div>
-              ) : (
-                <div className="h-64">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={hpStats.termData} barSize={32}>
-                      <CartesianGrid
-                        strokeDasharray="3 3"
-                        stroke="var(--border)"
-                        vertical={false}
-                      />
-                      <XAxis
-                        dataKey="label"
-                        stroke="var(--muted-foreground)"
-                        fontSize={11}
-                        tickLine={false}
-                        axisLine={false}
-                      />
-                      <YAxis
-                        stroke="var(--muted-foreground)"
-                        fontSize={10}
-                        tickLine={false}
-                        axisLine={false}
-                        width={32}
-                        tickFormatter={(v: number) => `${v} HP`}
-                      />
-                      <Tooltip
-                        contentStyle={{
-                          background: "var(--popover)",
-                          border: "1px solid var(--border)",
-                          borderRadius: 8,
-                          fontSize: 12,
-                          color: "var(--foreground)",
-                        }}
-                        formatter={(v: number, name: string) => [
-                          `${v} HP`,
-                          name === "completedHp" ? "Avklarat" : "Pågående",
-                        ]}
-                      />
-                      <Legend
-                        wrapperStyle={{ fontSize: 11 }}
-                        formatter={(value) =>
-                          value === "completedHp" ? "Avklarade HP" : "Pågående HP"
-                        }
-                      />
-                      <Bar dataKey="completedHp" stackId="a" fill="#10b981" radius={[0, 0, 4, 4]} />
-                      <Bar
-                        dataKey="ongoingHp"
-                        stackId="a"
-                        fill="#3b82f6"
-                        fillOpacity={0.85}
-                        radius={[4, 4, 0, 0]}
-                      />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+            {/* HP KPI Kort */}
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <Card className="relative overflow-hidden border-border/60 bg-surface/60">
+                <CardContent className="p-5">
+                  <div className="mb-1 flex items-center justify-between text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                    <span className="flex items-center gap-1.5 text-emerald-400">
+                      <CheckCircle2 className="h-4 w-4" /> Avklarade HP
+                    </span>
+                    <span className="text-[10px] font-semibold text-emerald-400/90">
+                      {hpStats.completedCount} kurser
+                    </span>
+                  </div>
+                  <div className="font-display text-3xl font-bold tabular-nums text-emerald-400">
+                    {hpStats.completedHp}{" "}
+                    <span className="text-sm font-normal text-muted-foreground">HP</span>
+                  </div>
+                  <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-surface-2">
+                    <div
+                      className="h-full rounded-full bg-emerald-500 transition-all duration-500"
+                      style={{ width: `${Math.min(100, hpStats.pctCompleted)}%` }}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
 
-          {/* Läsperioder (P1-P5) */}
-          <Card className="border-border/60 bg-surface/60">
-            <CardHeader className="pb-2">
-              <CardTitle className="font-display text-base">HP per Läsperiod</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={hpStats.periodData} barSize={20}>
-                    <CartesianGrid
-                      strokeDasharray="3 3"
-                      stroke="var(--border)"
-                      vertical={false}
-                    />
-                    <XAxis
-                      dataKey="period"
-                      stroke="var(--muted-foreground)"
-                      fontSize={11}
-                      tickLine={false}
-                      axisLine={false}
-                    />
-                    <YAxis
-                      stroke="var(--muted-foreground)"
-                      fontSize={10}
-                      tickLine={false}
-                      axisLine={false}
-                      width={28}
-                      tickFormatter={(v: number) => `${v}`}
-                    />
-                    <Tooltip
-                      contentStyle={{
-                        background: "var(--popover)",
-                        border: "1px solid var(--border)",
-                        borderRadius: 8,
-                        fontSize: 12,
-                        color: "var(--foreground)",
-                      }}
-                      formatter={(v: number, name: string) => [`${v} HP`, name]}
-                    />
-                    <Bar dataKey="Avklarade HP" stackId="b" fill="#10b981" radius={[0, 0, 3, 3]} />
-                    <Bar
-                      dataKey="Pågående HP"
-                      stackId="b"
-                      fill="#8b5cf6"
-                      fillOpacity={0.85}
-                      radius={[3, 3, 0, 0]}
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+              <Card className="relative overflow-hidden border-border/60 bg-surface/60">
+                <CardContent className="p-5">
+                  <div className="mb-1 flex items-center justify-between text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                    <span className="flex items-center gap-1.5 text-sky-400">
+                      <BookOpen className="h-4 w-4" /> Pågående HP
+                    </span>
+                    <span className="text-[10px] font-semibold text-sky-400/90">
+                      {hpStats.ongoingCount} kurser
+                    </span>
+                  </div>
+                  <div className="font-display text-3xl font-bold tabular-nums text-sky-400">
+                    {hpStats.ongoingHp}{" "}
+                    <span className="text-sm font-normal text-muted-foreground">HP</span>
+                  </div>
+                  <p className="mt-1 text-[10px] text-muted-foreground">Läses just nu i aktiva kurser</p>
+                </CardContent>
+              </Card>
 
-        {/* Detaljerad terminsuppdelning med kurser */}
-        {hpStats.termData.length > 0 && (
-          <Card className="border-border/60 bg-surface/60">
-            <CardHeader className="pb-2">
-              <CardTitle className="font-display text-base">Kursfördelning per Termin</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-4 md:grid-cols-2">
-                {hpStats.termData.map((term) => (
-                  <div
-                    key={term.label}
-                    className="rounded-xl border border-border/50 bg-surface-2/30 p-4 transition-colors"
-                  >
-                    <div className="mb-3 flex items-center justify-between border-b border-border/40 pb-2">
-                      <div className="font-display font-semibold text-sm flex items-center gap-2">
-                        <span>{term.label}</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-xs font-mono">
-                        <span className="text-emerald-400 font-medium">
-                          {term.completedHp} HP klart
-                        </span>
-                        {term.ongoingHp > 0 && (
-                          <span className="text-sky-400 font-medium">
-                            + {term.ongoingHp} HP pågår
-                          </span>
-                        )}
-                        <span className="text-muted-foreground">({term.totalHp} HP tot)</span>
-                      </div>
+              <Card className="relative overflow-hidden border-border/60 bg-surface/60">
+                <CardContent className="p-5">
+                  <div className="mb-1 flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                    <GraduationCap className="h-4 w-4 text-purple-400" /> Totalt antaget
+                  </div>
+                  <div className="font-display text-3xl font-bold tabular-nums text-purple-300">
+                    {hpStats.totalHp}{" "}
+                    <span className="text-sm font-normal text-muted-foreground">HP</span>
+                  </div>
+                  <p className="mt-1 text-[10px] text-muted-foreground">Totalt i din studieplan</p>
+                </CardContent>
+              </Card>
+
+              <Card className="relative overflow-hidden border-border/60 bg-surface/60">
+                <CardContent className="p-5">
+                  <div className="mb-1 flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                    <Award className="h-4 w-4 text-amber-400" /> Slutförandegrad
+                  </div>
+                  <div className="font-display text-3xl font-bold tabular-nums text-amber-400">
+                    {hpStats.pctCompleted}%
+                  </div>
+                  <p className="mt-1 text-[10px] text-muted-foreground">
+                    Avklarat av totala antalet poäng
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Diagram: HP per Termin & Läsperiod */}
+            <div className="grid gap-4 lg:grid-cols-3">
+              {/* Stapeldiagram per Termin */}
+              <Card className="border-border/60 bg-surface/60 lg:col-span-2">
+                <CardHeader className="pb-2">
+                  <CardTitle className="font-display text-base">HP per Termin & Årskurs</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {hpStats.termData.length === 0 ? (
+                    <div className="p-8 text-center text-xs text-muted-foreground">
+                      Inga kurser med HP registrerade än.
                     </div>
+                  ) : (
+                    <div className="h-64">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={hpStats.termData} barSize={32}>
+                          <CartesianGrid
+                            strokeDasharray="3 3"
+                            stroke="var(--border)"
+                            vertical={false}
+                          />
+                          <XAxis
+                            dataKey="label"
+                            stroke="var(--muted-foreground)"
+                            fontSize={11}
+                            tickLine={false}
+                            axisLine={false}
+                          />
+                          <YAxis
+                            stroke="var(--muted-foreground)"
+                            fontSize={10}
+                            tickLine={false}
+                            axisLine={false}
+                            width={32}
+                            tickFormatter={(v: number) => `${v} HP`}
+                          />
+                          <Tooltip
+                            contentStyle={{
+                              background: "var(--popover)",
+                              border: "1px solid var(--border)",
+                              borderRadius: 8,
+                              fontSize: 12,
+                              color: "var(--foreground)",
+                            }}
+                            formatter={(v: number, name: string) => [
+                              `${v} HP`,
+                              name === "completedHp" ? "Avklarat" : "Pågående",
+                            ]}
+                          />
+                          <Legend
+                            wrapperStyle={{ fontSize: 11 }}
+                            formatter={(value) =>
+                              value === "completedHp" ? "Avklarade HP" : "Pågående HP"
+                            }
+                          />
+                          <Bar dataKey="completedHp" stackId="a" fill="#10b981" radius={[0, 0, 4, 4]} />
+                          <Bar
+                            dataKey="ongoingHp"
+                            stackId="a"
+                            fill="#3b82f6"
+                            fillOpacity={0.85}
+                            radius={[4, 4, 0, 0]}
+                          />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
 
-                    <div className="space-y-2">
-                      {term.courses.map((c) => {
-                        const periodStr = formatPeriods(c.periods, c.period);
-                        return (
-                          <div
-                            key={c.id}
-                            className="flex items-center justify-between gap-2 rounded-lg bg-surface/60 px-3 py-2 text-xs"
-                          >
-                            <div className="flex items-center gap-2 truncate">
+              {/* Läsperioder (P1-P5) */}
+              <Card className="border-border/60 bg-surface/60">
+                <CardHeader className="pb-2">
+                  <CardTitle className="font-display text-base">HP per Läsperiod</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={hpStats.periodData} barSize={20}>
+                        <CartesianGrid
+                          strokeDasharray="3 3"
+                          stroke="var(--border)"
+                          vertical={false}
+                        />
+                        <XAxis
+                          dataKey="period"
+                          stroke="var(--muted-foreground)"
+                          fontSize={11}
+                          tickLine={false}
+                          axisLine={false}
+                        />
+                        <YAxis
+                          stroke="var(--muted-foreground)"
+                          fontSize={10}
+                          tickLine={false}
+                          axisLine={false}
+                          width={28}
+                          tickFormatter={(v: number) => `${v}`}
+                        />
+                        <Tooltip
+                          contentStyle={{
+                            background: "var(--popover)",
+                            border: "1px solid var(--border)",
+                            borderRadius: 8,
+                            fontSize: 12,
+                            color: "var(--foreground)",
+                          }}
+                          formatter={(v: number, name: string) => [`${v} HP`, name]}
+                        />
+                        <Bar dataKey="Avklarade HP" stackId="b" fill="#10b981" radius={[0, 0, 3, 3]} />
+                        <Bar
+                          dataKey="Pågående HP"
+                          stackId="b"
+                          fill="#8b5cf6"
+                          fillOpacity={0.85}
+                          radius={[3, 3, 0, 0]}
+                        />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Detaljerad terminsuppdelning med kurser */}
+            {hpStats.termData.length > 0 && (
+              <Card className="border-border/60 bg-surface/60">
+                <CardHeader className="pb-2">
+                  <CardTitle className="font-display text-base">Kursfördelning per Termin</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    {hpStats.termData.map((term) => (
+                      <div
+                        key={term.label}
+                        className="rounded-xl border border-border/50 bg-surface-2/30 p-4 transition-colors"
+                      >
+                        <div className="mb-3 flex items-center justify-between border-b border-border/40 pb-2">
+                          <div className="font-display font-semibold text-sm flex items-center gap-2">
+                            <span>{term.label}</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-xs font-mono">
+                            <span className="text-emerald-400 font-medium">
+                              {term.completedHp} HP klart
+                            </span>
+                            {term.ongoingHp > 0 && (
+                              <span className="text-sky-400 font-medium">
+                                + {term.ongoingHp} HP pågår
+                              </span>
+                            )}
+                            <span className="text-muted-foreground">({term.totalHp} HP tot)</span>
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          {term.courses.map((c) => {
+                            const periodStr = formatPeriods(c.periods, c.period);
+                            return (
+                              <div
+                                key={c.id}
+                                className="flex items-center justify-between gap-2 rounded-lg bg-surface/60 px-3 py-2 text-xs"
+                              >
+                                <div className="flex items-center gap-2 truncate">
+                                  <span
+                                    className="h-2 w-2 shrink-0 rounded-full"
+                                    style={{ background: c.color }}
+                                  />
+                                  {c.code && (
+                                    <span className="font-mono text-[11px] font-semibold text-muted-foreground">
+                                      {c.code}
+                                    </span>
+                                  )}
+                                  <span className="truncate font-medium">{c.name}</span>
+                                </div>
+
+                                <div className="flex items-center gap-2 shrink-0">
+                                  {periodStr && (
+                                    <span className="rounded bg-white/5 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                                      {periodStr}
+                                    </span>
+                                  )}
+                                  {c.hp != null && (
+                                    <span className="font-mono font-semibold tabular-nums text-foreground">
+                                      {c.hp} HP
+                                    </span>
+                                  )}
+                                  {c.completed ? (
+                                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 text-[10px] font-semibold text-emerald-400">
+                                      <CheckCircle2 className="h-3 w-3" />
+                                      {c.final_grade ? `Betyg ${c.final_grade}` : "Klart"}
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-1 rounded-full bg-sky-500/10 border border-sky-500/20 px-2 py-0.5 text-[10px] font-semibold text-sky-400">
+                                      Pågår
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </section>
+
+          {/* ───────────────────────────────────────────────────────────── */}
+          {/* HUVUDRUBRIK 2: Högskolepoäng - Registrerade                   */}
+          {/* ───────────────────────────────────────────────────────────── */}
+          <section className="space-y-4 pt-4 border-t border-border/40">
+            <div className="border-b border-border/40 pb-3">
+              <h2 className="font-display text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
+                <BookOpen className="h-5 w-5 text-sky-400" />
+                Högskolepoäng - Registrerade
+              </h2>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Poäng i kurser där du är eller har varit aktivt registrerad.
+              </p>
+            </div>
+
+            {/* HP KPI Kort - Registrerade */}
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <Card className="relative overflow-hidden border-border/60 bg-surface/60">
+                <CardContent className="p-5">
+                  <div className="mb-1 flex items-center justify-between text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                    <span className="flex items-center gap-1.5 text-emerald-400">
+                      <CheckCircle2 className="h-4 w-4" /> Avklarat Registrerat
+                    </span>
+                    <span className="text-[10px] font-semibold text-emerald-400/90">
+                      {registeredStats.completedCount} kurser
+                    </span>
+                  </div>
+                  <div className="font-display text-3xl font-bold tabular-nums text-emerald-400">
+                    {registeredStats.completedHp}{" "}
+                    <span className="text-sm font-normal text-muted-foreground">HP</span>
+                  </div>
+                  <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-surface-2">
+                    <div
+                      className="h-full rounded-full bg-emerald-500 transition-all duration-500"
+                      style={{ width: `${Math.min(100, registeredStats.pctCompleted)}%` }}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="relative overflow-hidden border-border/60 bg-surface/60">
+                <CardContent className="p-5">
+                  <div className="mb-1 flex items-center justify-between text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                    <span className="flex items-center gap-1.5 text-sky-400">
+                      <BookOpen className="h-4 w-4" /> Aktiva Registreringar
+                    </span>
+                    <span className="text-[10px] font-semibold text-sky-400/90">
+                      {registeredStats.ongoingCount} kurser
+                    </span>
+                  </div>
+                  <div className="font-display text-3xl font-bold tabular-nums text-sky-400">
+                    {registeredStats.ongoingHp}{" "}
+                    <span className="text-sm font-normal text-muted-foreground">HP</span>
+                  </div>
+                  <p className="mt-1 text-[10px] text-muted-foreground">
+                    Pågående kurser med aktiv registrering
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card className="relative overflow-hidden border-border/60 bg-surface/60">
+                <CardContent className="p-5">
+                  <div className="mb-1 flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                    <GraduationCap className="h-4 w-4 text-purple-400" /> Totalt Registrerat
+                  </div>
+                  <div className="font-display text-3xl font-bold tabular-nums text-purple-300">
+                    {registeredStats.totalHp}{" "}
+                    <span className="text-sm font-normal text-muted-foreground">HP</span>
+                  </div>
+                  <p className="mt-1 text-[10px] text-muted-foreground">
+                    Summa av aktiva + klara registreringar
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card className="relative overflow-hidden border-border/60 bg-surface/60">
+                <CardContent className="p-5">
+                  <div className="mb-1 flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                    <Award className="h-4 w-4 text-amber-400" /> Genomströmning
+                  </div>
+                  <div className="font-display text-3xl font-bold tabular-nums text-amber-400">
+                    {registeredStats.pctCompleted}%
+                  </div>
+                  <p className="mt-1 text-[10px] text-muted-foreground">
+                    Avklarat av alla påbörjade registreringar
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Registrerade kurser översikt */}
+            <Card className="border-border/60 bg-surface/60">
+              <CardHeader className="pb-2">
+                <CardTitle className="font-display text-base">
+                  Aktiva & Avklarade Registreringar
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {registeredStats.registeredCourses.length === 0 ? (
+                  <div className="p-8 text-center text-xs text-muted-foreground">
+                    Inga registrerade kurser än.
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {registeredStats.registeredCourses.map((c) => {
+                      const periodStr = formatPeriods(c.periods, c.period);
+                      return (
+                        <div
+                          key={c.id}
+                          className="flex items-center justify-between gap-3 rounded-lg border border-border/40 bg-surface-2/30 px-3.5 py-2.5 text-xs transition-colors hover:bg-surface-2/60"
+                        >
+                          <div className="flex items-center gap-2.5 truncate">
+                            <span
+                              className="h-2.5 w-2.5 shrink-0 rounded-full"
+                              style={{ background: c.color }}
+                            />
+                            {c.code && (
+                              <span className="font-mono text-xs font-semibold text-muted-foreground">
+                                {c.code}
+                              </span>
+                            )}
+                            <span className="truncate font-medium text-sm">{c.name}</span>
+                          </div>
+
+                          <div className="flex items-center gap-3 shrink-0">
+                            {c.arskurs && (
+                              <span className="rounded bg-white/5 px-2 py-0.5 text-[10px] text-muted-foreground">
+                                År {c.arskurs}
+                              </span>
+                            )}
+                            {periodStr && (
+                              <span className="rounded bg-white/5 px-2 py-0.5 text-[10px] text-muted-foreground">
+                                {periodStr}
+                              </span>
+                            )}
+                            {c.hp != null && (
+                              <span className="font-mono font-semibold text-sm tabular-nums text-foreground">
+                                {c.hp} HP
+                              </span>
+                            )}
+                            {c.completed ? (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-400">
+                                <CheckCircle2 className="h-3.5 w-3.5" />
+                                {c.final_grade ? `Betyg ${c.final_grade}` : "Registrerad & Klar"}
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-sky-500/10 border border-sky-500/20 px-2.5 py-0.5 text-[11px] font-semibold text-sky-400">
+                                Aktiv Registrering
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </section>
+        </TabsContent>
+
+        <TabsContent value="betyg" className="space-y-6">
+          <div className="border-b border-border/40 pb-3">
+            <h2 className="font-display text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
+              <Award className="h-5 w-5 text-amber-400" />
+              Betyg & Resultat
+            </h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Översikt över dina slutbetyg i kurser och godkända moment.
+            </p>
+          </div>
+
+          {/* KPI Kort for Betyg */}
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <Card className="relative overflow-hidden border-border/60 bg-surface/60">
+              <CardContent className="p-5">
+                <div className="mb-1 flex items-center justify-between text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                  <span className="flex items-center gap-1.5 text-amber-400">
+                    <Award className="h-4 w-4" /> Viktat Medelbetyg
+                  </span>
+                </div>
+                <div className="font-display text-3xl font-bold tabular-nums text-amber-400">
+                  {gradeStats.weightedAverage !== null ? gradeStats.weightedAverage : "—"}{" "}
+                  {gradeStats.weightedAverage !== null && (
+                    <span className="text-sm font-normal text-muted-foreground">/ 5.0</span>
+                  )}
+                </div>
+                <p className="mt-1 text-[10px] text-muted-foreground">Viktat efter kursernas HP</p>
+              </CardContent>
+            </Card>
+
+            <Card className="relative overflow-hidden border-border/60 bg-surface/60">
+              <CardContent className="p-5">
+                <div className="mb-1 flex items-center justify-between text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                  <span className="flex items-center gap-1.5 text-sky-400">
+                    <GraduationCap className="h-4 w-4" /> Betygssatta Kurser
+                  </span>
+                </div>
+                <div className="font-display text-3xl font-bold tabular-nums text-sky-400">
+                  {gradeStats.totalGradedCourses}
+                </div>
+                <p className="mt-1 text-[10px] text-muted-foreground">
+                  Av totalt {hpStats.completedCount} avklarade
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="relative overflow-hidden border-border/60 bg-surface/60">
+              <CardContent className="p-5">
+                <div className="mb-1 flex items-center justify-between text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                  <span className="flex items-center gap-1.5 text-emerald-400">
+                    <CheckCircle2 className="h-4 w-4" /> Enkelt Medelbetyg
+                  </span>
+                </div>
+                <div className="font-display text-3xl font-bold tabular-nums text-emerald-400">
+                  {gradeStats.simpleAverage !== null ? gradeStats.simpleAverage : "—"}
+                </div>
+                <p className="mt-1 text-[10px] text-muted-foreground">Ovägt genomsnitt</p>
+              </CardContent>
+            </Card>
+
+            <Card className="relative overflow-hidden border-border/60 bg-surface/60">
+              <CardContent className="p-5">
+                <div className="mb-1 flex items-center justify-between text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                  <span className="flex items-center gap-1.5 text-purple-400">
+                    <Target className="h-4 w-4" /> Betygssatta Moment
+                  </span>
+                </div>
+                <div className="font-display text-3xl font-bold tabular-nums text-purple-300">
+                  {gradeStats.gradedTasks.length}
+                </div>
+                <p className="mt-1 text-[10px] text-muted-foreground">Tentor & uppgifter med betyg</p>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-3">
+            {/* Betygsfördelning Diagram */}
+            <Card className="border-border/60 bg-surface/60 lg:col-span-1">
+              <CardHeader className="pb-2">
+                <CardTitle className="font-display text-base">Betygsfördelning</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {gradeStats.gradeDistributionData.length === 0 ? (
+                  <div className="p-8 text-center text-xs text-muted-foreground">
+                    Inga kursbetyg registrerade än.
+                  </div>
+                ) : (
+                  <div className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={gradeStats.gradeDistributionData} barSize={28}>
+                        <CartesianGrid
+                          strokeDasharray="3 3"
+                          stroke="var(--border)"
+                          vertical={false}
+                        />
+                        <XAxis
+                          dataKey="grade"
+                          stroke="var(--muted-foreground)"
+                          fontSize={12}
+                          tickLine={false}
+                          axisLine={false}
+                        />
+                        <YAxis
+                          stroke="var(--muted-foreground)"
+                          fontSize={10}
+                          tickLine={false}
+                          axisLine={false}
+                          width={24}
+                        />
+                        <Tooltip
+                          contentStyle={{
+                            background: "var(--popover)",
+                            border: "1px solid var(--border)",
+                            borderRadius: 8,
+                            fontSize: 12,
+                            color: "var(--foreground)",
+                          }}
+                          formatter={(v: number, name: string) => [
+                            name === "Antal" ? `${v} kurser` : `${v} HP`,
+                            name,
+                          ]}
+                        />
+                        <Bar dataKey="Antal" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Slutbetyg i Kurser */}
+            <Card className="border-border/60 bg-surface/60 lg:col-span-2">
+              <CardHeader className="pb-2">
+                <CardTitle className="font-display text-base">Slutbetyg i Kurser</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {gradeStats.gradedCourses.length === 0 ? (
+                  <div className="p-8 text-center text-xs text-muted-foreground">
+                    Du har inga registrerade slutbetyg i dina kurser än.
+                  </div>
+                ) : (
+                  <div className="space-y-2 max-h-[280px] overflow-y-auto pr-1">
+                    {gradeStats.gradedCourses.map((c) => {
+                      const periodStr = formatPeriods(c.periods, c.period);
+                      return (
+                        <div
+                          key={c.id}
+                          className="flex items-center justify-between gap-3 rounded-lg border border-border/40 bg-surface-2/30 px-3.5 py-2.5 text-xs transition-colors hover:bg-surface-2/60"
+                        >
+                          <div className="flex items-center gap-2.5 truncate">
+                            <span
+                              className="h-2.5 w-2.5 shrink-0 rounded-full"
+                              style={{ background: c.color }}
+                            />
+                            {c.code && (
+                              <span className="font-mono text-xs font-semibold text-muted-foreground">
+                                {c.code}
+                              </span>
+                            )}
+                            <span className="truncate font-medium text-sm">{c.name}</span>
+                          </div>
+
+                          <div className="flex items-center gap-3 shrink-0">
+                            {c.arskurs && (
+                              <span className="rounded bg-white/5 px-2 py-0.5 text-[10px] text-muted-foreground">
+                                År {c.arskurs}
+                              </span>
+                            )}
+                            {periodStr && (
+                              <span className="rounded bg-white/5 px-2 py-0.5 text-[10px] text-muted-foreground">
+                                {periodStr}
+                              </span>
+                            )}
+                            {c.hp != null && (
+                              <span className="font-mono font-semibold text-xs tabular-nums text-muted-foreground">
+                                {c.hp} HP
+                              </span>
+                            )}
+                            <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 border border-amber-500/30 px-3 py-1 text-xs font-bold text-amber-400 font-mono">
+                              Betyg {c.final_grade}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Uppgifts- & Tentabetyg */}
+          {gradeStats.gradedTasks.length > 0 && (
+            <Card className="border-border/60 bg-surface/60">
+              <CardHeader className="pb-2">
+                <CardTitle className="font-display text-base">
+                  Betygsatta Uppgifter & Tentor
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3">
+                  {gradeStats.gradedTasks.map((t) => {
+                    const c = courses.find((course) => course.id === t.course_id);
+                    return (
+                      <div
+                        key={t.id}
+                        className="rounded-lg border border-border/40 bg-surface-2/30 p-3 text-xs flex flex-col justify-between gap-2"
+                      >
+                        <div>
+                          <div className="flex items-center justify-between gap-2 mb-1">
+                            <span className="font-medium truncate text-foreground">{t.title}</span>
+                            {t.grade && (
+                              <span className="rounded-md bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 font-bold font-mono text-[11px] text-emerald-400 shrink-0">
+                                {t.grade}
+                              </span>
+                            )}
+                          </div>
+                          {c && (
+                            <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground truncate">
                               <span
                                 className="h-2 w-2 shrink-0 rounded-full"
                                 style={{ background: c.color }}
                               />
-                              {c.code && (
-                                <span className="font-mono text-[11px] font-semibold text-muted-foreground">
-                                  {c.code}
-                                </span>
-                              )}
-                              <span className="truncate font-medium">{c.name}</span>
+                              <span className="truncate">{c.name}</span>
                             </div>
-
-                            <div className="flex items-center gap-2 shrink-0">
-                              {periodStr && (
-                                <span className="rounded bg-white/5 px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                                  {periodStr}
-                                </span>
-                              )}
-                              {c.hp != null && (
-                                <span className="font-mono font-semibold tabular-nums text-foreground">
-                                  {c.hp} HP
-                                </span>
-                              )}
-                              {c.completed ? (
-                                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 text-[10px] font-semibold text-emerald-400">
-                                  <CheckCircle2 className="h-3 w-3" />
-                                  {c.final_grade ? `Betyg ${c.final_grade}` : "Klart"}
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center gap-1 rounded-full bg-sky-500/10 border border-sky-500/20 px-2 py-0.5 text-[10px] font-semibold text-sky-400">
-                                  Pågår
-                                </span>
-                              )}
-                            </div>
+                          )}
+                        </div>
+                        {t.points && (
+                          <div className="text-[10px] font-mono text-muted-foreground">
+                            Poäng: {t.points}
                           </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-      </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
