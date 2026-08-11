@@ -34,6 +34,8 @@ import {
   BookOpen,
   GraduationCap,
   Award,
+  School,
+  Building2,
 } from "lucide-react";
 import { formatPeriods } from "@/lib/course-presets";
 import { Switch } from "@/components/ui/switch";
@@ -610,6 +612,20 @@ function StatsPage() {
     let completedCount = 0;
     let ongoingCount = 0;
 
+    let programHp = 0;
+    let programCompletedHp = 0;
+    let programCount = 0;
+    let standaloneHp = 0;
+    let standaloneCompletedHp = 0;
+    let standaloneCount = 0;
+
+    let campusHp = 0;
+    let campusCompletedHp = 0;
+    let campusCount = 0;
+    let distansHp = 0;
+    let distansCompletedHp = 0;
+    let distansCount = 0;
+
     type CourseItem = (typeof courses)[number];
     const termMap = new Map<
       string,
@@ -644,6 +660,26 @@ function StatsPage() {
       } else {
         ongoingHp += courseHp;
         ongoingCount++;
+      }
+
+      if (c.is_standalone) {
+        standaloneHp += courseHp;
+        standaloneCount++;
+        if (c.completed) standaloneCompletedHp += courseHp;
+      } else {
+        programHp += courseHp;
+        programCount++;
+        if (c.completed) programCompletedHp += courseHp;
+      }
+
+      if (c.mode === "distans") {
+        distansHp += courseHp;
+        distansCount++;
+        if (c.completed) distansCompletedHp += courseHp;
+      } else {
+        campusHp += courseHp;
+        campusCount++;
+        if (c.completed) campusCompletedHp += courseHp;
       }
 
       // Bestäm termin (e.g. "År 1 HT", "År 1 VT", "HT", "VT" etc.)
@@ -729,6 +765,18 @@ function StatsPage() {
       completedCount,
       ongoingCount,
       pctCompleted,
+      programHp: +programHp.toFixed(1),
+      programCompletedHp: +programCompletedHp.toFixed(1),
+      programCount,
+      standaloneHp: +standaloneHp.toFixed(1),
+      standaloneCompletedHp: +standaloneCompletedHp.toFixed(1),
+      standaloneCount,
+      campusHp: +campusHp.toFixed(1),
+      campusCompletedHp: +campusCompletedHp.toFixed(1),
+      campusCount,
+      distansHp: +distansHp.toFixed(1),
+      distansCompletedHp: +distansCompletedHp.toFixed(1),
+      distansCount,
       termData,
       periodData,
     };
@@ -745,6 +793,20 @@ function StatsPage() {
     let completedCount = 0;
     let ongoingCount = 0;
 
+    let programHp = 0;
+    let programCompletedHp = 0;
+    let programCount = 0;
+    let standaloneHp = 0;
+    let standaloneCompletedHp = 0;
+    let standaloneCount = 0;
+
+    let campusHp = 0;
+    let campusCompletedHp = 0;
+    let campusCount = 0;
+    let distansHp = 0;
+    let distansCompletedHp = 0;
+    let distansCount = 0;
+
     for (const c of registeredCourses) {
       const courseHp = c.hp ?? 0;
       totalHp += courseHp;
@@ -754,6 +816,26 @@ function StatsPage() {
       } else {
         ongoingHp += courseHp;
         ongoingCount++;
+      }
+
+      if (c.is_standalone) {
+        standaloneHp += courseHp;
+        standaloneCount++;
+        if (c.completed) standaloneCompletedHp += courseHp;
+      } else {
+        programHp += courseHp;
+        programCount++;
+        if (c.completed) programCompletedHp += courseHp;
+      }
+
+      if (c.mode === "distans") {
+        distansHp += courseHp;
+        distansCount++;
+        if (c.completed) distansCompletedHp += courseHp;
+      } else {
+        campusHp += courseHp;
+        campusCount++;
+        if (c.completed) campusCompletedHp += courseHp;
       }
     }
 
@@ -766,6 +848,18 @@ function StatsPage() {
       completedCount,
       ongoingCount,
       pctCompleted,
+      programHp: +programHp.toFixed(1),
+      programCompletedHp: +programCompletedHp.toFixed(1),
+      programCount,
+      standaloneHp: +standaloneHp.toFixed(1),
+      standaloneCompletedHp: +standaloneCompletedHp.toFixed(1),
+      standaloneCount,
+      campusHp: +campusHp.toFixed(1),
+      campusCompletedHp: +campusCompletedHp.toFixed(1),
+      campusCount,
+      distansHp: +distansHp.toFixed(1),
+      distansCompletedHp: +distansCompletedHp.toFixed(1),
+      distansCount,
       registeredCourses,
     };
   }, [courses]);
@@ -1555,6 +1649,69 @@ function StatsPage() {
               </Card>
             </div>
 
+            {/* Fördelning per Kurstyp & Studieform (Antagna HP) */}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Card className="border-border/60 bg-surface/60">
+                <CardContent className="p-4 flex items-center justify-between">
+                  <div className="space-y-1 w-full">
+                    <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      <School className="h-4 w-4 text-purple-400" /> Kurstyp (Antaget)
+                    </div>
+                    <div className="grid grid-cols-2 gap-4 pt-1">
+                      <div>
+                        <div className="text-xs text-muted-foreground">Programkurs</div>
+                        <div className="text-lg font-bold text-foreground font-display">
+                          {hpStats.programHp} <span className="text-xs font-normal text-muted-foreground">HP</span>
+                        </div>
+                        <div className="text-[10px] text-emerald-400">
+                          {hpStats.programCompletedHp} HP klara ({hpStats.programCount} {hpStats.programCount === 1 ? "kurs" : "kurser"})
+                        </div>
+                      </div>
+                      <div className="border-l border-border/60 pl-4">
+                        <div className="text-xs text-muted-foreground">Fristående</div>
+                        <div className="text-lg font-bold text-foreground font-display">
+                          {hpStats.standaloneHp} <span className="text-xs font-normal text-muted-foreground">HP</span>
+                        </div>
+                        <div className="text-[10px] text-emerald-400">
+                          {hpStats.standaloneCompletedHp} HP klara ({hpStats.standaloneCount} {hpStats.standaloneCount === 1 ? "kurs" : "kurser"})
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border-border/60 bg-surface/60">
+                <CardContent className="p-4 flex items-center justify-between">
+                  <div className="space-y-1 w-full">
+                    <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      <Building2 className="h-4 w-4 text-sky-400" /> Studieform (Antaget)
+                    </div>
+                    <div className="grid grid-cols-2 gap-4 pt-1">
+                      <div>
+                        <div className="text-xs text-muted-foreground">Campus</div>
+                        <div className="text-lg font-bold text-foreground font-display">
+                          {hpStats.campusHp} <span className="text-xs font-normal text-muted-foreground">HP</span>
+                        </div>
+                        <div className="text-[10px] text-emerald-400">
+                          {hpStats.campusCompletedHp} HP klara ({hpStats.campusCount} {hpStats.campusCount === 1 ? "kurs" : "kurser"})
+                        </div>
+                      </div>
+                      <div className="border-l border-border/60 pl-4">
+                        <div className="text-xs text-muted-foreground">Distans</div>
+                        <div className="text-lg font-bold text-foreground font-display">
+                          {hpStats.distansHp} <span className="text-xs font-normal text-muted-foreground">HP</span>
+                        </div>
+                        <div className="text-[10px] text-emerald-400">
+                          {hpStats.distansCompletedHp} HP klara ({hpStats.distansCount} {hpStats.distansCount === 1 ? "kurs" : "kurser"})
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
             {/* Diagram: HP per Termin & Läsperiod */}
             <div className="grid gap-4 lg:grid-cols-3">
               {/* Stapeldiagram per Termin */}
@@ -1730,7 +1887,13 @@ function StatsPage() {
                                   <span className="truncate font-medium">{c.name}</span>
                                 </div>
 
-                                <div className="flex items-center gap-2 shrink-0">
+                                <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end">
+                                  <span className="rounded bg-white/5 px-1.5 py-0.5 text-[10px] text-muted-foreground border border-white/5">
+                                    {c.is_standalone ? "Fristående" : "Programkurs"}
+                                  </span>
+                                  <span className="rounded bg-white/5 px-1.5 py-0.5 text-[10px] text-muted-foreground border border-white/5">
+                                    {c.mode === "distans" ? "Distans" : "Campus"}
+                                  </span>
                                   {periodStr && (
                                     <span className="rounded bg-white/5 px-1.5 py-0.5 text-[10px] text-muted-foreground">
                                       {periodStr}
@@ -1853,6 +2016,69 @@ function StatsPage() {
               </Card>
             </div>
 
+            {/* Fördelning per Kurstyp & Studieform (Registrerade HP) */}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Card className="border-border/60 bg-surface/60">
+                <CardContent className="p-4 flex items-center justify-between">
+                  <div className="space-y-1 w-full">
+                    <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      <School className="h-4 w-4 text-purple-400" /> Kurstyp (Registrerat)
+                    </div>
+                    <div className="grid grid-cols-2 gap-4 pt-1">
+                      <div>
+                        <div className="text-xs text-muted-foreground">Programkurs</div>
+                        <div className="text-lg font-bold text-foreground font-display">
+                          {registeredStats.programHp} <span className="text-xs font-normal text-muted-foreground">HP</span>
+                        </div>
+                        <div className="text-[10px] text-emerald-400">
+                          {registeredStats.programCompletedHp} HP klara ({registeredStats.programCount} {registeredStats.programCount === 1 ? "kurs" : "kurser"})
+                        </div>
+                      </div>
+                      <div className="border-l border-border/60 pl-4">
+                        <div className="text-xs text-muted-foreground">Fristående</div>
+                        <div className="text-lg font-bold text-foreground font-display">
+                          {registeredStats.standaloneHp} <span className="text-xs font-normal text-muted-foreground">HP</span>
+                        </div>
+                        <div className="text-[10px] text-emerald-400">
+                          {registeredStats.standaloneCompletedHp} HP klara ({registeredStats.standaloneCount} {registeredStats.standaloneCount === 1 ? "kurs" : "kurser"})
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border-border/60 bg-surface/60">
+                <CardContent className="p-4 flex items-center justify-between">
+                  <div className="space-y-1 w-full">
+                    <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      <Building2 className="h-4 w-4 text-sky-400" /> Studieform (Registrerat)
+                    </div>
+                    <div className="grid grid-cols-2 gap-4 pt-1">
+                      <div>
+                        <div className="text-xs text-muted-foreground">Campus</div>
+                        <div className="text-lg font-bold text-foreground font-display">
+                          {registeredStats.campusHp} <span className="text-xs font-normal text-muted-foreground">HP</span>
+                        </div>
+                        <div className="text-[10px] text-emerald-400">
+                          {registeredStats.campusCompletedHp} HP klara ({registeredStats.campusCount} {registeredStats.campusCount === 1 ? "kurs" : "kurser"})
+                        </div>
+                      </div>
+                      <div className="border-l border-border/60 pl-4">
+                        <div className="text-xs text-muted-foreground">Distans</div>
+                        <div className="text-lg font-bold text-foreground font-display">
+                          {registeredStats.distansHp} <span className="text-xs font-normal text-muted-foreground">HP</span>
+                        </div>
+                        <div className="text-[10px] text-emerald-400">
+                          {registeredStats.distansCompletedHp} HP klara ({registeredStats.distansCount} {registeredStats.distansCount === 1 ? "kurs" : "kurser"})
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
             {/* Registrerade kurser översikt */}
             <Card className="border-border/60 bg-surface/60">
               <CardHeader className="pb-2">
@@ -1887,7 +2113,7 @@ function StatsPage() {
                             <span className="truncate font-medium text-sm">{c.name}</span>
                           </div>
 
-                          <div className="flex items-center gap-3 shrink-0">
+                          <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
                             {c.arskurs && (
                               <span className="rounded bg-white/5 px-2 py-0.5 text-[10px] text-muted-foreground">
                                 År {c.arskurs}
@@ -1898,6 +2124,12 @@ function StatsPage() {
                                 {periodStr}
                               </span>
                             )}
+                            <span className="rounded bg-white/5 px-2 py-0.5 text-[10px] font-medium text-muted-foreground border border-white/10">
+                              {c.is_standalone ? "Fristående" : "Programkurs"}
+                            </span>
+                            <span className="rounded bg-white/5 px-2 py-0.5 text-[10px] font-medium text-muted-foreground border border-white/10">
+                              {c.mode === "distans" ? "Distans" : "Campus"}
+                            </span>
                             {c.hp != null && (
                               <span className="font-mono font-semibold text-sm tabular-nums text-foreground">
                                 {c.hp} HP
