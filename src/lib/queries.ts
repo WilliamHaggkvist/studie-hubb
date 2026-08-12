@@ -179,3 +179,41 @@ export const reportingModulesQuery = queryOptions({
   },
   enabled: typeof window !== "undefined",
 });
+
+/** En antagningsomgång: kursen läses under dessa perioder i denna årskurs. */
+export type CourseEnrollment = {
+  id: string;
+  course_id: string;
+  arskurs: number | null;
+  periods: string[];
+  sort_order: number;
+};
+
+export const enrollmentsQuery = queryOptions({
+  queryKey: ["course_reg_enrollments"] as const,
+  queryFn: async (): Promise<CourseEnrollment[]> => {
+    await supabase.auth.getUser();
+    const { data, error } = await supabase
+      .from("course_reg_enrollments")
+      .select("id,course_id,arskurs,periods,sort_order")
+      .order("sort_order", { ascending: true });
+    if (error) throw error;
+    return (data ?? []).map((r) => ({ ...r, periods: (r.periods ?? []) as string[] }));
+  },
+  enabled: typeof window !== "undefined",
+});
+
+/** Omgångar för en kurs, eller en syntetisk omgång från kursens egna fält. */
+export function enrollmentsForCourse(
+  course: Pick<Course, "id" | "arskurs" | "periods" | "period">,
+  all: readonly CourseEnrollment[],
+): { arskurs: number | null; periods: string[] }[] {
+  const rows = all.filter((e) => e.course_id === course.id);
+  if (rows.length > 0) return rows.map((e) => ({ arskurs: e.arskurs, periods: e.periods }));
+  return [
+    {
+      arskurs: course.arskurs,
+      periods: course.periods ?? (course.period ? [course.period] : []),
+    },
+  ];
+}

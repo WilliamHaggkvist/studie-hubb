@@ -21,9 +21,15 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { PALETTE, COURSE_PERIODS, ARSKURS_OPTIONS, sortPeriods, firstPeriod, type CoursePeriod } from "@/lib/course-presets";
+import { PALETTE, sortPeriods, type CoursePeriod } from "@/lib/course-presets";
 import { useUniversities } from "@/lib/settings";
-import { reportingModulesQuery } from "@/lib/queries";
+import { reportingModulesQuery, enrollmentsQuery } from "@/lib/queries";
+import {
+  EnrollmentsEditor,
+  emptyEnrollment,
+  type EnrollmentDraft,
+} from "@/components/courses/enrollments-editor";
+import { mirroredCourseFields, saveEnrollments } from "@/lib/enrollments";
 import { Plus, Trash2 } from "lucide-react";
 
 type ModuleRow = { id?: string; name: string; hp: string };
@@ -62,7 +68,33 @@ export function EditCourseDialog({
   const qc = useQueryClient();
   const { data: universities = [] } = useUniversities();
   const { data: allModules = [] } = useQuery(reportingModulesQuery);
+  const { data: allEnrollments = [] } = useQuery(enrollmentsQuery);
   const [modules, setModules] = useState<ModuleRow[]>([]);
+  const [enrollments, setEnrollments] = useState<EnrollmentDraft[]>([]);
+
+  useEffect(() => {
+    if (!open) return;
+    const rows = allEnrollments
+      .filter((e) => e.course_id === course.id)
+      .map((e) => ({
+        id: e.id,
+        arskurs: e.arskurs?.toString() ?? "",
+        periods: sortPeriods(e.periods) as CoursePeriod[],
+      }));
+    setEnrollments(
+      rows.length > 0
+        ? rows
+        : [
+            {
+              arskurs: course.arskurs?.toString() ?? "",
+              periods: sortPeriods(
+                course.periods ?? (course.period ? [course.period] : []),
+              ) as CoursePeriod[],
+            },
+          ],
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, course.id, allEnrollments.length]);
 
   useEffect(() => {
     if (!open) return;
@@ -112,9 +144,7 @@ export function EditCourseDialog({
           code: form.code.trim() || null,
           color: form.color,
           hp: form.hp ? Number(form.hp) : null,
-          period: (firstPeriod(form.periods) ?? null) as "P1" | "P2" | "P3" | "P4" | "P5" | null,
-          periods: form.periods.length > 0 ? (sortPeriods(form.periods) as unknown as ("P1" | "P2" | "P3" | "P4" | "P5")[]) : null,
-          arskurs: form.arskurs ? Number(form.arskurs) : null,
+          ...mirroredCourseFields(enrollments),
           university_id: form.university_id || null,
           weekly_goal_hours: form.weekly_goal_hours ? Number(form.weekly_goal_hours) : 0,
           literature: form.literature.trim() || null,
@@ -156,9 +186,17 @@ export function EditCourseDialog({
           if (insError) throw insError;
         }
       }
+
+      await saveEnrollments({
+        courseId: course.id,
+        userId: u.user.id,
+        rows: enrollments,
+        existing: allEnrollments,
+      });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["course_reporting_modules"] });
+      qc.invalidateQueries({ queryKey: ["course_reg_enrollments"] });
       qc.invalidateQueries({ queryKey: ["course", course.id] });
       qc.invalidateQueries({ queryKey: ["courses"] });
       toast.success("Sparat");
@@ -202,54 +240,7 @@ export function EditCourseDialog({
               />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label>Period</Label>
-              <div className="flex flex-wrap gap-1.5">
-                {COURSE_PERIODS.map((p) => {
-                  const active = form.periods.includes(p);
-                  return (
-                    <button
-                      type="button"
-                      key={p}
-                      onClick={() =>
-                        setForm({
-                          ...form,
-                          periods: active
-                            ? form.periods.filter((x) => x !== p)
-                            : (sortPeriods([...form.periods, p]) as CoursePeriod[]),
-                        })
-                      }
-                      className={cn(
-                        "rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors",
-                        active
-                          ? "border-primary bg-primary/15 text-primary"
-                          : "border-border/60 bg-surface/40 text-muted-foreground hover:border-border",
-                      )}
-                    >
-                      {p}
-                    </button>
-                  );
-                })}
-              </div>
-              <p className="text-[10px] text-muted-foreground">Välj en eller flera perioder.</p>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Årskurs</Label>
-              <Select value={form.arskurs} onValueChange={(v) => setForm({ ...form, arskurs: v })}>
-                <SelectTrigger className="rounded-xl">
-                  <SelectValue placeholder="Välj" />
-                </SelectTrigger>
-                <SelectContent>
-                  {ARSKURS_OPTIONS.map((a) => (
-                    <SelectItem key={a} value={String(a)}>
-                      Årskurs {a}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+          <EnrollmentsEditor rows={enrollments} onChange={setEnrollments} />
           <div className="space-y-1.5">
             <Label>Universitet</Label>
             <Select
