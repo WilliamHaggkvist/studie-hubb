@@ -79,6 +79,7 @@ import { useUniversities } from "@/lib/settings";
 import { cn } from "@/lib/utils";
 import { EditCourseDialog } from "@/components/courses/edit-course-dialog";
 import { FilesCard } from "@/components/courses/files-card";
+import { formatDateDDMMYYYY } from "@/lib/date-utils";
 
 export const Route = createFileRoute("/_authenticated/courses/$courseId")({
   component: CourseDetail,
