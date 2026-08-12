@@ -21,7 +21,7 @@ Din idé är rätt väg: flera "antagningsomgångar" per kurs. Jag lägger det s
 
 ## Teknisk del
 
-- Ny tabell `course_reg_enrollments` (user_id, course_id, arskurs, academic_year, periods `course_period[]`, sort_order) med grants, RLS per `auth.uid()` och updated_at-trigger. Migrering kopierar in dagens `courses.arskurs` + `courses.periods` som första omgång.
+- Ny tabell `course_reg_enrollments` (user_id, course_id, arskurs, periods `course_period[]`, sort_order) med grants, RLS per `auth.uid()` och updated_at-trigger. Migrering kopierar in dagens `courses.arskurs` + `courses.periods` som första omgång.
 - `courses.arskurs`/`courses.periods` behålls och speglas från den tidigaste omgången när man sparar, så kurslistan, dashboard och kurssidan fungerar oförändrat.
 - `src/lib/queries.ts`: ny query för omgångar (hämtas för alla kurser i en batch) + fortsatt användning av `term_dates` och `course_reporting_modules`.
 - Ny hjälpmodul `src/lib/academic-periods.ts`:
