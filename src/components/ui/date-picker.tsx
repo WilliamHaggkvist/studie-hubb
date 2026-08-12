@@ -102,6 +102,10 @@ export function DatePicker({
   const [hh, mm] = selectedTime.split(":");
   const hours = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0"));
   const minutes = Array.from({ length: 12 }, (_, i) => String(i * 5).padStart(2, "0"));
+  const minuteOptions = minutes.includes(mm ?? "00")
+    ? minutes
+    : [...minutes, mm ?? "00"].sort();
+
 
   const setToday = (offsetDays: number) => {
     const d = new Date();
@@ -132,40 +136,40 @@ export function DatePicker({
       </PopoverTrigger>
 
       <PopoverContent
-        className="pointer-events-auto z-50 w-auto rounded-2xl border-white/10 p-0 shadow-2xl"
+        className="pointer-events-auto z-50 w-auto max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border-border/60 bg-popover p-0 shadow-2xl"
         align="start"
         sideOffset={6}
       >
-        <div className="flex flex-wrap items-center gap-1 border-b border-border/40 p-2">
+        <div className="flex flex-wrap items-center gap-1.5 border-b border-border/60 px-3 py-2">
           <Button
             size="sm"
-            variant="outline"
-            className="h-6 rounded-lg px-2 text-[11px]"
+            variant="secondary"
+            className="h-7 rounded-full px-2.5 text-[11px]"
             onClick={() => setToday(0)}
           >
             Idag
           </Button>
           <Button
             size="sm"
-            variant="outline"
-            className="h-6 rounded-lg px-2 text-[11px]"
+            variant="secondary"
+            className="h-7 rounded-full px-2.5 text-[11px]"
             onClick={() => setToday(1)}
           >
             Imorgon
           </Button>
           <Button
             size="sm"
-            variant="outline"
-            className="h-6 rounded-lg px-2 text-[11px]"
+            variant="secondary"
+            className="h-7 rounded-full px-2.5 text-[11px]"
             onClick={() => setToday(7)}
           >
-            Om 1 vecka
+            +1 vecka
           </Button>
           {selectedDate && (
             <Button
               size="sm"
               variant="ghost"
-              className="ml-auto h-6 rounded-lg px-2 text-[11px] text-destructive hover:bg-destructive/10"
+              className="ml-auto h-7 rounded-full px-2.5 text-[11px] text-destructive hover:bg-destructive/10"
               onClick={() => onChange?.("")}
             >
               <X className="mr-1 h-3 w-3" /> Rensa
@@ -180,20 +184,24 @@ export function DatePicker({
           onSelect={pickDate}
           locale={sv}
           weekStartsOn={1}
-          className="pointer-events-auto p-3"
+          captionLayout="dropdown"
+          startMonth={new Date(new Date().getFullYear() - 8, 0)}
+          endMonth={new Date(new Date().getFullYear() + 8, 11)}
+          className="bg-transparent p-3 [--cell-size:2.1rem]"
         />
 
+
         {includeTime && (
-          <div className="flex items-center justify-between gap-2 border-t border-border/60 p-3">
-            <div className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/60 bg-muted/30 px-3 py-2.5">
+            <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
               <Clock className="h-3.5 w-3.5" />
               <span>Klockslag</span>
             </div>
-            <div className="flex items-center gap-1 font-mono text-xs">
+            <div className="flex items-center gap-1.5">
               <select
                 value={hh ?? "12"}
                 onChange={(e) => emit(selectedDate ?? new Date(), `${e.target.value}:${mm ?? "00"}`)}
-                className="h-8 rounded-xl border border-input bg-background px-2 text-xs"
+                className="h-8 rounded-lg border border-input bg-background px-2 text-xs tabular-nums"
                 aria-label="Timme"
               >
                 {hours.map((h) => (
@@ -202,14 +210,14 @@ export function DatePicker({
                   </option>
                 ))}
               </select>
-              <span>:</span>
+              <span className="text-xs text-muted-foreground">:</span>
               <select
-                value={minutes.includes(mm ?? "") ? mm : (mm ?? "00")}
+                value={mm ?? "00"}
                 onChange={(e) => emit(selectedDate ?? new Date(), `${hh ?? "12"}:${e.target.value}`)}
-                className="h-8 rounded-xl border border-input bg-background px-2 text-xs"
+                className="h-8 rounded-lg border border-input bg-background px-2 text-xs tabular-nums"
                 aria-label="Minut"
               >
-                {(minutes.includes(mm ?? "") ? minutes : [...minutes, mm ?? "00"].sort()).map((m) => (
+                {minuteOptions.map((m) => (
                   <option key={m} value={m}>
                     {m}
                   </option>
@@ -217,13 +225,14 @@ export function DatePicker({
               </select>
               <Button
                 size="sm"
-                className="ml-1 h-7 rounded-lg px-3 text-[11px]"
+                className="h-8 rounded-lg px-3 text-[11px]"
                 onClick={() => setOpen(false)}
               >
                 Klar
               </Button>
             </div>
           </div>
+
         )}
       </PopoverContent>
     </Popover>
