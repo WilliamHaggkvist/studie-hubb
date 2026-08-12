@@ -64,6 +64,8 @@ import {
   TYPE_LABELS,
   TYPE_COLORS,
   reportingModulesQuery,
+  enrollmentsQuery,
+  enrollmentsForCourse,
 } from "@/lib/queries";
 import { CompleteModuleDialog } from "@/components/courses/complete-module-dialog";
 import {
@@ -546,9 +548,25 @@ function CourseDetail() {
 
   const [completeModuleFor, setCompleteModuleFor] = useState<ReportingModule | null>(null);
   const { data: allModules = [] } = useQuery(reportingModulesQuery);
+  const { data: allEnrollments = [] } = useQuery(enrollmentsQuery);
   const modules = useMemo(
     () => allModules.filter((m) => m.course_id === courseId),
     [allModules, courseId],
+  );
+  const courseEnrollments = useMemo(
+    () =>
+      course
+        ? enrollmentsForCourse(
+            {
+              id: course.id,
+              arskurs: course.arskurs,
+              periods: course.periods,
+              period: course.period,
+            },
+            allEnrollments,
+          )
+        : [],
+    [course, allEnrollments],
   );
   const doneModules = modules.filter((m) => m.completed);
   const modulesHpTotal = modules.reduce((s, m) => s + (Number(m.hp) || 0), 0);
@@ -638,8 +656,12 @@ function CourseDetail() {
               </h1>
               <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px]">
                 {course.hp != null && <Chip>{course.hp} HP</Chip>}
-                {(() => { const label = formatPeriods(course.periods, course.period); return label ? <Chip>{label}</Chip> : null; })()}
-                {course.arskurs != null && <Chip>Årskurs {course.arskurs}</Chip>}
+                {courseEnrollments.map((e, i) => {
+                  const label = formatPeriods(e.periods, null);
+                  const ak = e.arskurs != null ? `Åk ${e.arskurs}` : null;
+                  const text = [ak, label].filter(Boolean).join(" · ");
+                  return text ? <Chip key={i}>{text}</Chip> : null;
+                })}
                 {universityName && <Chip>{universityName}</Chip>}
                 {goalHours > 0 && <Chip>Mål {goalHours} h/v</Chip>}
                 {course.is_standalone ? (

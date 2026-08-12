@@ -64,6 +64,13 @@ type CourseRow = {
   mode: "campus" | "distans";
 };
 
+import {
+  EnrollmentsEditor,
+  emptyEnrollment,
+  type EnrollmentDraft,
+} from "@/components/courses/enrollments-editor";
+import { mirroredCourseFields, saveEnrollments } from "@/lib/enrollments";
+
 function CoursesPage() {
   const qc = useQueryClient();
   const navigate = useNavigate();
@@ -74,8 +81,7 @@ function CoursesPage() {
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
   const [hp, setHp] = useState<string>("");
-  const [periods, setPeriods] = useState<CoursePeriod[]>([]);
-  const [arskurs, setArskurs] = useState<string>("");
+  const [enrollments, setEnrollments] = useState<EnrollmentDraft[]>([emptyEnrollment()]);
   const [universityId, setUniversityId] = useState<string>("");
   const [weeklyGoal, setWeeklyGoal] = useState<string>("");
   const [isStandalone, setIsStandalone] = useState(false);
@@ -85,8 +91,7 @@ function CoursesPage() {
     setName("");
     setCode("");
     setHp("");
-    setPeriods([]);
-    setArskurs("");
+    setEnrollments([emptyEnrollment()]);
     setUniversityId("");
     setWeeklyGoal("");
     setIsStandalone(false);
@@ -113,9 +118,7 @@ function CoursesPage() {
           code: code.trim() || null,
           color: chosenColor,
           hp: hp ? Number(hp) : null,
-          period: (firstPeriod(periods) ?? null) as "P1" | "P2" | "P3" | "P4" | "P5" | null,
-          periods: periods.length > 0 ? (sortPeriods(periods) as unknown as ("P1" | "P2" | "P3" | "P4" | "P5")[]) : null,
-          arskurs: arskurs ? Number(arskurs) : null,
+          ...mirroredCourseFields(enrollments),
           university_id: universityId || null,
           weekly_goal_hours: weeklyGoal ? Number(weeklyGoal) : 0,
           is_standalone: isStandalone,
@@ -124,10 +127,17 @@ function CoursesPage() {
         .select("id")
         .single();
       if (error) throw error;
+      await saveEnrollments({
+        courseId: data.id as string,
+        userId: u.user.id,
+        rows: enrollments,
+        existing: [],
+      });
       return data.id as string;
     },
     onSuccess: (id) => {
       qc.invalidateQueries({ queryKey: ["courses"] });
+      qc.invalidateQueries({ queryKey: ["course_reg_enrollments"] });
       qc.invalidateQueries({ queryKey: ["courses", "all"] });
       toast.success("Kurs tillagd");
       setOpen(false);
@@ -226,53 +236,7 @@ function CoursesPage() {
                   />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label>Period</Label>
-                  <div className="flex flex-wrap gap-1.5">
-                    {COURSE_PERIODS.map((p) => {
-                      const active = periods.includes(p);
-                      return (
-                        <button
-                          type="button"
-                          key={p}
-                          onClick={() =>
-                            setPeriods((prev) =>
-                              active
-                                ? prev.filter((x) => x !== p)
-                                : (sortPeriods([...prev, p]) as CoursePeriod[]),
-                            )
-                          }
-                          className={cn(
-                            "rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors",
-                            active
-                              ? "border-primary bg-primary/15 text-primary"
-                              : "border-border/60 bg-surface/40 text-muted-foreground hover:border-border",
-                          )}
-                        >
-                          {p}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <p className="text-[10px] text-muted-foreground">Välj en eller flera.</p>
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Årskurs</Label>
-                  <Select value={arskurs} onValueChange={setArskurs}>
-                    <SelectTrigger className="rounded-xl">
-                      <SelectValue placeholder="Välj årskurs" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {ARSKURS_OPTIONS.map((a) => (
-                        <SelectItem key={a} value={String(a)}>
-                          Årskurs {a}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
+              <EnrollmentsEditor rows={enrollments} onChange={setEnrollments} />
               <div className="space-y-1.5">
                 <Label>Universitet</Label>
                 <Select value={universityId} onValueChange={setUniversityId}>

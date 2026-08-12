@@ -58,7 +58,17 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useMemo, useState } from "react";
-import { coursesQuery, tasksQuery, termsQuery, type TermRow } from "@/lib/queries";
+import {
+  coursesQuery,
+  tasksQuery,
+  termsQuery,
+  enrollmentsQuery,
+  reportingModulesQuery,
+  enrollmentsForCourse,
+  type TermRow,
+} from "@/lib/queries";
+import { periodWindows, resolvePeriod, makeArskursMapper } from "@/lib/academic-periods";
+import { PERIOD_TO_TERM, type CoursePeriod } from "@/lib/course-presets";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/stats")({
@@ -86,6 +96,8 @@ function StatsPage() {
   const { data: allCourses = [] } = useQuery(coursesQuery);
   const courses = includeArchived ? allCourses : allCourses.filter((c) => !c.archived);
   const { data: terms = [] } = useQuery(termsQuery);
+  const { data: allEnrollments = [] } = useQuery(enrollmentsQuery);
+  const { data: allModules = [] } = useQuery(reportingModulesQuery);
 
   const heatmapStart = useMemo(() => subDays(new Date(), 364), []);
   const heatmapEnd = useMemo(() => new Date(), []);
@@ -682,8 +694,12 @@ function StatsPage() {
         if (c.completed) campusCompletedHp += courseHp;
       }
 
-      // Bestäm termin (e.g. "År 1 HT", "År 1 VT", "HT", "VT" etc.)
-      const firstP = c.periods && c.periods.length > 0 ? c.periods[0] : c.period;
+      // En kurs kan läsas flera gånger (antagningsomgångar) – varje omgång
+      // räknas till sina egna perioder/terminer/årskurser.
+      const courseEnrollments = enrollmentsForCourse(c, allEnrollments);
+      for (const enr of courseEnrollments) {
+      const firstP = enr.periods.length > 0 ? enr.periods[0] : null;
+      const arskurs = enr.arskurs;
       let termType = "";
       if (firstP === "P1" || firstP === "P2") termType = "HT";
       else if (firstP === "P3" || firstP === "P4") termType = "VT";
@@ -693,14 +709,14 @@ function StatsPage() {
       let termLabelStr = "Övriga kurser";
       let sortKey = "99-9";
 
-      if (c.arskurs && termType) {
-        termKey = `ar${c.arskurs}-${termType}`;
-        termLabelStr = `År ${c.arskurs} ${termType === "HT" ? "Hösttermin" : termType === "VT" ? "Vårtermin" : "Sommartermin"}`;
-        sortKey = `${c.arskurs}-${termType === "HT" ? "1" : termType === "VT" ? "2" : "3"}`;
-      } else if (c.arskurs) {
-        termKey = `ar${c.arskurs}`;
-        termLabelStr = `Årskurs ${c.arskurs}`;
-        sortKey = `${c.arskurs}-0`;
+      if (arskurs && termType) {
+        termKey = `ar${arskurs}-${termType}`;
+        termLabelStr = `År ${arskurs} ${termType === "HT" ? "Hösttermin" : termType === "VT" ? "Vårtermin" : "Sommartermin"}`;
+        sortKey = `${arskurs}-${termType === "HT" ? "1" : termType === "VT" ? "2" : "3"}`;
+      } else if (arskurs) {
+        termKey = `ar${arskurs}`;
+        termLabelStr = `Årskurs ${arskurs}`;
+        sortKey = `${arskurs}-0`;
       } else if (termType) {
         termKey = termType;
         termLabelStr = termType === "HT" ? "Hösttermin" : termType === "VT" ? "Vårtermin" : "Sommartermin";
@@ -728,14 +744,14 @@ function StatsPage() {
       tObj.courses.push(c);
 
       // Period map aggregation
-      const coursePeriods = c.periods && c.periods.length > 0 ? c.periods : c.period ? [c.period] : [];
-      for (const p of coursePeriods) {
+      for (const p of enr.periods) {
         if (periodMap.has(p)) {
           const pObj = periodMap.get(p)!;
           pObj.totalHp += courseHp;
           if (c.completed) pObj.completedHp += courseHp;
           else pObj.ongoingHp += courseHp;
         }
+      }
       }
     }
 
@@ -780,7 +796,7 @@ function StatsPage() {
       termData,
       periodData,
     };
-  }, [courses]);
+  }, [courses, allEnrollments]);
 
   // --- Högskolepoäng (HP) Registrerade statistik ---
   const registeredStats = useMemo(() => {
@@ -863,6 +879,91 @@ function StatsPage() {
       registeredCourses,
     };
   }, [courses]);
+
+  // --- Registrerade HP per läsperiod / termin / årskurs ---
+  // Bygger på klarmarkerade rapporteringsmoment och deras registreringsdatum,
+  // som mappas till en läsperiod via användarens terminsdatum.
+  const registeredPeriodStats = useMemo(() => {
+    const windows = periodWindows(terms);
+    const toArskurs = makeArskursMapper(windows, [
+      ...allEnrollments.map((e) => e.arskurs),
+      ...courses.map((c) => c.arskurs),
+    ]);
+
+    const periodMap = new Map<CoursePeriod, number>([
+      ["P1", 0],
+      ["P2", 0],
+      ["P3", 0],
+      ["P4", 0],
+      ["P5", 0],
+    ]);
+    const termMap = new Map<string, { label: string; sortKey: string; hp: number }>();
+    let unplacedHp = 0;
+    let placedHp = 0;
+
+    const addTerm = (arskurs: number | null, term: string, hp: number) => {
+      const termName =
+        term === "HT" ? "Hösttermin" : term === "VT" ? "Vårtermin" : "Sommartermin";
+      const key = arskurs != null ? `ar${arskurs}-${term}` : term;
+      const label = arskurs != null ? `År ${arskurs} ${termName}` : termName;
+      const sortKey = `${arskurs ?? 50}-${term === "HT" ? "1" : term === "VT" ? "2" : "3"}`;
+      const cur = termMap.get(key) ?? { label, sortKey, hp: 0 };
+      cur.hp += hp;
+      termMap.set(key, cur);
+    };
+
+    const addPeriod = (period: CoursePeriod, arskurs: number | null, hp: number) => {
+      periodMap.set(period, (periodMap.get(period) ?? 0) + hp);
+      addTerm(arskurs, PERIOD_TO_TERM[period], hp);
+      placedHp += hp;
+    };
+
+    const courseById = new Map(courses.map((c) => [c.id, c]));
+
+    for (const m of allModules) {
+      if (!m.completed) continue;
+      const course = courseById.get(m.course_id);
+      if (!course) continue;
+      const hp = Number(m.hp) || 0;
+      if (hp <= 0) continue;
+      const win = resolvePeriod(m.registered_on, windows);
+      if (!win) {
+        unplacedHp += hp;
+        continue;
+      }
+      addPeriod(win.period, toArskurs(win.academicYear), hp);
+    }
+
+    // Klara kurser utan rapporteringsmoment: hela kursens hp läggs på den
+    // sista perioden i den senaste antagningsomgången.
+    const courseIdsWithModules = new Set(allModules.map((m) => m.course_id));
+    for (const c of courses) {
+      if (!c.completed || courseIdsWithModules.has(c.id)) continue;
+      const hp = c.hp ?? 0;
+      if (hp <= 0) continue;
+      const enrs = enrollmentsForCourse(c, allEnrollments);
+      const last = enrs[enrs.length - 1];
+      const lastPeriod = last?.periods?.[last.periods.length - 1] as CoursePeriod | undefined;
+      if (!lastPeriod) {
+        unplacedHp += hp;
+        continue;
+      }
+      addPeriod(lastPeriod, last.arskurs, hp);
+    }
+
+    return {
+      periodData: [...periodMap.entries()].map(([period, hp]) => ({
+        period,
+        "Registrerade HP": +hp.toFixed(1),
+      })),
+      termData: [...termMap.values()]
+        .sort((a, b) => a.sortKey.localeCompare(b.sortKey))
+        .map((t) => ({ label: t.label, hp: +t.hp.toFixed(1) })),
+      unplacedHp: +unplacedHp.toFixed(1),
+      placedHp: +placedHp.toFixed(1),
+      hasTerms: windows.length > 0,
+    };
+  }, [courses, allModules, allEnrollments, terms]);
 
   // --- Betygsstatistik ---
   const gradeStats = useMemo(() => {
@@ -2012,6 +2113,109 @@ function StatsPage() {
                   <p className="mt-1 text-[10px] text-muted-foreground">
                     Avklarat av alla påbörjade registreringar
                   </p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Registrerade HP per Termin & Läsperiod (från rapporteringsmoment) */}
+            <div className="grid gap-4 lg:grid-cols-3">
+              <Card className="border-border/60 bg-surface/60 lg:col-span-2">
+                <CardHeader className="pb-2">
+                  <CardTitle className="font-display text-base">
+                    Registrerade HP per Termin & Årskurs
+                  </CardTitle>
+                  <p className="text-[11px] text-muted-foreground">
+                    Baseras på klarmarkerade rapporteringsmoment och deras registreringsdatum.
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  {registeredPeriodStats.termData.length === 0 ? (
+                    <div className="p-8 text-center text-xs text-muted-foreground">
+                      {registeredPeriodStats.hasTerms
+                        ? "Inga registrerade moment med datum än."
+                        : "Lägg in terminsdatum under Inställningar för att periodisera registrerade poäng."}
+                    </div>
+                  ) : (
+                    <div className="h-64">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={registeredPeriodStats.termData} barSize={32}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                          <XAxis
+                            dataKey="label"
+                            stroke="var(--muted-foreground)"
+                            fontSize={11}
+                            tickLine={false}
+                            axisLine={false}
+                          />
+                          <YAxis
+                            stroke="var(--muted-foreground)"
+                            fontSize={10}
+                            tickLine={false}
+                            axisLine={false}
+                            width={32}
+                            tickFormatter={(v: number) => `${v} HP`}
+                          />
+                          <Tooltip
+                            contentStyle={{
+                              background: "var(--popover)",
+                              border: "1px solid var(--border)",
+                              borderRadius: 8,
+                              fontSize: 12,
+                              color: "var(--foreground)",
+                            }}
+                            formatter={(v: number) => [`${v} HP`, "Registrerat"]}
+                          />
+                          <Bar dataKey="hp" fill="#10b981" radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+                  {registeredPeriodStats.unplacedHp > 0 && (
+                    <p className="mt-2 text-[11px] text-muted-foreground">
+                      {registeredPeriodStats.unplacedHp} HP är ej periodiserade (saknar
+                      registreringsdatum eller datum utanför dina terminsdatum).
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card className="border-border/60 bg-surface/60">
+                <CardHeader className="pb-2">
+                  <CardTitle className="font-display text-base">Registrerade HP per Läsperiod</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={registeredPeriodStats.periodData} barSize={20}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                        <XAxis
+                          dataKey="period"
+                          stroke="var(--muted-foreground)"
+                          fontSize={11}
+                          tickLine={false}
+                          axisLine={false}
+                        />
+                        <YAxis
+                          stroke="var(--muted-foreground)"
+                          fontSize={10}
+                          tickLine={false}
+                          axisLine={false}
+                          width={28}
+                        />
+                        <Tooltip
+                          contentStyle={{
+                            background: "var(--popover)",
+                            border: "1px solid var(--border)",
+                            borderRadius: 8,
+                            fontSize: 12,
+                            color: "var(--foreground)",
+                          }}
+                          formatter={(v: number, name: string) => [`${v} HP`, name]}
+                        />
+                        <Bar dataKey="Registrerade HP" fill="#8b5cf6" radius={[3, 3, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
                 </CardContent>
               </Card>
             </div>

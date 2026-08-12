@@ -114,6 +114,47 @@ export type Database = {
           },
         ]
       }
+      course_reg_enrollments: {
+        Row: {
+          arskurs: number | null
+          course_id: string
+          created_at: string
+          id: string
+          periods: Database["public"]["Enums"]["course_period"][]
+          sort_order: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          arskurs?: number | null
+          course_id: string
+          created_at?: string
+          id?: string
+          periods?: Database["public"]["Enums"]["course_period"][]
+          sort_order?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          arskurs?: number | null
+          course_id?: string
+          created_at?: string
+          id?: string
+          periods?: Database["public"]["Enums"]["course_period"][]
+          sort_order?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "course_reg_enrollments_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       course_reporting_modules: {
         Row: {
           completed: boolean
