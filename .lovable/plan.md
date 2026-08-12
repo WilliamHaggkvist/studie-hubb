@@ -9,7 +9,7 @@ Din idé är rätt väg: flera "antagningsomgångar" per kurs. Jag lägger det s
 - Lägg till / ta bort rader. Den första (tidigaste) omgången används fortsatt för gruppering i kurslistan och på kurssidan, så inget annat ändras visuellt.
 - Befintliga kurser flyttas automatiskt över: nuvarande årskurs + perioder blir omgång 1.
 
-**HP – Antagen** (hur mycket du läser per period/termin/läsår)
+**HP – Antagen** (hur mycket du läser per period, termin och årskurs)
 - Kursens fulla hp räknas till *varje* omgång. Läser du en 9 hp-kurs igen i åk 4 syns 9 hp både i åk 2 och åk 4.
 - I "totalt antagna hp" räknas kursen en gång per omgång (det är ju faktisk studiebelastning), men kurskortslistan visar kursen en gång med båda omgångarna som chips.
 
