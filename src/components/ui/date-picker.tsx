@@ -102,6 +102,10 @@ export function DatePicker({
   const [hh, mm] = selectedTime.split(":");
   const hours = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0"));
   const minutes = Array.from({ length: 12 }, (_, i) => String(i * 5).padStart(2, "0"));
+  const minuteOptions = minutes.includes(mm ?? "00")
+    ? minutes
+    : [...minutes, mm ?? "00"].sort();
+
 
   const setToday = (offsetDays: number) => {
     const d = new Date();
