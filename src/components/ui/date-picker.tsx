@@ -188,16 +188,16 @@ export function DatePicker({
 
 
         {includeTime && (
-          <div className="flex items-center justify-between gap-2 border-t border-border/60 p-3">
-            <div className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/60 bg-muted/30 px-3 py-2.5">
+            <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
               <Clock className="h-3.5 w-3.5" />
               <span>Klockslag</span>
             </div>
-            <div className="flex items-center gap-1 font-mono text-xs">
+            <div className="flex items-center gap-1.5">
               <select
                 value={hh ?? "12"}
                 onChange={(e) => emit(selectedDate ?? new Date(), `${e.target.value}:${mm ?? "00"}`)}
-                className="h-8 rounded-xl border border-input bg-background px-2 text-xs"
+                className="h-8 rounded-lg border border-input bg-background px-2 text-xs tabular-nums"
                 aria-label="Timme"
               >
                 {hours.map((h) => (
@@ -206,14 +206,14 @@ export function DatePicker({
                   </option>
                 ))}
               </select>
-              <span>:</span>
+              <span className="text-xs text-muted-foreground">:</span>
               <select
-                value={minutes.includes(mm ?? "") ? mm : (mm ?? "00")}
+                value={mm ?? "00"}
                 onChange={(e) => emit(selectedDate ?? new Date(), `${hh ?? "12"}:${e.target.value}`)}
-                className="h-8 rounded-xl border border-input bg-background px-2 text-xs"
+                className="h-8 rounded-lg border border-input bg-background px-2 text-xs tabular-nums"
                 aria-label="Minut"
               >
-                {(minutes.includes(mm ?? "") ? minutes : [...minutes, mm ?? "00"].sort()).map((m) => (
+                {minuteOptions.map((m) => (
                   <option key={m} value={m}>
                     {m}
                   </option>
@@ -221,13 +221,14 @@ export function DatePicker({
               </select>
               <Button
                 size="sm"
-                className="ml-1 h-7 rounded-lg px-3 text-[11px]"
+                className="h-8 rounded-lg px-3 text-[11px]"
                 onClick={() => setOpen(false)}
               >
                 Klar
               </Button>
             </div>
           </div>
+
         )}
       </PopoverContent>
     </Popover>
