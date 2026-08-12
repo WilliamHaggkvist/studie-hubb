@@ -19,6 +19,7 @@ import { toast } from "sonner";
 import { useUniversities, useUserSettings } from "@/lib/settings";
 import { ARSKURS_OPTIONS } from "@/lib/course-presets";
 import { formatDateDDMMYYYY, parseDateInputToISO } from "@/lib/date-utils";
+import { DatePicker } from "@/components/ui/date-picker";
 import { termsQuery } from "@/lib/queries";
 import { academicYearOf, getArskursFromAcademicYear } from "@/lib/academic-periods";
 
@@ -722,22 +723,18 @@ function TermsCard() {
           </div>
           <div className="space-y-1">
             <Label className="text-xs">Start (dd-mm-yyyy)</Label>
-            <Input
-              type="text"
+            <DatePicker
               value={start}
-              onChange={(e) => setStart(e.target.value)}
+              onChange={setStart}
               placeholder="dd-mm-yyyy"
-              className="rounded-xl font-mono text-xs"
             />
           </div>
           <div className="space-y-1">
             <Label className="text-xs">Slut (dd-mm-yyyy)</Label>
-            <Input
-              type="text"
+            <DatePicker
               value={end}
-              onChange={(e) => setEnd(e.target.value)}
+              onChange={setEnd}
               placeholder="dd-mm-yyyy"
-              className="rounded-xl font-mono text-xs"
             />
           </div>
           <Button

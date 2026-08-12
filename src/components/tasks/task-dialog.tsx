@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/select";
 import { Trash2 } from "lucide-react";
 import { type Task, type TaskType, type TaskKind, TYPES_ALPHA, TYPE_LABELS } from "@/lib/queries";
+import { DatePicker } from "@/components/ui/date-picker";
 
 type CourseOption = { id: string; name: string; color: string };
 
@@ -138,11 +139,12 @@ export function TaskDialog({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>Deadline</Label>
-              <Input
-                type="datetime-local"
+              <DatePicker
                 value={dueAt}
-                onChange={(e) => setDueAt(e.target.value)}
-                className="rounded-xl"
+                onChange={setDueAt}
+                includeTime={true}
+                outputFormat="datetime-local"
+                placeholder="Välj deadline och tid..."
               />
             </div>
             <div className="space-y-1.5">

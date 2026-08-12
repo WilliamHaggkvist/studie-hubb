@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { type ReportingModule } from "@/lib/queries";
 import { formatDateDDMMYYYY, parseDateInputToISO } from "@/lib/date-utils";
+import { DatePicker } from "@/components/ui/date-picker";
 
 export function CompleteModuleDialog({
   module,
@@ -74,12 +75,10 @@ export function CompleteModuleDialog({
         </div>
         <div className="space-y-1.5">
           <Label>Registreringsdatum (dd-mm-yyyy)</Label>
-          <Input
-            type="text"
+          <DatePicker
             value={registeredOn}
-            onChange={(e) => setRegisteredOn(e.target.value)}
+            onChange={setRegisteredOn}
             placeholder="dd-mm-yyyy"
-            className="rounded-xl font-mono text-xs"
           />
         </div>
         <DialogFooter className="gap-2">
