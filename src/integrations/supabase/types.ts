@@ -114,6 +114,59 @@ export type Database = {
           },
         ]
       }
+      course_reporting_modules: {
+        Row: {
+          completed: boolean
+          course_id: string
+          created_at: string
+          grade: string | null
+          hp: number
+          id: string
+          name: string
+          points: string | null
+          registered_on: string | null
+          sort_order: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          completed?: boolean
+          course_id: string
+          created_at?: string
+          grade?: string | null
+          hp?: number
+          id?: string
+          name: string
+          points?: string | null
+          registered_on?: string | null
+          sort_order?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          completed?: boolean
+          course_id?: string
+          created_at?: string
+          grade?: string | null
+          hp?: number
+          id?: string
+          name?: string
+          points?: string | null
+          registered_on?: string | null
+          sort_order?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "course_reporting_modules_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       courses: {
         Row: {
           archived: boolean
