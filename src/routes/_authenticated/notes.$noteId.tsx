@@ -162,7 +162,7 @@ function PageDetail() {
       </Breadcrumb>
       <div className="mb-6 flex items-center justify-between gap-2 border-b border-border/40 pb-3">
         <div className="text-xs text-muted-foreground">
-          Uppdaterad {format(new Date(page.updated_at), "d MMM HH:mm", { locale: sv })}
+          Uppdaterad {format(new Date(page.updated_at), "yyyy-MM-dd HH:mm", { locale: sv })}
           {save.isPending && <span className="ml-2 text-sunset-amber">Sparar…</span>}
         </div>
         <div className="flex items-center gap-1">

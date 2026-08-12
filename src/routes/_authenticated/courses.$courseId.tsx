@@ -896,7 +896,7 @@ function CourseDetail() {
                                   )}
                                   {kValidDue && (
                                     <span className={cn("text-[10px] text-muted-foreground shrink-0", kOverdue && "text-sunset-rose font-medium")}>
-                                      {format(kDue, "d MMM HH:mm", { locale: sv })}
+                                      {format(kDue, "yyyy-MM-dd HH:mm", { locale: sv })}
                                     </span>
                                   )}
                                 </div>
@@ -994,7 +994,7 @@ function CourseDetail() {
                         <Clock className="h-3.5 w-3.5 text-muted-foreground" />
                       )}
                       <span className="truncate">
-                        {start && !isNaN(new Date(start).getTime()) ? format(new Date(start), "EEE d MMM", { locale: sv }) : "—"}
+                        {start && !isNaN(new Date(start).getTime()) ? format(new Date(start), "yyyy-MM-dd", { locale: sv }) : "—"}
                       </span>
                       <span className="ml-auto text-[11px] text-muted-foreground tabular-nums">
                         {start && end && !isNaN(new Date(start).getTime()) && !isNaN(new Date(end).getTime())
@@ -1047,7 +1047,7 @@ function CourseDetail() {
                     <span className="text-base leading-none">{n.icon ?? "📝"}</span>
                     <span className="truncate">{n.title || "Utan titel"}</span>
                     <span className="ml-auto text-[10px] text-muted-foreground">
-                      {n.updated_at && !isNaN(new Date(n.updated_at).getTime()) ? format(new Date(n.updated_at), "d MMM", { locale: sv }) : ""}
+                      {n.updated_at && !isNaN(new Date(n.updated_at).getTime()) ? format(new Date(n.updated_at), "yyyy-MM-dd", { locale: sv }) : ""}
                     </span>
                   </Link>
                 ))}
@@ -1381,7 +1381,7 @@ function TaskRow({
         </span>
         {validDue && (
           <span className={cn("inline-flex items-center gap-1 text-muted-foreground", overdue && "text-sunset-rose font-medium")}>
-            <span>{format(due, "d MMM HH:mm", { locale: sv })}</span>
+            <span>{format(due, "yyyy-MM-dd HH:mm", { locale: sv })}</span>
             {daysLeftStr && <span>· {daysLeftStr}</span>}
           </span>
         )}
