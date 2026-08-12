@@ -57,7 +57,15 @@ import { sv } from "date-fns/locale";
 import { TaskDialog } from "@/components/tasks/task-dialog";
 import { QuickStatusDialog } from "@/components/tasks/quick-status-dialog";
 import { CompleteDialog } from "@/components/tasks/complete-dialog";
-import { type Task, type TaskStatus, TYPE_LABELS, TYPE_COLORS } from "@/lib/queries";
+import {
+  type Task,
+  type TaskStatus,
+  type ReportingModule,
+  TYPE_LABELS,
+  TYPE_COLORS,
+  reportingModulesQuery,
+} from "@/lib/queries";
+import { CompleteModuleDialog } from "@/components/courses/complete-module-dialog";
 import {
   PALETTE,
   DEFAULT_COURSE_ICONS,
@@ -536,6 +544,39 @@ function CourseDetail() {
     onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Fel"),
   });
 
+  const [completeModuleFor, setCompleteModuleFor] = useState<ReportingModule | null>(null);
+  const { data: allModules = [] } = useQuery(reportingModulesQuery);
+  const modules = useMemo(
+    () => allModules.filter((m) => m.course_id === courseId),
+    [allModules, courseId],
+  );
+  const doneModules = modules.filter((m) => m.completed);
+  const modulesHpTotal = modules.reduce((s, m) => s + (Number(m.hp) || 0), 0);
+  const modulesHpDone = doneModules.reduce((s, m) => s + (Number(m.hp) || 0), 0);
+  const allModulesDone = modules.length === 0 || doneModules.length === modules.length;
+
+  const updateModule = useMutation({
+    mutationFn: async (payload: {
+      id: string;
+      completed: boolean;
+      grade: string | null;
+      points: string | null;
+      registered_on: string | null;
+    }) => {
+      const { id, ...rest } = payload;
+      const { error } = await supabase
+        .from("course_reporting_modules")
+        .update(rest)
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["course_reporting_modules"] });
+      setCompleteModuleFor(null);
+    },
+    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Fel"),
+  });
+
   const universityName = universities.find((u) => u.id === course?.university_id)?.name;
 
   const assignments = tasks;
@@ -658,6 +699,12 @@ function CourseDetail() {
                   size="sm"
                   variant="ghost"
                   className="gap-1 rounded-xl hover:text-c-7 hover:bg-c-7/10"
+                  disabled={!allModulesDone}
+                  title={
+                    allModulesDone
+                      ? undefined
+                      : "Alla rapporteringsmoment måste vara avklarade"
+                  }
                   onClick={() => {
                     setGradeInput(course.final_grade ?? "");
                     setCompleteOpen(true);
@@ -1021,8 +1068,107 @@ function CourseDetail() {
           </CardContent>
         </Card>
 
+        <Card className="border-border/60 bg-surface/60 backdrop-blur-md rounded-2xl lg:col-span-2">
+          <CardHeader className="pb-2">
+            <CardTitle className="font-display text-base flex items-center gap-2">
+              <GraduationCap className="h-4 w-4" style={{ color: course.color }} />{" "}
+              Rapporteringsmoment
+              <span className="ml-auto text-xs text-muted-foreground">
+                {doneModules.length}/{modules.length} klara · {modulesHpDone}/{modulesHpTotal} hp
+              </span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {modules.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-border/60 p-4 text-center text-xs text-muted-foreground">
+                Inga rapporteringsmoment. Lägg till dem via Redigera.
+              </div>
+            ) : (
+              <div className="space-y-1">
+                {modules.map((m) => (
+                  <div
+                    key={m.id}
+                    className="flex flex-wrap items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-surface-2/60"
+                  >
+                    <button
+                      type="button"
+                      onClick={() =>
+                        m.completed
+                          ? updateModule.mutate({
+                              id: m.id,
+                              completed: false,
+                              grade: null,
+                              points: null,
+                              registered_on: null,
+                            })
+                          : setCompleteModuleFor(m)
+                      }
+                      className={cn(
+                        "flex h-4 w-4 flex-none items-center justify-center rounded-md border transition",
+                        m.completed
+                          ? "border-c-7/60 bg-c-7/20 text-c-7"
+                          : "border-border/60 hover:border-primary/60",
+                      )}
+                      aria-label={m.completed ? "Ångra klarmarkering" : "Klarmarkera moment"}
+                    >
+                      {m.completed && <CheckCircle2 className="h-3 w-3" />}
+                    </button>
+                    <span className={cn("font-medium", m.completed && "text-muted-foreground")}>
+                      {m.name}
+                    </span>
+                    <span className="rounded-full bg-surface-2 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                      {m.hp} hp
+                    </span>
+                    {m.completed && (
+                      <div className="ml-auto flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground">
+                        {m.grade && (
+                          <span className="rounded-full bg-surface-2 px-1.5 py-0.5">
+                            Betyg: {m.grade}
+                          </span>
+                        )}
+                        {m.points && (
+                          <span className="rounded-full bg-surface-2 px-1.5 py-0.5">
+                            Poäng: {m.points}
+                          </span>
+                        )}
+                        {m.registered_on && <span>Reg. {m.registered_on}</span>}
+                        <button
+                          type="button"
+                          onClick={() => setCompleteModuleFor(m)}
+                          className="hover:text-foreground underline"
+                        >
+                          Ändra
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+                {!allModulesDone && (
+                  <p className="pt-1 text-[11px] text-muted-foreground">
+                    Alla moment måste vara avklarade innan kursen kan markeras som avklarad.
+                  </p>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         <FilesCard courseId={courseId} files={files} color={course.color} />
       </div>
+
+      <CompleteModuleDialog
+        module={completeModuleFor}
+        onClose={() => setCompleteModuleFor(null)}
+        onDone={(m, grade, points, registeredOn) =>
+          updateModule.mutate({
+            id: m.id,
+            completed: true,
+            grade: grade.trim() || null,
+            points: points.trim() || null,
+            registered_on: registeredOn || null,
+          })
+        }
+      />
 
       <EditCourseDialog open={editOpen} onOpenChange={setEditOpen} course={course} />
 
