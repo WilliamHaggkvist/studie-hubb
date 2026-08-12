@@ -23,14 +23,15 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { PALETTE, sortPeriods, type CoursePeriod } from "@/lib/course-presets";
 import { useUniversities } from "@/lib/settings";
-import { reportingModulesQuery, enrollmentsQuery } from "@/lib/queries";
+import { reportingModulesQuery, enrollmentsQuery, coursesQuery } from "@/lib/queries";
 import {
   EnrollmentsEditor,
   emptyEnrollment,
   type EnrollmentDraft,
 } from "@/components/courses/enrollments-editor";
 import { mirroredCourseFields, saveEnrollments } from "@/lib/enrollments";
-import { Plus, Trash2 } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Plus, Trash2, AlertTriangle } from "lucide-react";
 
 type ModuleRow = { id?: string; name: string; hp: string };
 
@@ -121,6 +122,24 @@ export function EditCourseDialog({
     mode: course.mode ?? "campus",
   });
 
+  const { data: allCourses = [] } = useQuery(coursesQuery);
+  const otherCourses = allCourses.filter((c) => c.id !== course.id);
+
+  const trimmedName = form.name.trim().toLowerCase();
+  const trimmedCode = form.code.trim().toLowerCase();
+
+  const duplicateNameCourse = trimmedName
+    ? otherCourses.find((c) => c.name.trim().toLowerCase() === trimmedName)
+    : undefined;
+
+  const duplicateCodeCourse = trimmedCode
+    ? otherCourses.find((c) => c.code && c.code.trim().toLowerCase() === trimmedCode)
+    : undefined;
+
+  const nameExists = Boolean(duplicateNameCourse);
+  const codeExists = Boolean(duplicateCodeCourse);
+  const hasDuplicate = nameExists || codeExists;
+
   const activeModules = modules.filter((m) => m.name.trim());
   const moduleHpSum = activeModules.reduce((sum, m) => sum + (Number(m.hp) || 0), 0);
   const courseHp = form.hp ? Number(form.hp) : null;
@@ -130,6 +149,15 @@ export function EditCourseDialog({
 
   const save = useMutation({
     mutationFn: async () => {
+      if (hasDuplicate) {
+        if (nameExists && codeExists) {
+          throw new Error("En annan kurs med samma namn och kurskod finns redan");
+        }
+        if (nameExists) {
+          throw new Error(`En annan kurs med namnet "${duplicateNameCourse?.name}" finns redan`);
+        }
+        throw new Error(`En annan kurs med kurskoden "${duplicateCodeCourse?.code}" finns redan`);
+      }
       if (hpMismatch) {
         throw new Error(
           courseHp === null
@@ -212,21 +240,38 @@ export function EditCourseDialog({
           <DialogTitle className="font-display">Redigera kurs</DialogTitle>
         </DialogHeader>
         <div className="grid gap-3">
+          {hasDuplicate && (
+            <Alert variant="destructive" className="rounded-xl">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertTitle>Kan inte spara kursen</AlertTitle>
+              <AlertDescription>
+                {nameExists && codeExists
+                  ? `En annan kurs med samma namn ("${duplicateNameCourse?.name}") och kurskod ("${duplicateCodeCourse?.code}") finns redan.`
+                  : nameExists
+                  ? `En annan kurs med namnet "${duplicateNameCourse?.name}" finns redan.`
+                  : `En annan kurs med kurskoden "${duplicateCodeCourse?.code}" finns redan.`}
+              </AlertDescription>
+            </Alert>
+          )}
           <div className="space-y-1.5">
-            <Label>Namn</Label>
+            <Label className={cn(nameExists && "text-destructive font-medium")}>
+              Namn {nameExists && "(finns redan)"}
+            </Label>
             <Input
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
-              className="rounded-xl"
+              className={cn("rounded-xl", nameExists && "border-destructive focus-visible:ring-destructive")}
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>Kurskod</Label>
+              <Label className={cn(codeExists && "text-destructive font-medium")}>
+                Kurskod {codeExists && "(finns redan)"}
+              </Label>
               <Input
                 value={form.code}
                 onChange={(e) => setForm({ ...form, code: e.target.value })}
-                className="rounded-xl"
+                className={cn("rounded-xl", codeExists && "border-destructive focus-visible:ring-destructive")}
               />
             </div>
             <div className="space-y-1.5">
@@ -420,7 +465,7 @@ export function EditCourseDialog({
           <Button
             className="rounded-xl"
             onClick={() => save.mutate()}
-            disabled={!form.name.trim() || save.isPending || hpMismatch}
+            disabled={!form.name.trim() || save.isPending || hpMismatch || hasDuplicate}
           >
             Spara
           </Button>

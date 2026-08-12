@@ -23,7 +23,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, GraduationCap, CheckCircle2, BookOpen } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Plus, GraduationCap, CheckCircle2, BookOpen, AlertTriangle, Trash2 } from "lucide-react";
 import {
   PALETTE,
   COURSE_PERIODS,
@@ -86,6 +87,11 @@ function CoursesPage() {
   const [weeklyGoal, setWeeklyGoal] = useState<string>("");
   const [isStandalone, setIsStandalone] = useState(false);
   const [mode, setMode] = useState<"campus" | "distans">("campus");
+  const [teacherName, setTeacherName] = useState("");
+  const [teacherContact, setTeacherContact] = useState("");
+  const [literature, setLiterature] = useState("");
+  const [modules, setModules] = useState<Array<{ name: string; hp: string }>>([]);
+  const [color, setColor] = useState("");
 
   function resetForm() {
     setName("");
@@ -96,18 +102,62 @@ function CoursesPage() {
     setWeeklyGoal("");
     setIsStandalone(false);
     setMode("campus");
+    setTeacherName("");
+    setTeacherContact("");
+    setLiterature("");
+    setModules([]);
+    setColor("");
   }
 
   const { data: courses = [] } = useQuery(coursesQuery);
 
+  const trimmedName = name.trim().toLowerCase();
+  const trimmedCode = code.trim().toLowerCase();
+
+  const duplicateNameCourse = trimmedName
+    ? courses.find((c) => c.name.trim().toLowerCase() === trimmedName)
+    : undefined;
+
+  const duplicateCodeCourse = trimmedCode
+    ? courses.find((c) => c.code && c.code.trim().toLowerCase() === trimmedCode)
+    : undefined;
+
+  const nameExists = Boolean(duplicateNameCourse);
+  const codeExists = Boolean(duplicateCodeCourse);
+  const hasDuplicate = nameExists || codeExists;
+
+  const activeModules = modules.filter((m) => m.name.trim());
+  const moduleHpSum = activeModules.reduce((sum, m) => sum + (Number(m.hp) || 0), 0);
+  const courseHp = hp ? Number(hp) : null;
+  const hpMismatch =
+    activeModules.length > 0 &&
+    (courseHp === null || Math.abs(moduleHpSum - courseHp) > 0.001);
+
   const create = useMutation({
     mutationFn: async () => {
+      if (hasDuplicate) {
+        if (nameExists && codeExists) {
+          throw new Error("En kurs med samma namn och kurskod finns redan");
+        }
+        if (nameExists) {
+          throw new Error(`En kurs med namnet "${duplicateNameCourse?.name}" finns redan`);
+        }
+        throw new Error(`En kurs med kurskoden "${duplicateCodeCourse?.code}" finns redan`);
+      }
+      if (hpMismatch) {
+        throw new Error(
+          courseHp === null
+            ? "Ange kursens högskolepoäng innan du lägger till rapporteringsmoment"
+            : `Momenten summerar till ${moduleHpSum} hp men kursen är ${courseHp} hp`,
+        );
+      }
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) throw new Error("no user");
       const usedColors = courses.filter((c) => !c.archived).map((c) => c.color);
       const availableColors = PALETTE.filter((p) => !usedColors.includes(p.value));
-      const chosenColor =
-        availableColors.length > 0
+      const chosenColor = color
+        ? color
+        : availableColors.length > 0
           ? availableColors[0].value
           : PALETTE[Math.floor(Math.random() * PALETTE.length)].value;
       const { data, error } = await supabase
@@ -121,12 +171,25 @@ function CoursesPage() {
           ...mirroredCourseFields(enrollments),
           university_id: universityId || null,
           weekly_goal_hours: weeklyGoal ? Number(weeklyGoal) : 0,
+          literature: literature.trim() || null,
+          teacher_name: teacherName.trim() || null,
+          teacher_contact: teacherContact.trim() || null,
           is_standalone: isStandalone,
           mode,
         })
         .select("id")
         .single();
       if (error) throw error;
+
+      for (let i = 0; i < activeModules.length; i++) {
+        const m = activeModules[i];
+        const payload = { name: m.name.trim(), hp: Number(m.hp) || 0, sort_order: i };
+        const { error: insError } = await supabase
+          .from("course_reporting_modules")
+          .insert({ ...payload, course_id: data.id as string, user_id: u.user.id });
+        if (insError) throw insError;
+      }
+
       await saveEnrollments({
         courseId: data.id as string,
         userId: u.user.id,
@@ -137,6 +200,7 @@ function CoursesPage() {
     },
     onSuccess: (id) => {
       qc.invalidateQueries({ queryKey: ["courses"] });
+      qc.invalidateQueries({ queryKey: ["course_reporting_modules"] });
       qc.invalidateQueries({ queryKey: ["course_reg_enrollments"] });
       qc.invalidateQueries({ queryKey: ["courses", "all"] });
       toast.success("Kurs tillagd");
@@ -200,28 +264,45 @@ function CoursesPage() {
               <Plus className="h-4 w-4" /> Ny kurs
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-lg glass rounded-2xl">
+          <DialogContent className="max-w-lg glass rounded-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="font-display">Ny kurs</DialogTitle>
             </DialogHeader>
-            <div className="grid gap-4">
+            <div className="grid gap-3">
+              {hasDuplicate && (
+                <Alert variant="destructive" className="rounded-xl">
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertTitle>Kan inte skapa kurs</AlertTitle>
+                  <AlertDescription>
+                    {nameExists && codeExists
+                      ? `En kurs med samma namn ("${duplicateNameCourse?.name}") och kurskod ("${duplicateCodeCourse?.code}") finns redan.`
+                      : nameExists
+                      ? `En kurs med namnet "${duplicateNameCourse?.name}" finns redan.`
+                      : `En kurs med kurskoden "${duplicateCodeCourse?.code}" finns redan.`}
+                  </AlertDescription>
+                </Alert>
+              )}
               <div className="space-y-1.5">
-                <Label>Namn</Label>
+                <Label className={cn(nameExists && "text-destructive font-medium")}>
+                  Namn {nameExists && "(finns redan)"}
+                </Label>
                 <Input
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="T.ex. Analys i en variabel"
-                  className="rounded-xl"
+                  className={cn("rounded-xl", nameExists && "border-destructive focus-visible:ring-destructive")}
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <Label>Kurskod</Label>
+                  <Label className={cn(codeExists && "text-destructive font-medium")}>
+                    Kurskod {codeExists && "(finns redan)"}
+                  </Label>
                   <Input
                     value={code}
                     onChange={(e) => setCode(e.target.value)}
                     placeholder="MMG200"
-                    className="rounded-xl"
+                    className={cn("rounded-xl", codeExists && "border-destructive focus-visible:ring-destructive")}
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -269,6 +350,18 @@ function CoursesPage() {
                   </Select>
                 </div>
                 <div className="space-y-1.5">
+                  <Label>Undervisningsform</Label>
+                  <Select value={mode} onValueChange={(v) => setMode(v as "campus" | "distans")}>
+                    <SelectTrigger className="rounded-xl">
+                      <SelectValue placeholder="Välj form" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="campus">Campus</SelectItem>
+                      <SelectItem value="distans">Distans</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
                   <Label>Veckomål (h)</Label>
                   <Input
                     type="number"
@@ -281,16 +374,115 @@ function CoursesPage() {
                 </div>
               </div>
               <div className="space-y-1.5">
-                <Label>Undervisningsform</Label>
-                <Select value={mode} onValueChange={(v) => setMode(v as "campus" | "distans")}>
-                  <SelectTrigger className="rounded-xl">
-                    <SelectValue placeholder="Välj form" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="campus">Campus</SelectItem>
-                    <SelectItem value="distans">Distans</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Label>Lärare (namn)</Label>
+                <Input
+                  value={teacherName}
+                  onChange={(e) => setTeacherName(e.target.value)}
+                  className="rounded-xl"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Lärarens kontakt (e-post, tel, …)</Label>
+                <Input
+                  value={teacherContact}
+                  onChange={(e) => setTeacherContact(e.target.value)}
+                  className="rounded-xl"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Kurslitteratur</Label>
+                <Textarea
+                  rows={4}
+                  value={literature}
+                  onChange={(e) => setLiterature(e.target.value)}
+                  className="rounded-xl"
+                  placeholder="En bok per rad, gärna med författare och upplaga…"
+                />
+              </div>
+              <div className="space-y-2 rounded-xl border border-border/60 bg-surface/40 p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <Label>Rapporteringsmoment</Label>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-7 gap-1 rounded-lg text-xs"
+                    onClick={() => setModules([...modules, { name: "", hp: "" }])}
+                  >
+                    <Plus className="h-3.5 w-3.5" /> Lägg till
+                  </Button>
+                </div>
+                {modules.length === 0 ? (
+                  <p className="text-[11px] text-muted-foreground">
+                    Inga moment. Lägg till t.ex. TEN1, LAB1 med respektive högskolepoäng.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {modules.map((m, i) => (
+                      <div key={i} className="flex items-center gap-2">
+                        <Input
+                          value={m.name}
+                          placeholder="TEN1"
+                          onChange={(e) =>
+                            setModules(
+                              modules.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)),
+                            )
+                          }
+                          className="rounded-xl"
+                        />
+                        <Input
+                          type="number"
+                          step="0.5"
+                          value={m.hp}
+                          placeholder="hp"
+                          onChange={(e) =>
+                            setModules(
+                              modules.map((x, j) => (j === i ? { ...x, hp: e.target.value } : x)),
+                            )
+                          }
+                          className="w-24 rounded-xl"
+                        />
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          className="h-9 w-9 shrink-0 rounded-lg text-muted-foreground"
+                          onClick={() => setModules(modules.filter((_, j) => j !== i))}
+                          aria-label="Ta bort moment"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                    <p
+                      className={cn(
+                        "text-[11px]",
+                        hpMismatch ? "text-sunset-rose" : "text-muted-foreground",
+                      )}
+                    >
+                      {moduleHpSum} av {courseHp ?? "–"} hp fördelat
+                      {hpMismatch ? " · måste stämma med kursens hp för att kunna spara" : ""}
+                    </p>
+                  </div>
+                )}
+              </div>
+              <div className="space-y-1.5">
+                <Label>Färg</Label>
+                <div className="flex flex-wrap gap-2">
+                  {PALETTE.map((c) => (
+                    <button
+                      type="button"
+                      key={c.value}
+                      onClick={() => setColor(c.value)}
+                      className={cn(
+                        "h-8 w-8 rounded-full border-2",
+                        (color ? color === c.value : false) ? "border-foreground scale-110" : "border-transparent",
+                      )}
+                      style={{ background: c.value }}
+                      title={c.name}
+                    />
+                  ))}
+                </div>
               </div>
             </div>
             <DialogFooter>
@@ -298,7 +490,7 @@ function CoursesPage() {
                 Avbryt
               </Button>
               <Button
-                disabled={!name.trim() || create.isPending}
+                disabled={!name.trim() || create.isPending || hasDuplicate || hpMismatch}
                 onClick={() => create.mutate()}
                 className="rounded-xl"
               >

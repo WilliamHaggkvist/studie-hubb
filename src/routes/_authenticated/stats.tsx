@@ -975,6 +975,7 @@ function StatsPage() {
       registeredOn: string;
       isStandalone: boolean;
       mode: "campus" | "distans";
+      isLateReporting: boolean;
     };
 
     type RegTermStat = {
@@ -1163,6 +1164,65 @@ function StatsPage() {
         yearObj.campusCount++;
       }
 
+      // Avgör om momentet är "Sen rapportering" (rapporterat i en termin/årskurs när kursen inte läses)
+      const courseEnrs = enrollmentsForCourse(course, allEnrollments);
+      const courseTermsSet = new Set<"HT" | "VT" | "ST">();
+      const scheduledSlots: Array<{ arskurs: number | null; term: "HT" | "VT" | "ST" }> = [];
+
+      for (const e of courseEnrs) {
+        const periods =
+          e.periods && e.periods.length > 0
+            ? e.periods
+            : course.periods ?? (course.period ? [course.period] : []);
+        for (const p of periods) {
+          if (p === "helar") {
+            courseTermsSet.add("HT");
+            courseTermsSet.add("VT");
+            courseTermsSet.add("ST");
+            scheduledSlots.push({ arskurs: e.arskurs, term: "HT" });
+            scheduledSlots.push({ arskurs: e.arskurs, term: "VT" });
+            scheduledSlots.push({ arskurs: e.arskurs, term: "ST" });
+          } else {
+            const t = PERIOD_TO_TERM[p as CoursePeriod];
+            if (t) {
+              courseTermsSet.add(t);
+              scheduledSlots.push({ arskurs: e.arskurs, term: t });
+            }
+          }
+        }
+      }
+
+      let isLateReporting = false;
+      if (courseTermsSet.size > 0) {
+        if (!courseTermsSet.has(termKey)) {
+          isLateReporting = true;
+        } else {
+          const hasExactMatch = scheduledSlots.some(
+            (slot) => (slot.arskurs == null || slot.arskurs === arskurs) && slot.term === termKey,
+          );
+          if (!hasExactMatch) {
+            const termOrder = { HT: 1, VT: 2, ST: 3 };
+            const latestScheduled = scheduledSlots.reduce((max, slot) => {
+              const slotYr = slot.arskurs ?? 1;
+              const maxYr = max.arskurs ?? 1;
+              if (slotYr > maxYr) return slot;
+              if (slotYr === maxYr && termOrder[slot.term] > termOrder[max.term]) return slot;
+              return max;
+            }, scheduledSlots[0]);
+
+            if (latestScheduled) {
+              const latestYr = latestScheduled.arskurs ?? 1;
+              if (
+                arskurs > latestYr ||
+                (arskurs === latestYr && termOrder[termKey] > termOrder[latestScheduled.term])
+              ) {
+                isLateReporting = true;
+              }
+            }
+          }
+        }
+      }
+
       const item: RegisteredModuleItem = {
         id: m.id,
         moduleName: m.name,
@@ -1175,6 +1235,7 @@ function StatsPage() {
         registeredOn: regDate ? formatDateYYYYMMDD(regDate) : "Saknar datum",
         isStandalone: Boolean(course.is_standalone),
         mode: course.mode === "distans" ? "distans" : "campus",
+        isLateReporting,
       };
 
       termObj.totalHp += hp;
@@ -2301,14 +2362,25 @@ function StatsPage() {
           {/* HUVUDRUBRIK 3: Högskolepoäng - Registrerade                   */}
           {/* ───────────────────────────────────────────────────────────── */}
           <section id="hp-registrerade" className="space-y-4 pt-4 border-t border-border/40">
-            <div className="border-b border-border/40 pb-3">
-              <h2 className="font-display text-lg font-bold tracking-tight text-foreground flex items-center gap-2">
-                <Award className="h-5 w-5 text-sky-400" />
-                Högskolepoäng - Registrerade
-              </h2>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Rapporterade HP per termin (Sommar, Höst, Vår) baserat på registreringsdatum och dina terminsdatum.
-              </p>
+            <div className="border-b border-border/40 pb-3 space-y-2">
+              <div>
+                <h2 className="font-display text-lg font-bold tracking-tight text-foreground flex items-center gap-2">
+                  <Award className="h-5 w-5 text-sky-400" />
+                  Högskolepoäng - Registrerade
+                </h2>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Rapporterade HP per termin (Sommar, Höst, Vår) baserat på registreringsdatum och dina terminsdatum.
+                </p>
+              </div>
+              <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 flex items-start gap-2.5 text-xs text-amber-200/90 shadow-sm">
+                <Clock className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-semibold text-amber-300">Vad innebär "Sen rapportering"?</span>
+                  <p className="mt-0.5 text-[11px] leading-relaxed text-amber-200/80">
+                    Om ett rapporteringsmoment registreras under en termin eller årskurs då kursen inte var schemalagd (t.ex. om kursen läses på hösten men momentet registreras in på våren), märks momentet med en <span className="inline-flex items-center gap-1 font-semibold text-amber-300 bg-amber-500/20 px-1.5 py-0.5 rounded border border-amber-500/30 text-[10px]"><Clock className="h-3 w-3" /> Sen rapportering</span>-banner.
+                  </p>
+                </div>
+              </div>
             </div>
 
             {/* Full-width sammanfogad enhetlig modul för Totalt & Kurstyp */}
@@ -2434,7 +2506,10 @@ function StatsPage() {
                                 {term.modules.map((m) => (
                                   <div
                                     key={m.id}
-                                    className="flex items-center justify-between gap-2 rounded-md bg-surface/80 px-2.5 py-1.5 text-xs border border-border/30"
+                                    className={cn(
+                                      "flex items-center justify-between gap-2 rounded-md bg-surface/80 px-2.5 py-1.5 text-xs border border-border/30",
+                                      m.isLateReporting && "border-amber-500/40 bg-amber-500/5"
+                                    )}
                                   >
                                     <div className="flex items-center gap-2 truncate">
                                       <span
@@ -2451,6 +2526,12 @@ function StatsPage() {
                                       </span>
                                     </div>
                                     <div className="flex items-center gap-1.5 shrink-0">
+                                      {m.isLateReporting && (
+                                        <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                                          <Clock className="h-2.5 w-2.5 text-amber-400" />
+                                          Sen rapportering
+                                        </span>
+                                      )}
                                       <span className="font-mono text-[10px] text-muted-foreground">
                                         {m.registeredOn}
                                       </span>
