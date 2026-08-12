@@ -597,7 +597,7 @@ function InboxRow({
         </span>
         <div className="font-medium">{s.notes || "Studiepass"}</div>
         <div className="text-xs text-muted-foreground">
-          {format(start, "EEE d MMM · HH:mm", { locale: sv })}–{format(end, "HH:mm")} (
+          {format(start, "yyyy-MM-dd HH:mm", { locale: sv })}–{format(end, "HH:mm")} (
           {formatHoursCompact(dur)})
         </div>
       </div>
@@ -731,7 +731,7 @@ function SessionRow({
             )}
           </div>
           <div className="text-xs text-muted-foreground">
-            {format(start, "EEE d MMM · HH:mm", { locale: sv })}–{format(end, "HH:mm")} (
+            {format(start, "yyyy-MM-dd HH:mm", { locale: sv })}–{format(end, "HH:mm")} (
             {formatHoursCompact(dur)})
           </div>
         </div>
