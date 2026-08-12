@@ -79,7 +79,7 @@ import { useUniversities } from "@/lib/settings";
 import { cn } from "@/lib/utils";
 import { EditCourseDialog } from "@/components/courses/edit-course-dialog";
 import { FilesCard } from "@/components/courses/files-card";
-import { formatDateDDMMYYYY } from "@/lib/date-utils";
+import { formatDateYYYYMMDD } from "@/lib/date-utils";
 
 export const Route = createFileRoute("/_authenticated/courses/$courseId")({
   component: CourseDetail,
@@ -1154,7 +1154,7 @@ function CourseDetail() {
                             Poäng: {m.points}
                           </span>
                         )}
-                        {m.registered_on && <span>Reg. {formatDateDDMMYYYY(m.registered_on)}</span>}
+                        {m.registered_on && <span>Reg. {formatDateYYYYMMDD(m.registered_on)}</span>}
                         <button
                           type="button"
                           onClick={() => setCompleteModuleFor(m)}

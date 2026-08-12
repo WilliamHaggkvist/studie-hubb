@@ -68,7 +68,7 @@ import {
   type TermRow,
 } from "@/lib/queries";
 import { periodWindows, resolvePeriod, makeArskursMapper, getArskursFromDate } from "@/lib/academic-periods";
-import { formatDateDDMMYYYY } from "@/lib/date-utils";
+import { formatDateYYYYMMDD } from "@/lib/date-utils";
 import { PERIOD_TO_TERM, type CoursePeriod } from "@/lib/course-presets";
 import { cn } from "@/lib/utils";
 
@@ -1172,7 +1172,7 @@ function StatsPage() {
         hp,
         grade: m.grade,
         points: m.points,
-        registeredOn: regDate ? formatDateDDMMYYYY(regDate) : "Saknar datum",
+        registeredOn: regDate ? formatDateYYYYMMDD(regDate) : "Saknar datum",
         isStandalone: Boolean(course.is_standalone),
         mode: course.mode === "distans" ? "distans" : "campus",
       };

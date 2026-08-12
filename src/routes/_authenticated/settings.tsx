@@ -18,7 +18,7 @@ import { Plus, Trash2, Save, Calendar as CalIcon } from "lucide-react";
 import { toast } from "sonner";
 import { useUniversities, useUserSettings } from "@/lib/settings";
 import { ARSKURS_OPTIONS } from "@/lib/course-presets";
-import { formatDateDDMMYYYY, parseDateInputToISO } from "@/lib/date-utils";
+import { formatDateYYYYMMDD, parseDateInputToISO } from "@/lib/date-utils";
 import { DatePicker } from "@/components/ui/date-picker";
 import { termsQuery } from "@/lib/queries";
 import { academicYearOf, getArskursFromAcademicYear } from "@/lib/academic-periods";
@@ -684,7 +684,7 @@ function TermsCard() {
                   </span>
                 )}
                 <span className="text-muted-foreground text-xs font-mono sm:ml-auto">
-                  {formatDateDDMMYYYY(t.start_date)} → {formatDateDDMMYYYY(t.end_date)}
+                  {formatDateYYYYMMDD(t.start_date)} → {formatDateYYYYMMDD(t.end_date)}
                 </span>
                 <Button
                   size="icon"
@@ -722,19 +722,19 @@ function TermsCard() {
             </Select>
           </div>
           <div className="space-y-1">
-            <Label className="text-xs">Start (dd-mm-yyyy)</Label>
+            <Label className="text-xs">Start (yyyy-mm-dd)</Label>
             <DatePicker
               value={start}
               onChange={setStart}
-              placeholder="dd-mm-yyyy"
+              placeholder="yyyy-mm-dd"
             />
           </div>
           <div className="space-y-1">
-            <Label className="text-xs">Slut (dd-mm-yyyy)</Label>
+            <Label className="text-xs">Slut (yyyy-mm-dd)</Label>
             <DatePicker
               value={end}
               onChange={setEnd}
-              placeholder="dd-mm-yyyy"
+              placeholder="yyyy-mm-dd"
             />
           </div>
           <Button

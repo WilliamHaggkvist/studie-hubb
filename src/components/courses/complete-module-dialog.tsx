@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { type ReportingModule } from "@/lib/queries";
-import { formatDateDDMMYYYY, parseDateInputToISO } from "@/lib/date-utils";
+import { formatDateYYYYMMDD, parseDateInputToISO } from "@/lib/date-utils";
 import { DatePicker } from "@/components/ui/date-picker";
 
 export function CompleteModuleDialog({
@@ -31,8 +31,8 @@ export function CompleteModuleDialog({
     setPoints(module?.points ?? "");
     setRegisteredOn(
       module?.registered_on
-        ? formatDateDDMMYYYY(module.registered_on)
-        : formatDateDDMMYYYY(new Date())
+        ? formatDateYYYYMMDD(module.registered_on)
+        : formatDateYYYYMMDD(new Date())
     );
   }, [module]);
 
@@ -74,11 +74,11 @@ export function CompleteModuleDialog({
           </div>
         </div>
         <div className="space-y-1.5">
-          <Label>Registreringsdatum (dd-mm-yyyy)</Label>
+          <Label>Registreringsdatum (yyyy-mm-dd)</Label>
           <DatePicker
             value={registeredOn}
             onChange={setRegisteredOn}
-            placeholder="dd-mm-yyyy"
+            placeholder="yyyy-mm-dd"
           />
         </div>
         <DialogFooter className="gap-2">
