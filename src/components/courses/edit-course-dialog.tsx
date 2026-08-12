@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import React, { useEffect, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Dialog,
@@ -23,6 +23,10 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { PALETTE, COURSE_PERIODS, ARSKURS_OPTIONS, sortPeriods, firstPeriod, type CoursePeriod } from "@/lib/course-presets";
 import { useUniversities } from "@/lib/settings";
+import { reportingModulesQuery } from "@/lib/queries";
+import { Plus, Trash2 } from "lucide-react";
+
+type ModuleRow = { id?: string; name: string; hp: string };
 
 type CourseRow = {
   id: string;
@@ -57,6 +61,18 @@ export function EditCourseDialog({
 }) {
   const qc = useQueryClient();
   const { data: universities = [] } = useUniversities();
+  const { data: allModules = [] } = useQuery(reportingModulesQuery);
+  const [modules, setModules] = useState<ModuleRow[]>([]);
+
+  useEffect(() => {
+    if (!open) return;
+    setModules(
+      allModules
+        .filter((m) => m.course_id === course.id)
+        .map((m) => ({ id: m.id, name: m.name, hp: String(m.hp ?? "") })),
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, course.id, allModules.length]);
   const [form, setForm] = useState({
     name: course.name,
     code: course.code ?? "",
@@ -73,8 +89,22 @@ export function EditCourseDialog({
     mode: course.mode ?? "campus",
   });
 
+  const activeModules = modules.filter((m) => m.name.trim());
+  const moduleHpSum = activeModules.reduce((sum, m) => sum + (Number(m.hp) || 0), 0);
+  const courseHp = form.hp ? Number(form.hp) : null;
+  const hpMismatch =
+    activeModules.length > 0 &&
+    (courseHp === null || Math.abs(moduleHpSum - courseHp) > 0.001);
+
   const save = useMutation({
     mutationFn: async () => {
+      if (hpMismatch) {
+        throw new Error(
+          courseHp === null
+            ? "Ange kursens högskolepoäng innan du lägger till rapporteringsmoment"
+            : `Momenten summerar till ${moduleHpSum} hp men kursen är ${courseHp} hp`,
+        );
+      }
       const { error } = await supabase
         .from("courses")
         .update({
@@ -95,8 +125,40 @@ export function EditCourseDialog({
         })
         .eq("id", course.id);
       if (error) throw error;
+
+      const existing = allModules.filter((m) => m.course_id === course.id);
+      const keptIds = new Set(activeModules.filter((m) => m.id).map((m) => m.id!));
+      const removed = existing.filter((m) => !keptIds.has(m.id));
+      if (removed.length > 0) {
+        const { error: delError } = await supabase
+          .from("course_reporting_modules")
+          .delete()
+          .in("id", removed.map((m) => m.id));
+        if (delError) throw delError;
+      }
+
+      const { data: u } = await supabase.auth.getUser();
+      if (!u.user) throw new Error("Ingen användare");
+
+      for (let i = 0; i < activeModules.length; i++) {
+        const m = activeModules[i];
+        const payload = { name: m.name.trim(), hp: Number(m.hp) || 0, sort_order: i };
+        if (m.id) {
+          const { error: upError } = await supabase
+            .from("course_reporting_modules")
+            .update(payload)
+            .eq("id", m.id);
+          if (upError) throw upError;
+        } else {
+          const { error: insError } = await supabase
+            .from("course_reporting_modules")
+            .insert({ ...payload, course_id: course.id, user_id: u.user.id });
+          if (insError) throw insError;
+        }
+      }
     },
     onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["course_reporting_modules"] });
       qc.invalidateQueries({ queryKey: ["course", course.id] });
       qc.invalidateQueries({ queryKey: ["courses"] });
       toast.success("Sparat");
@@ -274,6 +336,73 @@ export function EditCourseDialog({
               placeholder="En bok per rad, gärna med författare och upplaga…"
             />
           </div>
+          <div className="space-y-2 rounded-xl border border-border/60 bg-surface/40 p-3">
+            <div className="flex items-center justify-between gap-2">
+              <Label>Rapporteringsmoment</Label>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-7 gap-1 rounded-lg text-xs"
+                onClick={() => setModules([...modules, { name: "", hp: "" }])}
+              >
+                <Plus className="h-3.5 w-3.5" /> Lägg till
+              </Button>
+            </div>
+            {modules.length === 0 ? (
+              <p className="text-[11px] text-muted-foreground">
+                Inga moment. Lägg till t.ex. TEN1, LAB1 med respektive högskolepoäng.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {modules.map((m, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <Input
+                      value={m.name}
+                      placeholder="TEN1"
+                      onChange={(e) =>
+                        setModules(
+                          modules.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)),
+                        )
+                      }
+                      className="rounded-xl"
+                    />
+                    <Input
+                      type="number"
+                      step="0.5"
+                      value={m.hp}
+                      placeholder="hp"
+                      onChange={(e) =>
+                        setModules(
+                          modules.map((x, j) => (j === i ? { ...x, hp: e.target.value } : x)),
+                        )
+                      }
+                      className="w-24 rounded-xl"
+                    />
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      className="h-9 w-9 shrink-0 rounded-lg text-muted-foreground"
+                      onClick={() => setModules(modules.filter((_, j) => j !== i))}
+                      aria-label="Ta bort moment"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+                <p
+                  className={cn(
+                    "text-[11px]",
+                    hpMismatch ? "text-sunset-rose" : "text-muted-foreground",
+                  )}
+                >
+                  {moduleHpSum} av {courseHp ?? "–"} hp fördelat
+                  {hpMismatch ? " · måste stämma med kursens hp för att kunna spara" : ""}
+                </p>
+              </div>
+            )}
+          </div>
           <div className="space-y-1.5">
             <Label>Färg</Label>
             <div className="flex flex-wrap gap-2">
@@ -300,7 +429,7 @@ export function EditCourseDialog({
           <Button
             className="rounded-xl"
             onClick={() => save.mutate()}
-            disabled={!form.name.trim() || save.isPending}
+            disabled={!form.name.trim() || save.isPending || hpMismatch}
           >
             Spara
           </Button>
