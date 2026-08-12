@@ -14,27 +14,39 @@ export interface DatePickerProps {
   placeholder?: string;
   className?: string;
   disabled?: boolean;
-  /** Visa även val av klockslag. */
+  /** Visa möjlighet att även välja klockslag. */
   includeTime?: boolean;
   outputFormat?: "dd-mm-yyyy" | "yyyy-mm-dd" | "datetime-local" | "iso";
 }
 
-/** Tolkar valfritt datumformat till { date, time }. */
-function parseValue(value: string): { date: Date | undefined; time: string } {
-  const str = (value ?? "").trim();
-  if (!str) return { date: undefined, time: "12:00" };
+interface ParsedValue {
+  date: Date | undefined;
+  time: string | undefined;
+  hasTime: boolean;
+}
 
-  let time = "12:00";
+/** Tolkar valfritt datumformat till { date, time, hasTime }. */
+function parseValue(value: string): ParsedValue {
+  const str = (value ?? "").trim();
+  if (!str) return { date: undefined, time: undefined, hasTime: false };
+
+  let hasTime = false;
+  let time: string | undefined = undefined;
   let datePart = str;
+
   if (str.includes("T")) {
     const [d, t] = str.split("T");
     datePart = d;
-    if (t) time = t.slice(0, 5);
+    if (t) {
+      time = t.slice(0, 5);
+      hasTime = true;
+    }
   } else if (str.includes(" ")) {
     const [d, t] = str.split(" ");
     if (t && t.includes(":")) {
       datePart = d;
       time = t.slice(0, 5);
+      hasTime = true;
     }
   }
 
@@ -43,14 +55,20 @@ function parseValue(value: string): { date: Date | undefined; time: string } {
     : parseDateInputToISO(datePart);
 
   if (iso) {
-    const d = parseISO(`${iso}T${time}:00`);
-    if (isValid(d)) return { date: d, time };
+    const d = hasTime && time ? parseISO(`${iso}T${time}:00`) : parseISO(`${iso}T12:00:00`);
+    if (isValid(d)) return { date: d, time, hasTime };
   }
+
   const direct = new Date(str);
   if (isValid(direct) && !isNaN(direct.getTime())) {
-    return { date: direct, time: format(direct, "HH:mm") };
+    return {
+      date: direct,
+      time: hasTime ? time : format(direct, "HH:mm"),
+      hasTime,
+    };
   }
-  return { date: undefined, time };
+
+  return { date: undefined, time, hasTime };
 }
 
 export function DatePicker({
@@ -63,25 +81,38 @@ export function DatePicker({
   outputFormat,
 }: DatePickerProps) {
   const [open, setOpen] = React.useState(false);
-  const { date: selectedDate, time: selectedTime } = React.useMemo(
-    () => parseValue(value),
-    [value],
-  );
+  const parsed = React.useMemo(() => parseValue(value), [value]);
 
-  const emit = (d: Date | undefined, t: string) => {
+  const [timeEnabled, setTimeEnabled] = React.useState(includeTime && parsed.hasTime);
+
+  // Synkronisera timeEnabled med externt value när popovern är stängd.
+  React.useEffect(() => {
+    if (!open) {
+      setTimeEnabled(includeTime && parsed.hasTime);
+    }
+  }, [open, includeTime, parsed.hasTime]);
+
+  const emit = (d: Date | undefined, t: string | undefined) => {
     if (!d || !isValid(d)) {
       onChange?.("");
       return;
     }
-    const choice = outputFormat ?? (includeTime ? "datetime-local" : "dd-mm-yyyy");
     const y = d.getFullYear();
     const m = String(d.getMonth() + 1).padStart(2, "0");
     const day = String(d.getDate()).padStart(2, "0");
+    const effectiveTime = includeTime && t ? t : "12:00";
 
-    if (choice === "datetime-local") onChange?.(`${y}-${m}-${day}T${t}`);
-    else if (choice === "yyyy-mm-dd") onChange?.(`${y}-${m}-${day}`);
-    else if (choice === "iso") onChange?.(new Date(`${y}-${m}-${day}T${t}:00`).toISOString());
-    else onChange?.(includeTime ? `${day}-${m}-${y} ${t}` : `${day}-${m}-${y}`);
+    const choice = outputFormat ?? (includeTime ? "datetime-local" : "dd-mm-yyyy");
+
+    if (choice === "datetime-local") {
+      onChange?.(`${y}-${m}-${day}T${effectiveTime}`);
+    } else if (choice === "yyyy-mm-dd") {
+      onChange?.(`${y}-${m}-${day}`);
+    } else if (choice === "iso") {
+      onChange?.(new Date(`${y}-${m}-${day}T${effectiveTime}:00`).toISOString());
+    } else {
+      onChange?.(includeTime && t ? `${day}-${m}-${y} ${effectiveTime}` : `${day}-${m}-${y}`);
+    }
   };
 
   const pickDate = (d: Date | undefined) => {
@@ -89,23 +120,28 @@ export function DatePicker({
       onChange?.("");
       return;
     }
-    emit(d, selectedTime);
+    emit(d, timeEnabled ? parsed.time : undefined);
     if (!includeTime) setOpen(false);
   };
 
-  const label = selectedDate
-    ? includeTime
-      ? `${format(selectedDate, "d MMM yyyy", { locale: sv })} kl ${selectedTime}`
-      : format(selectedDate, "dd-MM-yyyy")
+  const clear = () => {
+    onChange?.("");
+    setTimeEnabled(false);
+  };
+
+  const label = parsed.date
+    ? includeTime && parsed.hasTime && parsed.time
+      ? `${format(parsed.date, "d MMM yyyy", { locale: sv })} kl ${parsed.time}`
+      : format(parsed.date, "dd-MM-yyyy")
     : "";
 
+  const selectedTime = parsed.time ?? "12:00";
   const [hh, mm] = selectedTime.split(":");
   const hours = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0"));
   const minutes = Array.from({ length: 12 }, (_, i) => String(i * 5).padStart(2, "0"));
   const minuteOptions = minutes.includes(mm ?? "00")
     ? minutes
     : [...minutes, mm ?? "00"].sort();
-
 
   const setToday = (offsetDays: number) => {
     const d = new Date();
@@ -165,22 +201,20 @@ export function DatePicker({
           >
             +1 vecka
           </Button>
-          {selectedDate && (
-            <Button
-              size="sm"
-              variant="ghost"
-              className="ml-auto h-7 rounded-full px-2.5 text-[11px] text-destructive hover:bg-destructive/10"
-              onClick={() => onChange?.("")}
-            >
-              <X className="mr-1 h-3 w-3" /> Rensa
-            </Button>
-          )}
+          <Button
+            size="sm"
+            variant="ghost"
+            className="ml-auto h-7 rounded-full px-2.5 text-[11px] text-destructive hover:bg-destructive/10"
+            onClick={clear}
+          >
+            <X className="mr-1 h-3 w-3" /> Rensa
+          </Button>
         </div>
 
         <Calendar
           mode="single"
-          selected={selectedDate}
-          defaultMonth={selectedDate}
+          selected={parsed.date}
+          defaultMonth={parsed.date}
           onSelect={pickDate}
           locale={sv}
           weekStartsOn={1}
@@ -190,49 +224,72 @@ export function DatePicker({
           className="bg-transparent p-3 [--cell-size:2.1rem]"
         />
 
-
         {includeTime && (
-          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/60 bg-muted/30 px-3 py-2.5">
-            <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-              <Clock className="h-3.5 w-3.5" />
-              <span>Klockslag</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <select
-                value={hh ?? "12"}
-                onChange={(e) => emit(selectedDate ?? new Date(), `${e.target.value}:${mm ?? "00"}`)}
-                className="h-8 rounded-lg border border-input bg-background px-2 text-xs tabular-nums"
-                aria-label="Timme"
-              >
-                {hours.map((h) => (
-                  <option key={h} value={h}>
-                    {h}
-                  </option>
-                ))}
-              </select>
-              <span className="text-xs text-muted-foreground">:</span>
-              <select
-                value={mm ?? "00"}
-                onChange={(e) => emit(selectedDate ?? new Date(), `${hh ?? "12"}:${e.target.value}`)}
-                className="h-8 rounded-lg border border-input bg-background px-2 text-xs tabular-nums"
-                aria-label="Minut"
-              >
-                {minuteOptions.map((m) => (
-                  <option key={m} value={m}>
-                    {m}
-                  </option>
-                ))}
-              </select>
+          <div className="border-t border-border/60 bg-muted/30 px-3 py-2.5">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                <Clock className="h-3.5 w-3.5" />
+                <span>Klockslag</span>
+              </div>
               <Button
+                type="button"
                 size="sm"
-                className="h-8 rounded-lg px-3 text-[11px]"
-                onClick={() => setOpen(false)}
+                variant={timeEnabled ? "default" : "outline"}
+                className="h-7 rounded-full px-2.5 text-[11px]"
+                onClick={() => {
+                  const next = !timeEnabled;
+                  setTimeEnabled(next);
+                  if (next && parsed.date) {
+                    emit(parsed.date, parsed.time ?? "12:00");
+                  } else if (parsed.date) {
+                    emit(parsed.date, undefined);
+                  }
+                }}
               >
-                Klar
+                {timeEnabled ? "Tid vald" : "Lägg till tid"}
               </Button>
             </div>
-          </div>
 
+            {timeEnabled && (
+              <div className="mt-2 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5">
+                  <select
+                    value={hh ?? "12"}
+                    onChange={(e) => emit(parsed.date ?? new Date(), `${e.target.value}:${mm ?? "00"}`)}
+                    className="h-8 rounded-lg border border-input bg-background px-2 text-xs tabular-nums"
+                    aria-label="Timme"
+                  >
+                    {hours.map((h) => (
+                      <option key={h} value={h}>
+                        {h}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="text-xs text-muted-foreground">:</span>
+                  <select
+                    value={mm ?? "00"}
+                    onChange={(e) => emit(parsed.date ?? new Date(), `${hh ?? "12"}:${e.target.value}`)}
+                    className="h-8 rounded-lg border border-input bg-background px-2 text-xs tabular-nums"
+                    aria-label="Minut"
+                  >
+                    {minuteOptions.map((m) => (
+                      <option key={m} value={m}>
+                        {m}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-8 rounded-lg px-3 text-[11px]"
+                  onClick={() => setOpen(false)}
+                >
+                  Klar
+                </Button>
+              </div>
+            )}
+          </div>
         )}
       </PopoverContent>
     </Popover>
