@@ -60,17 +60,29 @@ export function resolvePeriod(
 }
 
 /**
- * Översätter läsår → årskurs. Ankaret är det tidigaste läsåret med
- * terminsdatum, som antas motsvara den lägsta årskurs som finns registrerad.
+ * Översätter läsår (HT-startår) → årskurs.
+ * En årskurs består av tre terminer i ordningen: Höst, Vår, Sommar.
+ * Årskurs 1 inleds hösten 2024 (läsår 2024: HT 2024, VT 2025, ST 2025).
  */
+export function getArskursFromAcademicYear(academicYear: number): number | null {
+  const arskurs = academicYear - 2024 + 1;
+  return arskurs > 0 ? arskurs : null;
+}
+
 export function makeArskursMapper(
-  windows: readonly PeriodWindow[],
-  arskursValues: readonly (number | null | undefined)[],
+  _windows?: readonly PeriodWindow[],
+  _arskursValues?: readonly (number | null | undefined)[],
 ): (academicYear: number) => number | null {
-  const years = windows.map((w) => w.academicYear);
-  const arskurser = arskursValues.filter((a): a is number => typeof a === "number");
-  if (years.length === 0 || arskurser.length === 0) return () => null;
-  const baseYear = Math.min(...years);
-  const baseArskurs = Math.min(...arskurser);
-  return (academicYear: number) => baseArskurs + (academicYear - baseYear);
+  return getArskursFromAcademicYear;
+}
+
+/** Beräknar årskurs utifrån kalenderdatum (YYYY-MM-DD). */
+export function getArskursFromDate(dateStr: string | null | undefined): number | null {
+  if (!dateStr) return null;
+  const d = new Date(dateStr.slice(0, 10));
+  if (Number.isNaN(d.getTime())) return null;
+  const year = d.getFullYear();
+  const month = d.getMonth() + 1;
+  const academicYear = month >= 9 ? year : year - 1;
+  return getArskursFromAcademicYear(academicYear);
 }
