@@ -1153,7 +1153,7 @@ function CourseDetail() {
                             Poäng: {m.points}
                           </span>
                         )}
-                        {m.registered_on && <span>Reg. {m.registered_on}</span>}
+                        {m.registered_on && <span>Reg. {formatDateDDMMYYYY(m.registered_on)}</span>}
                         <button
                           type="button"
                           onClick={() => setCompleteModuleFor(m)}

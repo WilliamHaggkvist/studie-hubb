@@ -18,6 +18,7 @@ import { Plus, Trash2, Save, Calendar as CalIcon } from "lucide-react";
 import { toast } from "sonner";
 import { useUniversities, useUserSettings } from "@/lib/settings";
 import { ARSKURS_OPTIONS } from "@/lib/course-presets";
+import { formatDateDDMMYYYY, parseDateInputToISO } from "@/lib/date-utils";
 
 export const Route = createFileRoute("/_authenticated/settings")({
   component: SettingsPage,
@@ -630,13 +631,15 @@ function TermsCard() {
     mutationFn: async () => {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) throw new Error("no user");
+      const parsedStart = parseDateInputToISO(start) ?? start;
+      const parsedEnd = parseDateInputToISO(end) ?? end;
       const { error } = await supabase.from("term_dates").upsert(
         {
           user_id: u.user.id,
           year: Number(year),
           term,
-          start_date: start,
-          end_date: end,
+          start_date: parsedStart,
+          end_date: parsedEnd,
         },
         { onConflict: "user_id,year,term" },
       );
@@ -680,8 +683,8 @@ function TermsCard() {
               <span className="font-medium">
                 {termName(t.term)} {t.year}
               </span>
-              <span className="text-muted-foreground text-xs">
-                {t.start_date} → {t.end_date}
+              <span className="text-muted-foreground text-xs font-mono">
+                {formatDateDDMMYYYY(t.start_date)} → {formatDateDDMMYYYY(t.end_date)}
               </span>
               <Button
                 size="icon"
@@ -718,21 +721,23 @@ function TermsCard() {
             </Select>
           </div>
           <div className="space-y-1">
-            <Label className="text-xs">Start</Label>
+            <Label className="text-xs">Start (dd-mm-yyyy)</Label>
             <Input
-              type="date"
+              type="text"
               value={start}
               onChange={(e) => setStart(e.target.value)}
-              className="rounded-xl"
+              placeholder="dd-mm-yyyy"
+              className="rounded-xl font-mono text-xs"
             />
           </div>
           <div className="space-y-1">
-            <Label className="text-xs">Slut</Label>
+            <Label className="text-xs">Slut (dd-mm-yyyy)</Label>
             <Input
-              type="date"
+              type="text"
               value={end}
               onChange={(e) => setEnd(e.target.value)}
-              className="rounded-xl"
+              placeholder="dd-mm-yyyy"
+              className="rounded-xl font-mono text-xs"
             />
           </div>
           <Button

@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { type ReportingModule } from "@/lib/queries";
+import { formatDateDDMMYYYY, parseDateInputToISO } from "@/lib/date-utils";
 
 export function CompleteModuleDialog({
   module,
@@ -27,10 +28,19 @@ export function CompleteModuleDialog({
   useEffect(() => {
     setGrade(module?.grade ?? "");
     setPoints(module?.points ?? "");
-    setRegisteredOn(module?.registered_on ?? new Date().toISOString().slice(0, 10));
+    setRegisteredOn(
+      module?.registered_on
+        ? formatDateDDMMYYYY(module.registered_on)
+        : formatDateDDMMYYYY(new Date())
+    );
   }, [module]);
 
   if (!module) return null;
+
+  const handleSave = () => {
+    const parsedIso = parseDateInputToISO(registeredOn) ?? registeredOn;
+    onDone(module, grade, points, parsedIso);
+  };
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
@@ -63,12 +73,13 @@ export function CompleteModuleDialog({
           </div>
         </div>
         <div className="space-y-1.5">
-          <Label>Registreringsdatum</Label>
+          <Label>Registreringsdatum (dd-mm-yyyy)</Label>
           <Input
-            type="date"
+            type="text"
             value={registeredOn}
             onChange={(e) => setRegisteredOn(e.target.value)}
-            className="rounded-xl"
+            placeholder="dd-mm-yyyy"
+            className="rounded-xl font-mono text-xs"
           />
         </div>
         <DialogFooter className="gap-2">
@@ -76,7 +87,7 @@ export function CompleteModuleDialog({
             Avbryt
           </Button>
           <Button
-            onClick={() => onDone(module, grade, points, registeredOn)}
+            onClick={handleSave}
             className="gradient-sunset text-white hover:opacity-90 rounded-xl"
           >
             Spara

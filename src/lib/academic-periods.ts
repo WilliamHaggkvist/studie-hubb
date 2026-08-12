@@ -1,5 +1,6 @@
 import type { CoursePeriod, Term } from "./course-presets";
 import type { TermRow } from "./queries";
+import { parseDateInputToISO } from "./date-utils";
 
 /**
  * Datumfönster för en läsperiod. Höstterminen delas i P1/P2, vårterminen i
@@ -26,8 +27,10 @@ export function periodWindows(terms: readonly TermRow[]): PeriodWindow[] {
   const out: PeriodWindow[] = [];
   for (const t of terms) {
     if (!t.start_date || !t.end_date) continue;
-    const start = dayStart(t.start_date);
-    const end = dayEnd(t.end_date);
+    const startIso = parseDateInputToISO(t.start_date) ?? t.start_date;
+    const endIso = parseDateInputToISO(t.end_date) ?? t.end_date;
+    const start = dayStart(startIso);
+    const end = dayEnd(endIso);
     if (end <= start) continue;
     const ay = academicYearOf(t);
     const mid = new Date(start.getTime() + (end.getTime() - start.getTime()) / 2);
@@ -45,13 +48,14 @@ export function periodWindows(terms: readonly TermRow[]): PeriodWindow[] {
   return out.sort((x, y) => x.start.getTime() - y.start.getTime());
 }
 
-/** Vilken läsperiod ett datum (YYYY-MM-DD) faller inom, eller null. */
+/** Vilken läsperiod ett datum (YYYY-MM-DD eller DD-MM-YYYY) faller inom, eller null. */
 export function resolvePeriod(
   date: string | null | undefined,
   windows: readonly PeriodWindow[],
 ): PeriodWindow | null {
   if (!date) return null;
-  const d = dayStart(date.slice(0, 10));
+  const iso = parseDateInputToISO(date) ?? date.slice(0, 10);
+  const d = dayStart(iso);
   if (Number.isNaN(d.getTime())) return null;
   for (const w of windows) {
     if (d >= w.start && d <= w.end) return w;
@@ -76,10 +80,11 @@ export function makeArskursMapper(
   return getArskursFromAcademicYear;
 }
 
-/** Beräknar årskurs utifrån kalenderdatum (YYYY-MM-DD). */
+/** Beräknar årskurs utifrån kalenderdatum (YYYY-MM-DD eller DD-MM-YYYY). */
 export function getArskursFromDate(dateStr: string | null | undefined): number | null {
   if (!dateStr) return null;
-  const d = new Date(dateStr.slice(0, 10));
+  const iso = parseDateInputToISO(dateStr) ?? dateStr.slice(0, 10);
+  const d = new Date(`${iso}T00:00:00`);
   if (Number.isNaN(d.getTime())) return null;
   const year = d.getFullYear();
   const month = d.getMonth() + 1;
