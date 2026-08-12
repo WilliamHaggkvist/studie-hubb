@@ -586,7 +586,7 @@ function Dashboard() {
       <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <div className="text-xs uppercase tracking-widest text-muted-foreground">
-            {format(now, "EEEE d MMMM", { locale: sv })} · v. {format(now, "I")}
+            {format(now, "EEEE yyyy-MM-dd", { locale: sv })} · v. {format(now, "I")}
           </div>
           <h1 className="mt-1 font-display text-3xl font-bold tracking-tight flex items-center gap-2">
             <span>{greeting}</span>
@@ -1164,7 +1164,7 @@ function Dashboard() {
                             <span
                               className={`text-xs shrink-0 ${daysLeft !== null && daysLeft < 0 ? "text-sunset-rose" : "text-muted-foreground"}`}
                             >
-                              {format(parseISO(t.due_at), "d MMM HH:mm", { locale: sv })}
+                              {format(parseISO(t.due_at), "yyyy-MM-dd HH:mm", { locale: sv })}
                               {daysLeft !== null && (
                                 <span className="ml-1">
                                   ({daysLeft < 0 ? `${Math.abs(daysLeft)}d sen` : `${daysLeft}d`})

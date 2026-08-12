@@ -166,9 +166,9 @@ export const Route = createFileRoute("/api/public/hooks/email-jobs")({
         function fmtDue(iso: string, tz: string): string {
           return new Intl.DateTimeFormat("sv-SE", {
             timeZone: tz,
-            weekday: "short",
-            day: "numeric",
-            month: "short",
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
             hour: "2-digit",
             minute: "2-digit",
           }).format(new Date(iso));
@@ -295,9 +295,9 @@ export const Route = createFileRoute("/api/public/hooks/email-jobs")({
 
               const dateLabel = new Intl.DateTimeFormat("sv-SE", {
                 timeZone: tz,
-                weekday: "long",
-                day: "numeric",
-                month: "long",
+                year: "numeric",
+                month: "2-digit",
+                day: "2-digit",
               }).format(now);
               const res = await enqueueTemplateEmail({
                 supabase,

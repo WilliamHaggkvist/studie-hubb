@@ -68,7 +68,7 @@ import {
   type TermRow,
 } from "@/lib/queries";
 import { periodWindows, resolvePeriod, makeArskursMapper, getArskursFromDate } from "@/lib/academic-periods";
-import { formatDateDDMMYYYY } from "@/lib/date-utils";
+import { formatDateYYYYMMDD } from "@/lib/date-utils";
 import { PERIOD_TO_TERM, type CoursePeriod } from "@/lib/course-presets";
 import { cn } from "@/lib/utils";
 
@@ -397,7 +397,7 @@ function StatsPage() {
     return Array.from({ length: totalDays }).map((_, i) => {
       const d = subDays(range.end, totalDays - 1 - i);
       const dayKey = format(d, "yyyy-MM-dd");
-      const row: Record<string, number | string> = { day: format(d, "d/M", { locale: sv }) };
+      const row: Record<string, number | string> = { day: format(d, "yyyy-MM-dd", { locale: sv }) };
 
       let total = 0;
       const courseMap = grouped.get(dayKey);
@@ -559,7 +559,7 @@ function StatsPage() {
     return [...grouped.entries()]
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([day, { planned, actual }]) => ({
-        day: format(new Date(day), "d/M", { locale: sv }),
+        day: format(new Date(day), "yyyy-MM-dd", { locale: sv }),
         Planerat: +planned.toFixed(2),
         Faktiskt: +actual.toFixed(2),
       }));
@@ -614,7 +614,7 @@ function StatsPage() {
       current: +currentHours.toFixed(1),
       previous: +prevHours.toFixed(1),
       change,
-      prevLabel: `${format(prevStart, "d MMM", { locale: sv })} – ${format(prevEnd, "d MMM", { locale: sv })}`,
+      prevLabel: `${format(prevStart, "yyyy-MM-dd", { locale: sv })} – ${format(prevEnd, "yyyy-MM-dd", { locale: sv })}`,
     };
   }, [isAllTime, range, heatmapData]);
 
@@ -1172,7 +1172,7 @@ function StatsPage() {
         hp,
         grade: m.grade,
         points: m.points,
-        registeredOn: regDate ? formatDateDDMMYYYY(regDate) : "Saknar datum",
+        registeredOn: regDate ? formatDateYYYYMMDD(regDate) : "Saknar datum",
         isStandalone: Boolean(course.is_standalone),
         mode: course.mode === "distans" ? "distans" : "campus",
       };
@@ -1427,7 +1427,7 @@ function StatsPage() {
                         "w-[10px] h-[10px] rounded-[1.5px] transition-all cursor-pointer",
                         colorClass,
                       )}
-                      title={`${format(day.date, "d MMMM yyyy", { locale: sv })}: ${day.hours.toFixed(2)} h`}
+                      title={`${format(day.date, "yyyy-MM-dd", { locale: sv })}: ${day.hours.toFixed(2)} h`}
                     />
                   );
                 })}

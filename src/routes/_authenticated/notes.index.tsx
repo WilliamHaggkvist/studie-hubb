@@ -192,7 +192,7 @@ function NotesList() {
                   </div>
                 </div>
                 <div className="mt-1 flex items-center gap-2 text-[10px] text-muted-foreground">
-                  <span>{format(new Date(n.updated_at), "d MMM", { locale: sv })}</span>
+                  <span>{format(new Date(n.updated_at), "yyyy-MM-dd", { locale: sv })}</span>
                   <span>•</span>
                   {c ? (
                     <span className="truncate max-w-[120px]" style={{ color: c.color }}>

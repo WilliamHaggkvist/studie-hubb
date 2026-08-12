@@ -608,7 +608,7 @@ function Card({
             {task.due_at && (
               <span className={cn("inline-flex items-center gap-1", overdue && "text-sunset-rose")}>
                 <CalIcon className="h-2.5 w-2.5" />{" "}
-                {format(parseISO(task.due_at), "d MMM HH:mm", { locale: sv })} ·{" "}
+                {format(parseISO(task.due_at), "yyyy-MM-dd HH:mm", { locale: sv })} ·{" "}
                 {daysLeftLabel(task.due_at)}
               </span>
             )}
@@ -687,7 +687,7 @@ function ChildRow({
       )}
       {child.due_at && (
         <span className="text-[10px] text-muted-foreground shrink-0">
-          {format(parseISO(child.due_at), "d MMM HH:mm", { locale: sv })}
+          {format(parseISO(child.due_at), "yyyy-MM-dd HH:mm", { locale: sv })}
         </span>
       )}
     </div>

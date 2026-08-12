@@ -102,7 +102,7 @@ export function DatePicker({
     const day = String(d.getDate()).padStart(2, "0");
     const effectiveTime = includeTime && t ? t : "12:00";
 
-    const choice = outputFormat ?? (includeTime ? "datetime-local" : "dd-mm-yyyy");
+    const choice = outputFormat ?? (includeTime ? "datetime-local" : "yyyy-mm-dd");
 
     if (choice === "datetime-local") {
       onChange?.(`${y}-${m}-${day}T${effectiveTime}`);
@@ -131,8 +131,8 @@ export function DatePicker({
 
   const label = parsed.date
     ? includeTime && parsed.hasTime && parsed.time
-      ? `${format(parsed.date, "d MMM yyyy", { locale: sv })} kl ${parsed.time}`
-      : format(parsed.date, "dd-MM-yyyy")
+      ? `${format(parsed.date, "yyyy-MM-dd", { locale: sv })} kl ${parsed.time}`
+      : format(parsed.date, "yyyy-MM-dd")
     : "";
 
   const selectedTime = parsed.time ?? "12:00";

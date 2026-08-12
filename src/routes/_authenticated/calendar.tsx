@@ -336,7 +336,7 @@ function CalendarPage() {
               {format(selected, "EEEE", { locale: sv })}
             </div>
             <div className="font-display text-2xl font-bold">
-              {format(selected, "d MMMM", { locale: sv })}
+              {format(selected, "yyyy-MM-dd", { locale: sv })}
             </div>
           </div>
           {selectedEvents.length + selectedTasks.length + selectedSessions.length === 0 && (

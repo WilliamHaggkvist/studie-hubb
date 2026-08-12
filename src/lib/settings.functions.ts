@@ -151,8 +151,11 @@ export const sendTestReminderEmail = createServerFn({ method: "POST" })
         courseCode: "DD1338",
         courseName: "Programutveckling",
         dueLabel: new Intl.DateTimeFormat("sv-SE", {
-          dateStyle: "short",
-          timeStyle: "short",
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
         }).format(new Date(now.getTime() + 2 * 3600_000)),
         timeLeftLabel: "2 timmar kvar",
         taskType: "Övning",
