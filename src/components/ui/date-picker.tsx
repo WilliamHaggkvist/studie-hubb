@@ -132,40 +132,40 @@ export function DatePicker({
       </PopoverTrigger>
 
       <PopoverContent
-        className="pointer-events-auto z-50 w-auto rounded-2xl border-white/10 p-0 shadow-2xl"
+        className="pointer-events-auto z-50 w-auto max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border-border/60 bg-popover p-0 shadow-2xl"
         align="start"
         sideOffset={6}
       >
-        <div className="flex flex-wrap items-center gap-1 border-b border-border/40 p-2">
+        <div className="flex flex-wrap items-center gap-1.5 border-b border-border/60 px-3 py-2">
           <Button
             size="sm"
-            variant="outline"
-            className="h-6 rounded-lg px-2 text-[11px]"
+            variant="secondary"
+            className="h-7 rounded-full px-2.5 text-[11px]"
             onClick={() => setToday(0)}
           >
             Idag
           </Button>
           <Button
             size="sm"
-            variant="outline"
-            className="h-6 rounded-lg px-2 text-[11px]"
+            variant="secondary"
+            className="h-7 rounded-full px-2.5 text-[11px]"
             onClick={() => setToday(1)}
           >
             Imorgon
           </Button>
           <Button
             size="sm"
-            variant="outline"
-            className="h-6 rounded-lg px-2 text-[11px]"
+            variant="secondary"
+            className="h-7 rounded-full px-2.5 text-[11px]"
             onClick={() => setToday(7)}
           >
-            Om 1 vecka
+            +1 vecka
           </Button>
           {selectedDate && (
             <Button
               size="sm"
               variant="ghost"
-              className="ml-auto h-6 rounded-lg px-2 text-[11px] text-destructive hover:bg-destructive/10"
+              className="ml-auto h-7 rounded-full px-2.5 text-[11px] text-destructive hover:bg-destructive/10"
               onClick={() => onChange?.("")}
             >
               <X className="mr-1 h-3 w-3" /> Rensa
@@ -180,8 +180,12 @@ export function DatePicker({
           onSelect={pickDate}
           locale={sv}
           weekStartsOn={1}
-          className="pointer-events-auto p-3"
+          captionLayout="dropdown"
+          startMonth={new Date(new Date().getFullYear() - 8, 0)}
+          endMonth={new Date(new Date().getFullYear() + 8, 11)}
+          className="bg-transparent p-3 [--cell-size:2.1rem]"
         />
+
 
         {includeTime && (
           <div className="flex items-center justify-between gap-2 border-t border-border/60 p-3">
