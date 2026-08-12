@@ -66,7 +66,7 @@ function NotificationsCard() {
   const [showVerificationInput, setShowVerificationInput] = useState(false);
   const [verificationCode, setVerificationCode] = useState("");
   const [webNotificationsEnabled, setWebNotificationsEnabled] = useState(false);
-  
+
   const [notifyTasksEnabled, setNotifyTasksEnabled] = useState(true);
   const [notifyTasksMinutes, setNotifyTasksMinutes] = useState("60");
   const [notifySessionsEnabled, setNotifySessionsEnabled] = useState(true);
@@ -84,16 +84,16 @@ function NotificationsCard() {
         localStorage.getItem("web_notifications_enabled") === "true" &&
         Notification.permission === "granted"
       );
-      
+
       const tasksEnabled = localStorage.getItem("web_notify_tasks_enabled");
       setNotifyTasksEnabled(tasksEnabled !== "false");
-      
+
       const tasksMins = localStorage.getItem("web_notify_tasks_minutes");
       setNotifyTasksMinutes(tasksMins || "60");
-      
+
       const sessionsEnabled = localStorage.getItem("web_notify_sessions_enabled");
       setNotifySessionsEnabled(sessionsEnabled !== "false");
-      
+
       const sessionsMins = localStorage.getItem("web_notify_sessions_minutes");
       setNotifySessionsMinutes(sessionsMins || "10");
     }
@@ -106,9 +106,9 @@ function NotificationsCard() {
           toast.error("Denna webbläsare stöder inte skrivbordsnotiser.");
           return;
         }
-        
+
         toast.info("Försöker aktivera notiser...");
-        
+
         const permission = await Notification.requestPermission();
         if (permission === "granted") {
           localStorage.setItem("web_notifications_enabled", "true");
@@ -449,9 +449,9 @@ function NotificationsCard() {
                 </div>
                 <div className="flex items-center gap-4">
                   <div className="flex items-center gap-2">
-                    <Input 
-                      type="number" 
-                      value={notifyTasksMinutes} 
+                    <Input
+                      type="number"
+                      value={notifyTasksMinutes}
                       onChange={(e) => {
                         setNotifyTasksMinutes(e.target.value);
                         localStorage.setItem("web_notify_tasks_minutes", e.target.value);
@@ -480,9 +480,9 @@ function NotificationsCard() {
                 </div>
                 <div className="flex items-center gap-4">
                   <div className="flex items-center gap-2">
-                    <Input 
-                      type="number" 
-                      value={notifySessionsMinutes} 
+                    <Input
+                      type="number"
+                      value={notifySessionsMinutes}
                       onChange={(e) => {
                         setNotifySessionsMinutes(e.target.value);
                         localStorage.setItem("web_notify_sessions_minutes", e.target.value);
