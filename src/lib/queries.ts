@@ -152,3 +152,30 @@ export const TYPES_ALPHA: TaskType[] = [
   "tenta",
   "ovning",
 ];
+
+export type ReportingModule = {
+  id: string;
+  course_id: string;
+  name: string;
+  hp: number;
+  completed: boolean;
+  grade: string | null;
+  points: string | null;
+  registered_on: string | null;
+  sort_order: number;
+};
+
+export const reportingModulesQuery = queryOptions({
+  queryKey: ["course_reporting_modules"] as const,
+  queryFn: async (): Promise<ReportingModule[]> => {
+    await supabase.auth.getUser();
+    const { data, error } = await supabase
+      .from("course_reporting_modules")
+      .select("id,course_id,name,hp,completed,grade,points,registered_on,sort_order")
+      .order("sort_order", { ascending: true })
+      .order("name", { ascending: true });
+    if (error) throw error;
+    return (data ?? []) as ReportingModule[];
+  },
+  enabled: typeof window !== "undefined",
+});
