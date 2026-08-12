@@ -90,10 +90,22 @@ export const termsQuery = queryOptions({
     const { data, error } = await supabase
       .from("term_dates")
       .select("id,year,term,start_date,end_date")
-      .order("year", { ascending: false })
-      .order("term");
+      .order("start_date", { ascending: false })
+      .order("year", { ascending: false });
     if (error) throw error;
-    return (data ?? []) as TermRow[];
+
+    const TERM_RANK: Record<string, number> = { host: 3, sommar: 2, var: 1 };
+    const sorted = (data ?? []).sort((a, b) => {
+      if (a.start_date && b.start_date) {
+        return b.start_date.localeCompare(a.start_date);
+      }
+      if (a.year !== b.year) {
+        return b.year - a.year;
+      }
+      return (TERM_RANK[b.term] ?? 0) - (TERM_RANK[a.term] ?? 0);
+    });
+
+    return sorted as TermRow[];
   },
   enabled: typeof window !== "undefined",
 });
