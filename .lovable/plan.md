@@ -5,7 +5,7 @@ Din idé är rätt väg: flera "antagningsomgångar" per kurs. Jag lägger det s
 ## Så fungerar det
 
 **Kursinställningar (Redigera kurs)**
-- Ny sektion "Antagningsomgångar". Varje rad = årskurs + läsår + en eller flera perioder (P1–P5).
+- Ny sektion "Antagningsomgångar". Varje rad = årskurs + en eller flera perioder (P1–P5).
 - Lägg till / ta bort rader. Den första (tidigaste) omgången används fortsatt för gruppering i kurslistan och på kurssidan, så inget annat ändras visuellt.
 - Befintliga kurser flyttas automatiskt över: nuvarande årskurs + perioder blir omgång 1.
 
