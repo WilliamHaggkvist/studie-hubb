@@ -29,6 +29,6 @@ Din idé är rätt väg: flera "antagningsomgångar" per kurs. Jag lägger det s
   - `resolvePeriod(date, windows)` → { period, term, calendarYear } eller null. Årskursen fås genom att matcha träffen mot kursens antagningsomgångar (kalenderår ↔ årskurs härleds från terminsdatumen, tidigaste inlagda läsåret = lägsta årskursen).
 - `src/routes/_authenticated/stats.tsx`:
   - "HP – Antagen": aggregering itererar över omgångar i stället för `c.arskurs`/`c.periods`.
-  - "HP – Registrerade": aggregering byggs om från kurser till registrerade rapporteringsmoment (+ fallback för kurser utan moment), med nya period-/termin-/läsårsdiagram som matchar Antagen-vyn.
+  - "HP – Registrerade": aggregering byggs om från kurser till registrerade rapporteringsmoment (+ fallback för kurser utan moment), med nya period-, termin- och årskursdiagram som matchar Antagen-vyn.
 - `src/components/courses/edit-course-dialog.tsx` och `courses.index.tsx` (skapa kurs): UI för att lägga till/ta bort omgångar; hp-summeringsregeln för rapporteringsmoment lämnas orörd.
 - `courses.$courseId.tsx`: visar alla omgångar som chips ("Åk 2 P1–P2", "Åk 4 P3–P4").
