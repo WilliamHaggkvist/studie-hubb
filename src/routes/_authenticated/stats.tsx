@@ -1262,7 +1262,7 @@ function StatsPage() {
           standaloneHp: +t.standaloneHp.toFixed(1),
           campusHp: +t.campusHp.toFixed(1),
           distansHp: +t.distansHp.toFixed(1),
-          modules: t.modules.sort((a, b) => b.registeredOn.localeCompare(a.registeredOn)),
+          modules: t.modules.sort((a, b) => a.registeredOn.localeCompare(b.registeredOn)),
         })),
       }));
 
@@ -2362,25 +2362,14 @@ function StatsPage() {
           {/* HUVUDRUBRIK 3: Högskolepoäng - Registrerade                   */}
           {/* ───────────────────────────────────────────────────────────── */}
           <section id="hp-registrerade" className="space-y-4 pt-4 border-t border-border/40">
-            <div className="border-b border-border/40 pb-3 space-y-2">
-              <div>
-                <h2 className="font-display text-lg font-bold tracking-tight text-foreground flex items-center gap-2">
-                  <Award className="h-5 w-5 text-sky-400" />
-                  Högskolepoäng - Registrerade
-                </h2>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Rapporterade HP per termin (Sommar, Höst, Vår) baserat på registreringsdatum och dina terminsdatum.
-                </p>
-              </div>
-              <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 flex items-start gap-2.5 text-xs text-amber-200/90 shadow-sm">
-                <Clock className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
-                <div>
-                  <span className="font-semibold text-amber-300">Vad innebär "Sen rapportering"?</span>
-                  <p className="mt-0.5 text-[11px] leading-relaxed text-amber-200/80">
-                    Om ett rapporteringsmoment registreras under en termin eller årskurs då kursen inte var schemalagd (t.ex. om kursen läses på hösten men momentet registreras in på våren), märks momentet med en <span className="inline-flex items-center gap-1 font-semibold text-amber-300 bg-amber-500/20 px-1.5 py-0.5 rounded border border-amber-500/30 text-[10px]"><Clock className="h-3 w-3" /> Sen rapportering</span>-banner.
-                  </p>
-                </div>
-              </div>
+            <div className="border-b border-border/40 pb-3">
+              <h2 className="font-display text-lg font-bold tracking-tight text-foreground flex items-center gap-2">
+                <Award className="h-5 w-5 text-sky-400" />
+                Högskolepoäng - Registrerade
+              </h2>
+              <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                Rapporterade HP per termin (Sommar, Höst, Vår) baserat på registreringsdatum och dina terminsdatum. Moment som registreras under en termin eller årskurs då kursen inte var schemalagd märks med en Sen rapportering-banner.
+              </p>
             </div>
 
             {/* Full-width sammanfogad enhetlig modul för Totalt & Kurstyp */}
