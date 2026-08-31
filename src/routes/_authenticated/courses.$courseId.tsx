@@ -402,10 +402,11 @@ function CourseDetail() {
           title: patch.title ?? "",
           description: patch.description ?? null,
           due_at: patch.due_at ?? null,
-          course_id: courseId,
+          course_id: patch.course_id ?? courseId,
           task_type: patch.task_type ?? "annat",
           task_kind: patch.task_kind ?? "task",
           status: patch.status ?? "todo",
+          parent_id: patch.parent_id ?? null,
         });
         if (error) throw error;
       }
@@ -808,8 +809,8 @@ function CourseDetail() {
       </div>
 
       {/* CONTENT GRID */}
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card className="border-border/60 bg-surface/60 backdrop-blur-md rounded-2xl">
+      <div className="grid gap-4 lg:grid-cols-4">
+        <Card className="border-border/60 bg-surface/60 backdrop-blur-md rounded-2xl lg:col-span-3">
           <CardHeader className="pb-2 flex-row items-center justify-between space-y-0">
             <CardTitle className="font-display text-base flex items-center gap-2">
               <ListTodo className="h-4 w-4" style={{ color: course.color }} /> Uppgifter{" "}
@@ -967,10 +968,10 @@ function CourseDetail() {
           </CardContent>
         </Card>
 
-        <Card className="border-border/60 bg-surface/60 backdrop-blur-md rounded-2xl">
+        <Card className="border-border/60 bg-surface/60 backdrop-blur-md rounded-2xl lg:col-span-1">
           <CardHeader className="pb-2">
-            <CardTitle className="font-display text-base flex items-center gap-2">
-              <CalendarClock className="h-4 w-4" style={{ color: course.color }} /> Studiepass{" "}
+            <CardTitle className="font-display text-base flex items-center gap-1.5">
+              <CalendarClock className="h-4 w-4 shrink-0" style={{ color: course.color }} /> Studiepass{" "}
               <span className="ml-auto text-xs text-muted-foreground">{sessions.length}</span>
             </CardTitle>
           </CardHeader>
@@ -981,27 +982,31 @@ function CourseDetail() {
               </div>
             ) : (
               <div className="space-y-1">
-                {sessions.map((s) => {
+                {sessions.slice(0, 8).map((s) => {
                   const start = s.actual_start ?? s.planned_start;
                   const end = s.actual_end ?? s.planned_end;
+                  const validStart = start && !isNaN(new Date(start).getTime());
+                  const validEnd = end && !isNaN(new Date(end).getTime());
                   return (
                     <div
                       key={s.id}
-                      className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm"
+                      className="flex items-center justify-between gap-1.5 rounded-lg px-2 py-1 text-xs hover:bg-surface-2/40 transition-colors"
                     >
-                      {s.completed ? (
-                        <CheckCircle2 className="h-3.5 w-3.5 text-c-7" />
-                      ) : (
-                        <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        {s.completed ? (
+                          <CheckCircle2 className="h-3.5 w-3.5 text-c-7 shrink-0" />
+                        ) : (
+                          <Clock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                        )}
+                        <span className="truncate font-medium text-foreground/90">
+                          {validStart ? format(new Date(start), "d MMM", { locale: sv }) : "—"}
+                        </span>
+                      </div>
+                      {validStart && validEnd && (
+                        <span className="text-[10px] text-muted-foreground tabular-nums shrink-0">
+                          {format(new Date(start), "HH:mm")}–{format(new Date(end), "HH:mm")}
+                        </span>
                       )}
-                      <span className="truncate">
-                        {start && !isNaN(new Date(start).getTime()) ? format(new Date(start), "yyyy-MM-dd", { locale: sv }) : "—"}
-                      </span>
-                      <span className="ml-auto text-[11px] text-muted-foreground tabular-nums">
-                        {start && end && !isNaN(new Date(start).getTime()) && !isNaN(new Date(end).getTime())
-                          ? `${format(new Date(start), "HH:mm")}–${format(new Date(end), "HH:mm")}`
-                          : ""}
-                      </span>
                     </div>
                   );
                 })}
@@ -1012,48 +1017,6 @@ function CourseDetail() {
                 Öppna studietid →
               </Link>
             </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-border/60 bg-surface/60 backdrop-blur-md rounded-2xl">
-          <CardHeader className="pb-2 flex-row items-center justify-between space-y-0">
-            <CardTitle className="font-display text-base flex items-center gap-2">
-              <StickyNote className="h-4 w-4" style={{ color: course.color }} /> Anteckningar{" "}
-              <span className="ml-1 text-xs text-muted-foreground">{notes.length}</span>
-            </CardTitle>
-            <Button
-              size="sm"
-              variant="ghost"
-              className="gap-1 rounded-xl"
-              onClick={() => createNote.mutate()}
-              disabled={createNote.isPending}
-            >
-              <Plus className="h-3.5 w-3.5" /> Ny
-            </Button>
-          </CardHeader>
-          <CardContent>
-            {notes.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-border/60 p-4 text-center text-xs text-muted-foreground">
-                Inga anteckningar.
-              </div>
-            ) : (
-              <div className="space-y-1">
-                {notes.slice(0, 8).map((n) => (
-                  <Link
-                    key={n.id}
-                    to="/notes/$noteId"
-                    params={{ noteId: n.id }}
-                    className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-surface-2/60"
-                  >
-                    <span className="text-base leading-none">{n.icon ?? "📝"}</span>
-                    <span className="truncate">{n.title || "Utan titel"}</span>
-                    <span className="ml-auto text-[10px] text-muted-foreground">
-                      {n.updated_at && !isNaN(new Date(n.updated_at).getTime()) ? format(new Date(n.updated_at), "yyyy-MM-dd", { locale: sv }) : ""}
-                    </span>
-                  </Link>
-                ))}
-              </div>
-            )}
           </CardContent>
         </Card>
 
@@ -1128,7 +1091,7 @@ function CourseDetail() {
                           : setCompleteModuleFor(m)
                       }
                       className={cn(
-                        "flex h-4 w-4 flex-none items-center justify-center rounded-md border transition",
+                        "flex h-4 w-4 flex-none items-center justify-center rounded-lg border transition",
                         m.completed
                           ? "border-c-7/60 bg-c-7/20 text-c-7"
                           : "border-border/60 hover:border-primary/60",
@@ -1178,6 +1141,54 @@ function CourseDetail() {
         </Card>
 
         <FilesCard courseId={courseId} files={files} color={course.color} />
+
+        <Card className="border-border/60 bg-surface/60 backdrop-blur-md rounded-2xl lg:col-span-4">
+          <CardHeader className="pb-2 flex-row items-center justify-between space-y-0">
+            <CardTitle className="font-display text-base flex items-center gap-2">
+              <StickyNote className="h-4 w-4" style={{ color: course.color }} /> Anteckningar{" "}
+              <span className="ml-1 text-xs text-muted-foreground">{notes.length}</span>
+            </CardTitle>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="gap-1 rounded-xl cursor-pointer"
+              onClick={() => createNote.mutate()}
+              disabled={createNote.isPending}
+            >
+              <Plus className="h-3.5 w-3.5" /> Ny
+            </Button>
+          </CardHeader>
+          <CardContent>
+            {notes.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-border/60 p-4 text-center text-xs text-muted-foreground">
+                Inga anteckningar.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                {notes.map((n) => (
+                  <Link
+                    key={n.id}
+                    to="/notes/$noteId"
+                    params={{ noteId: n.id }}
+                    className="flex items-center gap-2.5 rounded-xl border border-border/40 bg-surface/40 p-2.5 hover:bg-surface-2/60 hover:border-primary/30 transition-all group"
+                  >
+                    <span className="text-lg leading-none shrink-0">{n.icon ?? "📝"}</span>
+                    <div className="min-w-0 flex-1">
+                      <div className="font-medium text-xs truncate group-hover:text-primary transition-colors">
+                        {n.title || "Utan titel"}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground">
+                        {n.updated_at && !isNaN(new Date(n.updated_at).getTime())
+                          ? format(new Date(n.updated_at), "yyyy-MM-dd", { locale: sv })
+                          : ""}
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
       <CompleteModuleDialog
@@ -1282,13 +1293,16 @@ function CourseDetail() {
         rootTasks={tasks.filter((t) => t.parent_id === null)}
         defaultParentId={createParentId}
         onSave={(v) => {
-          upsertTask.mutate({ ...v, parent_id: createParentId }, {
-            onSuccess: () => {
-              setCreateOpen(false);
-              setCreateParentId(null);
-              toast.success("Uppgift skapad");
+          upsertTask.mutate(
+            { ...v, parent_id: v.parent_id ?? createParentId },
+            {
+              onSuccess: () => {
+                setCreateOpen(false);
+                setCreateParentId(null);
+                toast.success("Uppgift skapad");
+              },
             },
-          });
+          );
         }}
       />
 

@@ -17,12 +17,20 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { timerStore, formatDuration, formatHoursCompact } from "@/lib/timer-store";
 import { format, parseISO, subDays, startOfWeek } from "date-fns";
 import { sv } from "date-fns/locale";
-import { Play, Square, CheckCircle2, CalendarPlus, Trash2 } from "lucide-react";
+import { Play, Square, CheckCircle2, CalendarPlus, Trash2, Target, Sparkles, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
+import { cn } from "@/lib/utils";
 import { coursesQuery, tasksQuery, durationSeconds, type Course, type Task } from "@/lib/queries";
 
+import { z } from "zod";
+
+const timeSearchSchema = z.object({
+  period: z.enum(["week", "30"]).optional(),
+});
+
 export const Route = createFileRoute("/_authenticated/time")({
+  validateSearch: timeSearchSchema,
   component: TimePage,
 });
 
@@ -62,7 +70,14 @@ type SessionAgg = {
 
 function TimePage() {
   const qc = useQueryClient();
-  const [period, setPeriod] = useState<"week" | "30">("week");
+  const search = Route.useSearch();
+  const [period, setPeriod] = useState<"week" | "30">(search.period ?? "week");
+
+  useEffect(() => {
+    if (search.period) {
+      setPeriod(search.period);
+    }
+  }, [search.period]);
 
   const { data: allCourses = [] } = useQuery(coursesQuery);
   const courses = allCourses.filter((c) => !c.archived && !c.completed);
@@ -109,10 +124,18 @@ function TimePage() {
   }, [period]);
   const cutoff = cutoffDate.getTime();
 
-  const coursesMap = new Map(allCourses.map((c) => [c.id, c]));
+  const coursesMap = useMemo(() => new Map(allCourses.map((c) => [c.id, c])), [allCourses]);
 
+  const sessionSeconds = (s: SessionAgg): number => {
+    const start = s.actual_start ? new Date(s.actual_start) : new Date(s.planned_start);
+    const end = s.actual_end ? new Date(s.actual_end) : new Date(s.planned_end);
+    return Math.max(0, Math.floor((end.getTime() - start.getTime()) / 1000));
+  };
+
+  // 1. GENOMFÖRD STUDIETID: Loggad tid & slutförda pass fram till nu
   const inPeriod = entries.filter((e) => {
-    if (new Date(e.started_at).getTime() < cutoff || e.source === "session") return false;
+    const t = new Date(e.started_at).getTime();
+    if (t < cutoff || t > Date.now() || e.source === "session") return false;
     if (e.course_id) {
       const course = coursesMap.get(e.course_id);
       if (course?.archived) return false;
@@ -121,7 +144,9 @@ function TimePage() {
   });
 
   const sessionsInPeriod = allSessions.filter((s) => {
-    if (new Date(s.planned_start).getTime() < cutoff) return false;
+    const start = s.actual_start ? new Date(s.actual_start) : new Date(s.planned_start);
+    const t = start.getTime();
+    if (t < cutoff || t > Date.now()) return false;
     if (s.course_id) {
       const course = coursesMap.get(s.course_id);
       if (course?.archived) return false;
@@ -129,39 +154,79 @@ function TimePage() {
     return true;
   });
 
-  const sessionSeconds = (s: SessionAgg): number => {
-    const start = s.actual_start ? new Date(s.actual_start) : new Date(s.planned_start);
-    const end = s.actual_end ? new Date(s.actual_end) : new Date(s.planned_end);
-    return Math.max(0, Math.floor((end.getTime() - start.getTime()) / 1000));
-  };
-
   const entrySeconds = inPeriod.reduce((s, e) => s + (e.duration_seconds ?? 0), 0);
   const sessionSecs = sessionsInPeriod.reduce((s, x) => s + sessionSeconds(x), 0);
-  const totalPeriod = entrySeconds + sessionSecs;
+  const completedSecs = entrySeconds + sessionSecs;
+
+  // 2. PLANERAD STUDIETID (KVAR): studiepass som ligger kvar att genomföras i kalendern
+  const remainingPlannedSessions = useMemo(() => {
+    const now = Date.now();
+    return allSessions.filter((s) => {
+      const start = s.actual_start ? new Date(s.actual_start) : new Date(s.planned_start);
+      const end = s.actual_end ? new Date(s.actual_end) : new Date(s.planned_end);
+      if (start.getTime() < cutoff) return false;
+      if (end.getTime() <= now) return false; // Enbart framtida / återstående pass
+      if (s.course_id) {
+        const course = coursesMap.get(s.course_id);
+        if (course?.archived) return false;
+      }
+      return true;
+    });
+  }, [allSessions, cutoff, coursesMap]);
+
+  const remainingPlannedSecs = remainingPlannedSessions.reduce((s, x) => s + sessionSeconds(x), 0);
+
+  // 3. STUDIETIDSMÅL: Summan av alla aktiva kursers veckomål
+  const rawGoalHours = courses.reduce((sum, c) => sum + (c.weekly_goal_hours ?? 0), 0);
+  const goalSecs = rawGoalHours * 3600;
+
+  const totalAccountedSecs = completedSecs + remainingPlannedSecs;
+  const goalPct = goalSecs > 0 ? Math.min(100, Math.round((totalAccountedSecs / goalSecs) * 100)) : 0;
+  const completedPct = goalSecs > 0 ? Math.min(100, (completedSecs / goalSecs) * 100) : 0;
+  const remainingPlannedPct = goalSecs > 0 ? Math.min(100 - completedPct, (remainingPlannedSecs / goalSecs) * 100) : 0;
 
   const byCourse = useMemo(() => {
-    const m = new Map<string, number>();
+    const map = new Map<string, { completedSecs: number; remainingPlannedSecs: number }>();
+    for (const c of courses) {
+      map.set(c.id, { completedSecs: 0, remainingPlannedSecs: 0 });
+    }
+
     for (const e of inPeriod) {
-      const key = e.course_id ?? "__none__";
-      m.set(key, (m.get(key) ?? 0) + (e.duration_seconds ?? 0));
+      if (!e.course_id) continue;
+      const curr = map.get(e.course_id) ?? { completedSecs: 0, remainingPlannedSecs: 0 };
+      curr.completedSecs += e.duration_seconds ?? 0;
+      map.set(e.course_id, curr);
     }
+
     for (const s of sessionsInPeriod) {
-      const key = s.course_id ?? "__none__";
-      m.set(key, (m.get(key) ?? 0) + sessionSeconds(s));
+      if (!s.course_id) continue;
+      const curr = map.get(s.course_id) ?? { completedSecs: 0, remainingPlannedSecs: 0 };
+      curr.completedSecs += sessionSeconds(s);
+      map.set(s.course_id, curr);
     }
-    return Array.from(m.entries())
-      .map(([id, secs]) => {
-        const c = courses.find((cc) => cc.id === id);
+
+    for (const s of remainingPlannedSessions) {
+      if (!s.course_id) continue;
+      const curr = map.get(s.course_id) ?? { completedSecs: 0, remainingPlannedSecs: 0 };
+      curr.remainingPlannedSecs += sessionSeconds(s);
+      map.set(s.course_id, curr);
+    }
+
+    return courses
+      .map((c) => {
+        const data = map.get(c.id) ?? { completedSecs: 0, remainingPlannedSecs: 0 };
         return {
-          id,
-          name: c?.name ?? "Ingen kurs",
-          color: c?.color ?? "#64748b",
-          hours: +(secs / 3600).toFixed(2),
-          seconds: secs,
+          id: c.id,
+          name: c.name,
+          color: c.color ?? "#64748b",
+          completedSecs: data.completedSecs,
+          remainingPlannedSecs: data.remainingPlannedSecs,
+          goalHours: c.weekly_goal_hours ?? 0,
         };
       })
-      .sort((a, b) => b.hours - a.hours);
-  }, [inPeriod, sessionsInPeriod, courses]);
+      .filter((c) => c.remainingPlannedSecs > 0 || c.completedSecs > 0)
+      .sort((a, b) => b.completedSecs - a.completedSecs || b.remainingPlannedSecs - a.remainingPlannedSecs);
+  }, [courses, inPeriod, sessionsInPeriod, remainingPlannedSessions]);
 
   const byTask = useMemo(() => {
     const m = new Map<string, number>();
@@ -187,12 +252,6 @@ function TimePage() {
       .slice(0, 5);
   }, [inPeriod, sessionsInPeriod, aggSessionTasks, allTasks]);
 
-  const totalPeriodHours = +(totalPeriod / 3600).toFixed(2);
-  const weeklyTarget = courses.reduce((sum, c) => sum + (c.weekly_goal_hours ?? 0), 0);
-  const targetProgress =
-    weeklyTarget > 0 ? Math.min(100, Math.floor((totalPeriodHours / weeklyTarget) * 100)) : 0;
-  const targetColor = targetProgress >= 100 ? "var(--c-7)" : "gradient-sunset";
-
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 lg:px-8">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
@@ -210,67 +269,109 @@ function TimePage() {
         </Select>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 mb-8">
-        <Card className="border-border/60 bg-surface/60 backdrop-blur-md rounded-2xl">
-          <CardContent className="pt-5">
-            <div className="text-xs uppercase tracking-wider text-muted-foreground">
-              Studietid {period === "week" ? "denna vecka" : "senaste 30 dagarna"}
+      {/* Kompakt Översiktsmodul för Studietid */}
+      <Card className="border-border/60 bg-surface/60 backdrop-blur-md rounded-2xl mb-6 p-4">
+        {/* Övre rad: 2 nyckeltal (Genomfört & Planerat) */}
+        <div className="grid grid-cols-2 gap-3 pb-3">
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-1.5 text-xs font-medium text-emerald-400">
+              <CheckCircle2 className="h-3.5 w-3.5" /> Genomfört
             </div>
-            <div className="mt-2 font-display text-4xl font-bold tabular-nums">
-              {totalPeriodHours} h{" "}
-              <span className="text-sm font-normal text-muted-foreground">
-                {period === "week" && weeklyTarget > 0 ? `/ ${weeklyTarget} h mål` : ""}
+            <div className="font-display text-2xl font-bold tabular-nums text-foreground">
+              {formatHoursCompact(completedSecs)}
+            </div>
+          </div>
+
+          <div className="space-y-0.5 border-l border-white/5 pl-3">
+            <div className="flex items-center gap-1.5 text-xs font-medium text-sky-400">
+              <CalendarPlus className="h-3.5 w-3.5" /> Planerat
+            </div>
+            <div className="font-display text-2xl font-bold tabular-nums text-foreground">
+              {formatHoursCompact(remainingPlannedSecs)}
+            </div>
+          </div>
+        </div>
+
+        {/* Undre rad: Enkel staplad förloppsbar för Veckomål */}
+        {period === "week" && (
+          <div className="pt-3 text-xs space-y-2 border-t border-white/5">
+            <div className="flex items-center justify-between text-[11px]">
+              <span className="text-muted-foreground">
+                Veckomål: <strong className="text-foreground">{formatHoursCompact(totalAccountedSecs)}</strong> / {goalSecs > 0 ? formatHoursCompact(goalSecs) : "—"}
+              </span>
+              <span className="font-semibold text-amber-400">
+                {goalPct}%
               </span>
             </div>
-            {period === "week" && weeklyTarget > 0 && (
-              <div className="mt-4">
-                <div className="mb-1 flex items-center justify-between text-xs text-muted-foreground">
-                  <span>Måluppfyllelse</span>
-                  <span className="font-semibold">{targetProgress}%</span>
-                </div>
-                <div className="h-2 rounded-full bg-surface-2 overflow-hidden">
-                  <div
-                    className="h-full rounded-full transition-all"
-                    style={{ width: `${targetProgress}%`, background: targetColor }}
-                  />
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="rounded-xl border border-border/60 bg-surface/40 p-4">
-            <div className="mb-2 font-display text-sm font-semibold">Tid per kurs</div>
-            {byCourse.length === 0 ? (
-              <div className="py-6 text-center text-sm text-muted-foreground">Ingen tid loggad</div>
-            ) : (
-              <div className="space-y-2">
-                {byCourse.slice(0, 4).map((c) => {
-                  const pct = totalPeriod > 0 ? (c.seconds / totalPeriod) * 100 : 0;
-                  return (
-                    <div key={c.id}>
-                      <div className="mb-1 flex items-baseline justify-between gap-2">
-                        <div className="flex items-center gap-1.5 truncate text-sm">
-                          <span
-                            className="h-2 w-2 shrink-0 rounded-full"
-                            style={{ background: c.color }}
-                          />
-                          <span className="truncate">{c.name}</span>
-                        </div>
-                        <div className="font-mono tabular-nums text-xs text-muted-foreground">
-                          {c.hours} h
-                        </div>
-                      </div>
-                      <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-                        <div className="h-full" style={{ width: `${pct}%`, background: c.color }} />
-                      </div>
-                    </div>
-                  );
-                })}
+            <div className="h-2 w-full rounded-full bg-surface-2 overflow-hidden border border-white/5 flex">
+              <div
+                className="h-full bg-emerald-500 transition-all duration-500"
+                style={{ width: `${completedPct}%` }}
+                title={`Genomfört: ${formatHoursCompact(completedSecs)}`}
+              />
+              <div
+                className="h-full bg-sky-400 transition-all duration-500"
+                style={{ width: `${remainingPlannedPct}%` }}
+                title={`Planerat: ${formatHoursCompact(remainingPlannedSecs)}`}
+              />
+            </div>
+
+            <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-0.5">
+              <div className="flex items-center gap-3">
+                <span className="flex items-center gap-1">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                  Genomfört ({formatHoursCompact(completedSecs)})
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="h-1.5 w-1.5 rounded-full bg-sky-400" />
+                  Planerat ({formatHoursCompact(remainingPlannedSecs)})
+                </span>
               </div>
-            )}
+              {goalSecs > 0 && (
+                <span>
+                  {totalAccountedSecs < goalSecs
+                    ? `Saknas i schemat: ${formatHoursCompact(goalSecs - totalAccountedSecs)}`
+                    : "Veckomålet uppnått! 🎉"}
+                </span>
+              )}
+            </div>
           </div>
+        )}
+      </Card>
+
+      <div className="grid gap-4 md:grid-cols-2 mb-8">
+        <div className="rounded-xl border border-border/60 bg-surface/40 p-4">
+          <div className="mb-2.5 font-display text-sm font-semibold flex items-center justify-between">
+            <span>Tid per kurs</span>
+            <span className="text-[10px] font-normal text-muted-foreground">Genomfört (Planerat)</span>
+          </div>
+          {byCourse.length === 0 ? (
+            <div className="py-6 text-center text-sm text-muted-foreground">Ingen tid loggad</div>
+          ) : (
+            <div className="space-y-2">
+              {byCourse.slice(0, 5).map((c) => {
+                return (
+                  <div key={c.id} className="flex items-center justify-between text-xs py-1.5 px-2.5 rounded-lg bg-white/5 border border-white/5">
+                    <div className="flex items-center gap-2 truncate font-medium">
+                      <span
+                        className="h-2 w-2 shrink-0 rounded-full"
+                        style={{ background: c.color }}
+                      />
+                      <span className="truncate">{c.name}</span>
+                    </div>
+                    <div className="text-right text-[11px] tabular-nums shrink-0">
+                      <span className="font-semibold text-emerald-400">{formatHoursCompact(c.completedSecs)}</span>
+                      {c.remainingPlannedSecs > 0 && (
+                        <span className="text-sky-400/90 ml-1.5">({formatHoursCompact(c.remainingPlannedSecs)})</span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
           <div className="rounded-xl border border-border/60 bg-surface/40 p-4">
             <div className="mb-2 font-display text-sm font-semibold">Toppuppgifter</div>
             {byTask.length === 0 ? (
@@ -280,7 +381,7 @@ function TimePage() {
             ) : (
               <div className="space-y-2">
                 {byTask.map((t) => {
-                  const pct = totalPeriod > 0 ? (t.seconds / totalPeriod) * 100 : 0;
+                  const pct = completedSecs > 0 ? (t.seconds / completedSecs) * 100 : 0;
                   return (
                     <div key={t.id}>
                       <div className="mb-1 flex items-baseline justify-between gap-2">
@@ -299,7 +400,6 @@ function TimePage() {
             )}
           </div>
         </div>
-      </div>
 
       <Tabs defaultValue="sessions" className="w-full">
         <TabsList>
@@ -641,15 +741,15 @@ function InboxRow({
         <div className="space-y-1.5">
           <Label>Uppgifter</Label>
           {courseId === "none" ? (
-            <div className="rounded-md border border-dashed border-border/60 p-2 text-xs text-muted-foreground">
+            <div className="rounded-xl border border-dashed border-border/60 p-2 text-xs text-muted-foreground">
               Välj kurs först
             </div>
           ) : availableTasks.length === 0 ? (
-            <div className="rounded-md border border-dashed border-border/60 p-2 text-xs text-muted-foreground">
+            <div className="rounded-xl border border-dashed border-border/60 p-2 text-xs text-muted-foreground">
               Inga öppna uppgifter i kursen
             </div>
           ) : (
-            <div className="max-h-32 space-y-1 overflow-y-auto rounded-md border border-border/60 p-2">
+            <div className="max-h-32 space-y-1 overflow-y-auto rounded-xl border border-border/60 p-2">
               {availableTasks.map((t) => {
                 const checked = taskIds.includes(t.id);
                 return (
@@ -750,14 +850,14 @@ function SessionRow({
                   onDelete(s.id);
                   setIsConfirming(false);
                 }}
-                className="rounded-md bg-destructive/10 px-2 py-1 text-xs font-semibold text-destructive hover:bg-destructive/20 transition-colors"
+                className="rounded-lg bg-destructive/10 px-2 py-1 text-xs font-semibold text-destructive hover:bg-destructive/20 transition-colors"
               >
                 Ja
               </button>
               <button
                 type="button"
                 onClick={() => setIsConfirming(false)}
-                className="rounded-md bg-white/5 px-2 py-1 text-xs font-semibold text-muted-foreground hover:bg-white/10 transition-colors"
+                className="rounded-lg bg-white/5 px-2 py-1 text-xs font-semibold text-muted-foreground hover:bg-white/10 transition-colors"
               >
                 Nej
               </button>
@@ -917,7 +1017,7 @@ function TimerPanel({ courses, allTasks }: { courses: Course[]; allTasks: Task[]
         {availableTasks.length > 0 && (
           <div className="space-y-2">
             <Label>Uppgifter (valfritt)</Label>
-            <div className="max-h-40 space-y-1 overflow-y-auto rounded-md border border-border/60 p-2">
+            <div className="max-h-40 space-y-1 overflow-y-auto rounded-xl border border-border/60 p-2">
               {availableTasks.map((t) => {
                 const checked = taskIds.includes(t.id);
                 return (

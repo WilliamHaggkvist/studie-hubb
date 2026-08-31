@@ -327,7 +327,7 @@ function SidebarContent() {
           {sidebarCourses.length === 0 && (
             <Link
               to="/courses"
-              className="mx-2 block rounded-md border border-dashed border-sidebar-border px-3 py-2 text-xs text-muted-foreground hover:text-foreground"
+              className="mx-2 block rounded-xl border border-dashed border-sidebar-border px-3 py-2 text-xs text-muted-foreground hover:text-foreground"
             >
               + Lägg till din första kurs
             </Link>
@@ -388,7 +388,7 @@ function NavItem({
     <Link
       to={to}
       className={cn(
-        "group flex items-center gap-2 rounded-md px-3 py-1.5 text-sm text-sidebar-foreground transition-colors",
+        "group flex items-center gap-2 rounded-xl px-3 py-1.5 text-sm text-sidebar-foreground transition-colors",
         active
           ? "bg-sidebar-accent text-foreground"
           : "hover:bg-sidebar-accent/60 hover:text-foreground",
@@ -413,7 +413,7 @@ function CourseNode({ course }: { course: CourseRow }) {
       to="/courses/$courseId"
       params={{ courseId: course.id }}
       className={cn(
-        "flex items-center gap-2 rounded-md px-3 py-1.5 text-sm text-sidebar-foreground transition-colors",
+        "flex items-center gap-2 rounded-xl px-3 py-1.5 text-sm text-sidebar-foreground transition-colors",
         active
           ? "bg-sidebar-accent text-foreground"
           : "hover:bg-sidebar-accent/60 hover:text-foreground",
@@ -438,7 +438,7 @@ function PageLink({ page }: { page: PageRow }) {
       to="/notes/$noteId"
       params={{ noteId: page.id }}
       className={cn(
-        "flex items-center gap-2 rounded-md px-3 py-1 text-sm text-sidebar-foreground",
+        "flex items-center gap-2 rounded-xl px-3 py-1 text-sm text-sidebar-foreground",
         active
           ? "bg-sidebar-accent text-foreground"
           : "hover:bg-sidebar-accent/60 hover:text-foreground",
@@ -465,7 +465,7 @@ function PageTree({
   return (
     <div>
       <div
-        className="group flex items-center gap-1 rounded-md pl-1 pr-2 hover:bg-sidebar-accent/60"
+        className="group flex items-center gap-1 rounded-lg pl-1 pr-2 hover:bg-sidebar-accent/60"
         style={{ marginLeft: depth * 10 }}
       >
         <button
@@ -528,7 +528,7 @@ function TopBar({ onMenuClick }: { onMenuClick: () => void }) {
     <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 border-b border-white/5 bg-background/55 px-3 backdrop-blur-xl lg:px-6">
       <button
         onClick={onMenuClick}
-        className="grid h-9 w-9 place-items-center rounded-md text-muted-foreground hover:bg-surface hover:text-foreground lg:hidden"
+        className="grid h-9 w-9 place-items-center rounded-xl text-muted-foreground hover:bg-surface hover:text-foreground lg:hidden"
       >
         <Menu className="h-5 w-5" />
       </button>
@@ -625,7 +625,7 @@ function GlobalSearch() {
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <button className="flex h-9 w-full max-w-sm items-center gap-2 rounded-md border border-border/60 bg-surface px-3 text-sm text-muted-foreground hover:border-border">
+        <button className="flex h-9 w-full max-w-sm items-center gap-2 rounded-xl border border-border/60 bg-surface px-3 text-sm text-muted-foreground hover:border-border">
           <Search className="h-4 w-4" />
           <span>Sök…</span>
         </button>
@@ -662,7 +662,7 @@ function GlobalSearch() {
                   navigate({ to: "/notes/$noteId", params: { noteId: r.id } });
                 }
               }}
-              className="flex w-full items-center justify-between gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent"
+              className="flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-left text-sm hover:bg-accent"
             >
               <div className="flex items-center gap-2 min-w-0">
                 {r.type === "course" ? (
@@ -877,7 +877,7 @@ function TimerWidget() {
               <label className="mb-1 block text-xs text-muted-foreground">
                 Uppgifter (valfritt)
               </label>
-              <div className="max-h-40 space-y-1 overflow-y-auto rounded-md border border-border/60 p-2">
+              <div className="max-h-40 space-y-1 overflow-y-auto rounded-xl border border-border/60 p-2">
                 {courseTasks.map((t) => {
                   const checked = taskIds.includes(t.id);
                   return (

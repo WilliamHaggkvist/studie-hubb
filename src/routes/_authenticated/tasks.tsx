@@ -14,7 +14,7 @@ import { Plus, Calendar as CalIcon, Inbox, ChevronDown, ChevronRight, Check } fr
 import { TaskDialog } from "@/components/tasks/task-dialog";
 import { QuickStatusDialog } from "@/components/tasks/quick-status-dialog";
 import { CompleteDialog } from "@/components/tasks/complete-dialog";
-import { format, parseISO, differenceInCalendarDays } from "date-fns";
+import { format, parseISO, differenceInCalendarDays, isSameDay, isSameWeek, isSameMonth } from "date-fns";
 import { sv } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -42,6 +42,8 @@ import { z } from "zod";
 const tasksSearchSchema = z.object({
   courseId: z.string().optional(),
   course: z.string().optional(),
+  due: z.string().optional(),
+  filterDue: z.string().optional(),
 });
 
 export const Route = createFileRoute("/_authenticated/tasks")({
@@ -73,7 +75,9 @@ function TasksPage() {
     search.courseId || search.course || "all"
   );
   const [filterType, setFilterType] = useState<string>("all");
-  const [filterDue, setFilterDue] = useState<string>("all");
+  const [filterDue, setFilterDue] = useState<string>(
+    search.due || search.filterDue || "all"
+  );
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   useEffect(() => {
@@ -82,6 +86,13 @@ function TasksPage() {
       setFilterCourse(targetCourse);
     }
   }, [search.courseId, search.course]);
+
+  useEffect(() => {
+    const targetDue = search.due || search.filterDue;
+    if (targetDue) {
+      setFilterDue(targetDue);
+    }
+  }, [search.due, search.filterDue]);
 
   const [createOpen, setCreateOpen] = useState(false);
   const [editing, setEditing] = useState<Task | null>(null);
@@ -110,8 +121,8 @@ function TasksPage() {
   // Filtrera alla uppgifter (för både rot- och underuppgifter)
   const filteredAllTasks = useMemo(() => {
     const now = Date.now();
-    const day = 24 * 3600 * 1000;
     const coursesMap = new Map(allCourses.map((c) => [c.id, c]));
+    const today = new Date();
     return allTasks.filter((t) => {
       if (t.course_id) {
         const course = coursesMap.get(t.course_id);
@@ -126,11 +137,16 @@ function TasksPage() {
       }
       if (filterType !== "all" && t.task_type !== filterType) return false;
       if (filterDue !== "all" && t.due_at) {
-        const diff = parseISO(t.due_at).getTime() - now;
-        if (filterDue === "overdue" && diff >= 0) return false;
-        if (filterDue === "today" && (diff < 0 || diff > day)) return false;
-        if (filterDue === "week" && (diff < 0 || diff > 7 * day)) return false;
-        if (filterDue === "month" && (diff < 0 || diff > 30 * day)) return false;
+        const due = parseISO(t.due_at);
+        if (filterDue === "overdue") {
+          if (due.getTime() >= now || t.status === "done") return false;
+        } else if (filterDue === "today") {
+          if (!isSameDay(due, today)) return false;
+        } else if (filterDue === "week") {
+          if (!isSameWeek(due, today, { weekStartsOn: 1 })) return false;
+        } else if (filterDue === "month") {
+          if (!isSameMonth(due, today)) return false;
+        }
       } else if (filterDue !== "all" && !t.due_at) {
         return false;
       }
@@ -560,7 +576,7 @@ function Card({
               e.stopPropagation();
               onToggleExpand(task.id);
             }}
-            className="mt-1 rounded-md p-1 text-muted-foreground hover:bg-surface-2"
+            className="mt-1 rounded-lg p-1 text-muted-foreground hover:bg-surface-2"
             aria-label={isOpen ? "Fäll ihop" : "Fäll ut"}
           >
             {isOpen ? (
@@ -645,7 +661,7 @@ function ChildRow({
 }) {
   const isDone = child.status === "done";
   return (
-    <div className="flex items-center gap-2 rounded-md px-1.5 py-1 hover:bg-white/5">
+    <div className="flex items-center gap-2 rounded-lg px-1.5 py-1 hover:bg-white/5">
       <button
         type="button"
         onClick={(e) => {
@@ -653,7 +669,7 @@ function ChildRow({
           onToggle(child, isDone ? "todo" : "done");
         }}
         className={cn(
-          "flex h-4 w-4 flex-none items-center justify-center rounded-md border transition",
+          "flex h-4 w-4 flex-none items-center justify-center rounded-lg border transition",
           isDone
             ? "border-emerald-500/60 bg-emerald-500/20 text-emerald-400"
             : "border-border/60 hover:border-primary/60",

@@ -70,15 +70,35 @@ export function TaskDialog({
   );
   const kind: TaskKind = EXAM_TYPES.has(type) ? "exam" : "task";
 
-  // Reset when task or defaultParentId changes
+  // Reset when task, defaultParentId or open changes
   useEffect(() => {
+    if (!open) return;
     setTitle(task?.title ?? "");
     setDescription(task?.description ?? "");
     setDueAt(task?.due_at ? task.due_at.slice(0, 16) : "");
-    setCourseId(task?.course_id ?? "none");
+    
+    const initialParentId = task?.parent_id ?? defaultParentId ?? "none";
+    setParentId(initialParentId);
+
+    // Inherit parent task's course_id if creating subtask and course_id is not set
+    const parentTask = rootTasks?.find((t) => t.id === initialParentId);
+    const initialCourseId = task?.course_id ?? parentTask?.course_id ?? "none";
+    setCourseId(initialCourseId);
+
     setType(task?.task_type ?? "annat");
-    setParentId(task?.parent_id ?? defaultParentId ?? "none");
-  }, [task, defaultKind, defaultParentId]);
+  }, [open, task, defaultKind, defaultParentId, rootTasks]);
+
+  const handleCourseChange = (newCourseId: string) => {
+    setCourseId(newCourseId);
+    if (parentId !== "none") {
+      const validParents = rootTasks?.filter(
+        (t) => newCourseId === "none" || !t.course_id || t.course_id === newCourseId,
+      ) ?? [];
+      if (!validParents.some((p) => p.id === parentId)) {
+        setParentId("none");
+      }
+    }
+  };
 
   const submit = () => {
     onSave({
@@ -149,7 +169,7 @@ export function TaskDialog({
             </div>
             <div className="space-y-1.5">
               <Label>Kurs</Label>
-              <Select value={courseId} onValueChange={setCourseId}>
+              <Select value={courseId} onValueChange={handleCourseChange}>
                 <SelectTrigger className="rounded-xl">
                   <SelectValue />
                 </SelectTrigger>

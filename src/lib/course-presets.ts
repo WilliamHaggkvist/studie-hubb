@@ -1,15 +1,20 @@
-// New palette — sunset-to-ocean. Used for course color pickers, charts, chips.
+// Modern 15-color ultra-high contrast palette without overlapping shades.
 export const PALETTE = [
-  { name: "Röd", value: "#f94144", token: "c-1" },
-  { name: "Orange", value: "#f3722c", token: "c-2" },
-  { name: "Amber", value: "#f8961e", token: "c-3" },
-  { name: "Peach", value: "#f9844a", token: "c-4" },
-  { name: "Gul", value: "#f9c74f", token: "c-5" },
-  { name: "Grön", value: "#90be6d", token: "c-6" },
-  { name: "Teal", value: "#43aa8b", token: "c-7" },
-  { name: "Djuphav", value: "#4d908e", token: "c-8" },
-  { name: "Blågrå", value: "#577590", token: "c-9" },
-  { name: "Blå", value: "#277da1", token: "c-10" },
+  { name: "Stark Röd", value: "#ef4444", token: "c-1" },
+  { name: "Terracotta", value: "#ea580c", token: "c-2" },
+  { name: "Bärnsten", value: "#d97706", token: "c-3" },
+  { name: "Solgul", value: "#facc15", token: "c-4" },
+  { name: "Lime", value: "#84cc16", token: "c-5" },
+  { name: "Barrgrön", value: "#15803d", token: "c-6" },
+  { name: "Aquaturkos", value: "#0f766e", token: "c-7" },
+  { name: "Himmelsblå", value: "#60a5fa", token: "c-8" },
+  { name: "Kornblå", value: "#2563eb", token: "c-9" },
+  { name: "Skiffergrå", value: "#64748b", token: "c-10" },
+  { name: "Kungsviolett", value: "#7c3aed", token: "c-11" },
+  { name: "Fuchsia", value: "#d946ef", token: "c-12" },
+  { name: "Smultronrosa", value: "#ec4899", token: "c-13" },
+  { name: "Sienna", value: "#7c2d12", token: "c-14" },
+  { name: "Skugg-Plommon", value: "#701a75", token: "c-15" },
 ] as const;
 
 // Backwards-compat alias used by older imports.

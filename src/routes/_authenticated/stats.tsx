@@ -47,6 +47,7 @@ import {
   endOfDay,
   differenceInCalendarDays,
   startOfWeek,
+  endOfWeek,
 } from "date-fns";
 import { sv } from "date-fns/locale";
 import { formatHoursCompact } from "@/lib/timer-store";
@@ -72,7 +73,15 @@ import { formatDateYYYYMMDD } from "@/lib/date-utils";
 import { PERIOD_TO_TERM, type CoursePeriod } from "@/lib/course-presets";
 import { cn } from "@/lib/utils";
 
+import { z } from "zod";
+
+const statsSearchSchema = z.object({
+  period: z.string().optional(),
+  tab: z.string().optional(),
+});
+
 export const Route = createFileRoute("/_authenticated/stats")({
+  validateSearch: statsSearchSchema,
   component: StatsPage,
 });
 
@@ -91,9 +100,18 @@ function termLabel(t: TermRow) {
 }
 
 function StatsPage() {
-  const [activeTab, setActiveTab] = useState<string>("time");
-  const [period, setPeriod] = useState<string>("30");
+  const search = Route.useSearch();
+  const navigate = Route.useNavigate();
+  const activeTab = search.tab ?? "time";
+  const period = search.period ?? "30";
   const [includeArchived, setIncludeArchived] = useState<boolean>(true);
+
+  const setPeriod = (p: string) => {
+    navigate({ search: (prev) => ({ ...prev, period: p }) });
+  };
+  const setActiveTab = (t: string) => {
+    navigate({ search: (prev) => ({ ...prev, tab: t }) });
+  };
 
   const { data: allCourses = [] } = useQuery(coursesQuery);
   const courses = includeArchived ? allCourses : allCourses.filter((c) => !c.archived);
@@ -137,50 +155,44 @@ function StatsPage() {
 
   const heatmapData = useMemo(() => {
     const dailyHours: Record<string, number> = {};
-
-    const addHours = (isoString: string, seconds: number) => {
-      if (!isoString) return;
-      const d = new Date(isoString);
-      if (isNaN(d.getTime())) return;
-      const dayKey = format(d, "yyyy-MM-dd");
-      dailyHours[dayKey] = (dailyHours[dayKey] ?? 0) + seconds / 3600;
-    };
+    const now = Date.now();
 
     for (const e of heatmapEntries) {
-      if (e.duration_seconds) {
-        addHours(e.started_at, e.duration_seconds);
-      }
+      if (!e.started_at) continue;
+      if (new Date(e.started_at).getTime() > now) continue;
+      const day = e.started_at.slice(0, 10);
+      const hours = (e.duration_seconds ?? 0) / 3600;
+      dailyHours[day] = (dailyHours[day] ?? 0) + hours;
     }
 
     for (const s of heatmapSessions) {
-      const start = s.actual_start ?? s.planned_start;
-      const end = s.actual_end ?? s.planned_end;
-      const dur = Math.max(
-        0,
-        Math.floor((new Date(end).getTime() - new Date(start).getTime()) / 1000),
-      );
-      addHours(start, dur);
+      const startStr = s.actual_start ?? s.planned_start;
+      const endStr = s.actual_end ?? s.planned_end;
+      if (!startStr || !endStr) continue;
+      if (new Date(endStr).getTime() > now) continue;
+      const day = startStr.slice(0, 10);
+      const startMs = new Date(startStr).getTime();
+      const endMs = new Date(endStr).getTime();
+      const hours = Math.max(0, (endMs - startMs) / (1000 * 3600));
+      dailyHours[day] = (dailyHours[day] ?? 0) + hours;
     }
 
     return dailyHours;
   }, [heatmapEntries, heatmapSessions]);
 
   const heatmapDays = useMemo(() => {
-    const arr = [];
-    const curr = new Date(startOfWeek(heatmapStart, { weekStartsOn: 1 }));
-    const end = heatmapEnd;
-
-    while (curr <= end) {
-      const dayKey = format(curr, "yyyy-MM-dd");
-      const hours = heatmapData[dayKey] ?? 0;
-      arr.push({
-        date: new Date(curr),
-        dayKey,
-        hours,
+    const days = [];
+    let curr = heatmapStart;
+    while (curr <= heatmapEnd) {
+      const dayStr = formatDateYYYYMMDD(curr);
+      days.push({
+        date: curr,
+        dateStr: dayStr,
+        hours: heatmapData[dayStr] ?? 0,
       });
-      curr.setDate(curr.getDate() + 1);
+      curr = new Date(curr.getTime() + 86400000);
     }
-    return arr;
+    return days;
   }, [heatmapStart, heatmapEnd, heatmapData]);
 
   const heatmapWeeks = useMemo(() => {
@@ -212,7 +224,8 @@ function StatsPage() {
       return { start: subDays(new Date(), 29), end: new Date(), label: "30 dagar" };
     if (period === "week") {
       const s = startOfWeek(new Date(), { weekStartsOn: 1 });
-      return { start: s, end: new Date(), label: "Denna vecka" };
+      const e = endOfWeek(new Date(), { weekStartsOn: 1 });
+      return { start: s, end: e, label: "Denna vecka" };
     }
     if (period.startsWith("term:")) {
       const id = period.slice(5);
@@ -234,7 +247,7 @@ function StatsPage() {
         .from("time_entries")
         .select("id,started_at,duration_seconds,course_id,task_id,source")
         .neq("source", "session")
-        .lte("started_at", new Date().toISOString());
+        .lte("started_at", range.end.toISOString());
 
       if (!isAllTime) {
         q = q.gte("started_at", range.start.toISOString());
@@ -252,7 +265,7 @@ function StatsPage() {
         .from("study_sessions")
         .select("id,course_id,planned_start,planned_end,actual_start,actual_end,completed")
         .eq("needs_review", false)
-        .lte("planned_start", new Date().toISOString());
+        .lte("planned_start", range.end.toISOString());
 
       if (!isAllTime) {
         q = q.gte("planned_start", range.start.toISOString());
@@ -274,14 +287,17 @@ function StatsPage() {
   // earliestDate beräknas ur faktisk data men används bara för display, inte för query-nycklar
   const earliestDateTimestamp = useMemo(() => {
     let minTime = Infinity;
+    const now = Date.now();
     for (const e of entries) {
       if (!e.started_at) continue;
       const t = new Date(e.started_at).getTime();
-      if (!isNaN(t) && t < minTime) minTime = t;
+      if (!isNaN(t) && t <= now && t < minTime) minTime = t;
     }
     for (const s of sessionRows) {
       const start = s.actual_start ?? s.planned_start;
-      if (!start) continue;
+      const end = s.actual_end ?? s.planned_end;
+      if (!start || !end) continue;
+      if (new Date(end).getTime() > now) continue;
       const t = new Date(start).getTime();
       if (!isNaN(t) && t < minTime) minTime = t;
     }
@@ -306,15 +322,16 @@ function StatsPage() {
     [allCourses],
   );
 
-  const filteredEntries = useMemo(
-    () =>
-      entries.filter((e) => {
-        if (!e.course_id) return true;
-        const course = coursesMap.get(e.course_id);
-        return course ? (includeArchived ? true : !course.archived) : true;
-      }),
-    [entries, coursesMap, includeArchived],
-  );
+  const filteredEntries = useMemo(() => {
+    const now = Date.now();
+    return entries.filter((e) => {
+      if (!e.started_at) return false;
+      if (new Date(e.started_at).getTime() > now) return false;
+      if (!e.course_id) return true;
+      const course = coursesMap.get(e.course_id);
+      return course ? (includeArchived ? true : !course.archived) : true;
+    });
+  }, [entries, coursesMap, includeArchived]);
 
   const filteredSessionRows = useMemo(
     () =>
@@ -326,18 +343,20 @@ function StatsPage() {
     [sessionRows, coursesMap, includeArchived],
   );
 
-  // Studiepass (bekräftade) räknas som studietid, oavsett completed-status.
-  // Timer-poster (time_entries) räknas separat men vi filtrerar bort source="session"
-  // för att undvika dubbelräkning av äldre historik.
+  // Endast genomförda studiepass (där slut-tid har passerats) räknas i statistiken.
   const derivedEntries: Entry[] = useMemo(() => {
     const out: Entry[] = [];
+    const now = Date.now();
     for (const s of filteredSessionRows) {
       const start = s.actual_start ?? s.planned_start;
       const end = s.actual_end ?? s.planned_end;
-      const dur = Math.max(
-        0,
-        Math.floor((new Date(end).getTime() - new Date(start).getTime()) / 1000),
-      );
+      const endMs = new Date(end).getTime();
+      const startMs = new Date(start).getTime();
+
+      // Exkludera alla framtida/planerade pass som inte avslutats än!
+      if (endMs > now) continue;
+
+      const dur = Math.max(0, Math.floor((endMs - startMs) / 1000));
       const tids = sessionTaskRows.filter((st) => st.session_id === s.id).map((st) => st.task_id);
       if (tids.length === 0) {
         out.push({
@@ -348,7 +367,6 @@ function StatsPage() {
           task_id: null,
         });
       } else {
-        // Fördela passets tid jämnt mellan kopplade uppgifter så byTask får rätt tal.
         const per = Math.floor(dur / tids.length);
         tids.forEach((task_id, i) => {
           out.push({
@@ -378,7 +396,13 @@ function StatsPage() {
     });
   }, [allTasks, coursesMap, includeArchived]);
 
-  const sessionsCount = filteredSessionRows.length;
+  const sessionsCount = useMemo(() => {
+    const now = Date.now();
+    return filteredSessionRows.filter((s) => {
+      const end = s.actual_end ?? s.planned_end;
+      return new Date(end).getTime() <= now;
+    }).length;
+  }, [filteredSessionRows]);
 
   const totalDays = Math.max(1, differenceInCalendarDays(range.end, range.start) + 1);
   const days = useMemo(() => {
@@ -1630,7 +1654,7 @@ function StatsPage() {
               {perTask.map((t) => (
                 <div
                   key={t.id}
-                  className="group relative rounded-md border border-border/40 bg-surface-2/30 p-2 transition-colors hover:bg-surface-2/60"
+                  className="group relative rounded-xl border border-border/40 bg-surface-2/30 p-2 transition-colors hover:bg-surface-2/60"
                 >
                   <div className="mb-1.5 flex items-center justify-between text-xs">
                     <span className="flex min-w-0 items-center gap-2">
@@ -2259,7 +2283,7 @@ function StatsPage() {
                                     {pStat.courses.map(({ course: c, hpInPeriod }) => (
                                       <div
                                         key={`${y.arskurs}-${pStat.period}-${c.id}`}
-                                        className="flex items-center justify-between gap-2 rounded-md bg-surface/80 px-2 py-1 text-xs"
+                                        className="flex items-center justify-between gap-2 rounded-lg bg-surface/80 px-2 py-1 text-xs"
                                       >
                                         <div className="flex items-center gap-2 truncate">
                                           <span
@@ -2496,7 +2520,7 @@ function StatsPage() {
                                   <div
                                     key={m.id}
                                     className={cn(
-                                      "flex items-center justify-between gap-2 rounded-md bg-surface/80 px-2.5 py-1.5 text-xs border border-border/30",
+                                      "flex items-center justify-between gap-2 rounded-lg bg-surface/80 px-2.5 py-1.5 text-xs border border-border/30",
                                       m.isLateReporting && "border-amber-500/40 bg-amber-500/5"
                                     )}
                                   >
@@ -2761,7 +2785,7 @@ function StatsPage() {
                           <div className="flex items-center justify-between gap-2 mb-1">
                             <span className="font-medium truncate text-foreground">{t.title}</span>
                             {t.grade && (
-                              <span className="rounded-md bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 font-bold font-mono text-[11px] text-emerald-400 shrink-0">
+                              <span className="rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 font-bold font-mono text-[11px] text-emerald-400 shrink-0">
                                 {t.grade}
                               </span>
                             )}

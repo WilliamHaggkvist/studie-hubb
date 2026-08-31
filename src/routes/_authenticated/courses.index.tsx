@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -225,6 +225,39 @@ function CoursesPage() {
   const active = courses.filter((c) => !c.completed && !c.archived);
   const completed = courses.filter((c) => c.completed && !c.archived);
   const archived = courses.filter((c) => c.archived);
+
+  // Auto-assign unique palette colors to active courses if there are duplicate or legacy colors
+  useEffect(() => {
+    if (!courses || courses.length === 0) return;
+    const activeCourses = courses.filter((c) => !c.archived && !c.completed);
+    if (activeCourses.length === 0) return;
+
+    const validPaletteValues = new Set<string>(PALETTE.map((p) => p.value));
+    const usedColors = new Set<string>();
+    const updates: { id: string; color: string }[] = [];
+
+    const availablePaletteColors = PALETTE.map((p) => p.value);
+
+    for (const course of activeCourses) {
+      if (validPaletteValues.has(course.color) && !usedColors.has(course.color)) {
+        usedColors.add(course.color);
+      } else {
+        const nextColor = availablePaletteColors.find((col) => !usedColors.has(col)) || PALETTE[usedColors.size % PALETTE.length].value;
+        usedColors.add(nextColor);
+        updates.push({ id: course.id, color: nextColor });
+      }
+    }
+
+    if (updates.length > 0) {
+      Promise.all(
+        updates.map((u) =>
+          supabase.from("courses").update({ color: u.color }).eq("id", u.id),
+        ),
+      ).then(() => {
+        qc.invalidateQueries({ queryKey: ["courses"] });
+      });
+    }
+  }, [courses, qc]);
 
   // Group active courses by period
   const groupedCourses = active.reduce(
@@ -468,15 +501,17 @@ function CoursesPage() {
               </div>
               <div className="space-y-1.5">
                 <Label>Färg</Label>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-2 pt-1">
                   {PALETTE.map((c) => (
                     <button
                       type="button"
                       key={c.value}
                       onClick={() => setColor(c.value)}
                       className={cn(
-                        "h-8 w-8 rounded-full border-2",
-                        (color ? color === c.value : false) ? "border-foreground scale-110" : "border-transparent",
+                        "h-8 w-8 rounded-full border-2 transition-all cursor-pointer",
+                        (color ? color === c.value : false)
+                          ? "border-foreground scale-110 shadow-lg ring-2 ring-primary/40"
+                          : "border-transparent opacity-80 hover:opacity-100 hover:scale-105",
                       )}
                       style={{ background: c.value }}
                       title={c.name}

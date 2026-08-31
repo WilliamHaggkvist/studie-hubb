@@ -164,7 +164,7 @@ export function FilesCard({
   }
 
   return (
-    <Card className="border-border/60 bg-surface/60 backdrop-blur-md rounded-2xl lg:col-span-2">
+    <Card className="border-border/60 bg-surface/60 backdrop-blur-md rounded-2xl lg:col-span-4">
       <CardHeader className="pb-2 flex-row items-center justify-between space-y-0">
         <CardTitle className="font-display text-base flex items-center gap-2">
           <Upload className="h-4 w-4" style={{ color }} /> Kursfiler & länkar

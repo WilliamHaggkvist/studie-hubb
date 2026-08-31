@@ -441,15 +441,17 @@ export function EditCourseDialog({
           </div>
           <div className="space-y-1.5">
             <Label>Färg</Label>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2 pt-1">
               {PALETTE.map((c) => (
                 <button
                   type="button"
                   key={c.value}
                   onClick={() => setForm({ ...form, color: c.value })}
                   className={cn(
-                    "h-8 w-8 rounded-full border-2",
-                    form.color === c.value ? "border-foreground scale-110" : "border-transparent",
+                    "h-8 w-8 rounded-full border-2 transition-all cursor-pointer",
+                    form.color === c.value
+                      ? "border-foreground scale-110 shadow-lg ring-2 ring-primary/40"
+                      : "border-transparent opacity-80 hover:opacity-100 hover:scale-105",
                   )}
                   style={{ background: c.value }}
                   title={c.name}

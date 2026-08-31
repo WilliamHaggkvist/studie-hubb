@@ -59,7 +59,7 @@ export function QuickStatusDialog({
             ))}
           </div>
           {task.pending_review && (
-            <div className="rounded-md bg-amber-500/10 border border-amber-500/20 px-3 py-2 text-xs text-amber-400 text-center">
+            <div className="rounded-xl bg-amber-500/10 border border-amber-500/20 px-3 py-2 text-xs text-amber-400 text-center">
               Väntar på bedömning
             </div>
           )}

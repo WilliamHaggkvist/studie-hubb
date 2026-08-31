@@ -96,7 +96,7 @@ function UnsubscribePage() {
             </p>
             <button
               onClick={confirm}
-              className="mt-6 inline-flex items-center justify-center rounded-md gradient-sunset px-5 py-2.5 text-sm font-medium text-white hover:opacity-90"
+              className="mt-6 inline-flex items-center justify-center rounded-xl gradient-sunset px-5 py-2.5 text-sm font-medium text-white hover:opacity-90"
             >
               Bekräfta avanmälan
             </button>

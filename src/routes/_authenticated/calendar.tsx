@@ -163,16 +163,16 @@ function CalendarPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <div className="flex rounded-md border border-border/60 p-0.5 text-xs">
+          <div className="flex rounded-xl border border-border/60 p-0.5 text-xs">
             <button
               onClick={() => setView("month")}
-              className={cn("rounded px-2 py-1", view === "month" && "bg-surface-2 font-medium")}
+              className={cn("rounded-lg px-2 py-1", view === "month" && "bg-surface-2 font-medium")}
             >
               Månad
             </button>
             <button
               onClick={() => setView("week")}
-              className={cn("rounded px-2 py-1", view === "week" && "bg-surface-2 font-medium")}
+              className={cn("rounded-lg px-2 py-1", view === "week" && "bg-surface-2 font-medium")}
             >
               Vecka
             </button>
@@ -340,7 +340,7 @@ function CalendarPage() {
             </div>
           </div>
           {selectedEvents.length + selectedTasks.length + selectedSessions.length === 0 && (
-            <div className="rounded-md border border-dashed border-border/60 p-4 text-center text-xs text-muted-foreground">
+            <div className="rounded-xl border border-dashed border-border/60 p-4 text-center text-xs text-muted-foreground">
               Inget planerat.
             </div>
           )}

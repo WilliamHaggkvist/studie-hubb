@@ -25,7 +25,7 @@ function NotFoundComponent() {
         <div className="mt-6">
           <a
             href="/"
-            className="inline-flex items-center justify-center rounded-md gradient-sunset px-4 py-2 text-sm font-medium text-white shadow-lg shadow-black/30 hover:opacity-90"
+            className="inline-flex items-center justify-center rounded-xl gradient-sunset px-4 py-2 text-sm font-medium text-white shadow-lg shadow-black/30 hover:opacity-90"
           >
             Till startsidan
           </a>
@@ -55,13 +55,13 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
               router.invalidate();
               reset();
             }}
-            className="inline-flex items-center justify-center rounded-md gradient-sunset px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+            className="inline-flex items-center justify-center rounded-xl gradient-sunset px-4 py-2 text-sm font-medium text-white hover:opacity-90"
           >
             Försök igen
           </button>
           <a
             href="/"
-            className="inline-flex items-center justify-center rounded-md border border-border bg-surface px-4 py-2 text-sm font-medium text-foreground hover:bg-accent"
+            className="inline-flex items-center justify-center rounded-xl border border-border bg-surface px-4 py-2 text-sm font-medium text-foreground hover:bg-accent"
           >
             Till start
           </a>

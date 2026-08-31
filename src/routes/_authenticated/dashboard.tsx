@@ -22,6 +22,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { formatHoursCompact } from "@/lib/timer-store";
 import {
   Clock,
@@ -76,6 +77,7 @@ import { cn } from "@/lib/utils";
 import { QuickLinksCard } from "@/components/dashboard/quick-links-card";
 import { TaskDialog } from "@/components/tasks/task-dialog";
 import { CompleteDialog } from "@/components/dashboard/complete-dialog";
+import { QuickStatusDialog } from "@/components/tasks/quick-status-dialog";
 import { RewardJar } from "@/components/dashboard/reward-jar";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
@@ -132,6 +134,9 @@ function Dashboard() {
 
   const qc = useQueryClient();
   const [createOpen, setCreateOpen] = useState(false);
+  const [quickActionFor, setQuickActionFor] = useState<Task | null>(null);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [createParentId, setCreateParentId] = useState<string | null>(null);
 
   const createTask = useMutation({
     mutationFn: async (patch: Partial<Task>) => {
@@ -147,6 +152,7 @@ function Dashboard() {
         task_kind: patch.task_kind ?? "task",
         status: patch.status ?? "todo",
         pending_review: false,
+        parent_id: patch.parent_id ?? null,
       });
       if (error) throw error;
     },
@@ -384,25 +390,23 @@ function Dashboard() {
   const weekCombinedEntries = useMemo(() => {
     const out: Array<{ started_at: string; duration_seconds: number; course_id: string | null }> =
       [];
+    const now = Date.now();
+
     for (const e of weekEntries) {
       if (e.source === "session") continue;
-      if (e.course_id) {
-        const course = coursesMap.get(e.course_id);
-        if (course?.archived) continue;
-      }
+      if (new Date(e.started_at).getTime() > now) continue;
       out.push({
         started_at: e.started_at,
         duration_seconds: e.duration_seconds ?? 0,
         course_id: e.course_id,
       });
     }
+
     for (const s of weekSessions) {
-      if (s.course_id) {
-        const course = coursesMap.get(s.course_id);
-        if (course?.archived) continue;
-      }
       const start = s.actual_start ?? s.planned_start;
       const end = s.actual_end ?? s.planned_end;
+      if (new Date(start).getTime() > now) continue;
+
       const dur = Math.max(
         0,
         Math.floor((new Date(end).getTime() - new Date(start).getTime()) / 1000),
@@ -414,7 +418,7 @@ function Dashboard() {
       });
     }
     return out;
-  }, [weekEntries, weekSessions, coursesMap]);
+  }, [weekEntries, weekSessions]);
 
   const { data: rawTodaysSessions = [] } = useQuery({
     queryKey: ["sessions", "today"],
@@ -481,17 +485,49 @@ function Dashboard() {
   ).length;
   const taskPct = totalTasksToday > 0 ? (completedOrPendingTasksToday / totalTasksToday) * 100 : 0;
 
-  const perDay = Array.from({ length: 7 }).map((_, i) => {
-    const d = addDays(weekStart, i);
-    const total = weekCombinedEntries
-      .filter(
-        (e) =>
-          e.started_at >= startOfDay(d).toISOString() && e.started_at <= endOfDay(d).toISOString(),
-      )
-      .reduce((s, e) => s + e.duration_seconds, 0);
-    return { d, hours: total / 3600 };
-  });
-  const maxDayH = Math.max(1, ...perDay.map((p) => p.hours));
+  const perDay = useMemo(() => {
+    const now = Date.now();
+    return Array.from({ length: 7 }).map((_, i) => {
+      const d = addDays(weekStart, i);
+      const dayStartIso = startOfDay(d).toISOString();
+      const dayEndIso = endOfDay(d).toISOString();
+
+      const completedSecs = weekCombinedEntries
+        .filter(
+          (e) =>
+            e.started_at >= dayStartIso && e.started_at <= dayEndIso,
+        )
+        .reduce((s, e) => s + e.duration_seconds, 0);
+
+      const plannedSecs = weekSessions
+        .filter((s) => {
+          const start = s.actual_start ?? s.planned_start;
+          const end = s.actual_end ?? s.planned_end;
+          const endMs = new Date(end).getTime();
+          if (endMs <= now) return false;
+          return start >= dayStartIso && start <= dayEndIso;
+        })
+        .reduce((acc, s) => {
+          const start = new Date(s.planned_start).getTime();
+          const end = new Date(s.planned_end).getTime();
+          const diff = (end - start) / 1000;
+          return acc + (diff > 0 ? diff : 0);
+        }, 0);
+
+      return {
+        d,
+        completedSecs,
+        completedHours: completedSecs / 3600,
+        plannedSecs,
+        plannedHours: plannedSecs / 3600,
+        totalHours: (completedSecs + plannedSecs) / 3600,
+      };
+    });
+  }, [weekStart, weekCombinedEntries, weekSessions]);
+
+  const maxDayH = useMemo(() => {
+    return Math.max(1, ...perDay.map((p) => p.totalHours));
+  }, [perDay]);
 
   const weekPlannedSeconds = useMemo(() => {
     return weekSessions.reduce((acc, s) => {
@@ -794,7 +830,7 @@ function Dashboard() {
                 return (
                   <div
                     key={s.id}
-                    className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-white/5"
+                    className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-white/5"
                   >
                     <GraduationCap
                       className="h-3.5 w-3.5"
@@ -889,7 +925,7 @@ function Dashboard() {
                   <Link
                     key={t.id}
                     to="/tasks"
-                    className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-white/5"
+                    className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-white/5"
                   >
                     <span
                       className="inline-block h-1.5 w-1.5 rounded-full shrink-0"
@@ -951,10 +987,10 @@ function Dashboard() {
               <CalendarIcon className="h-4 w-4" style={{ color: "var(--c-10)" }} /> Denna vecka
             </CardTitle>
             <div className="flex items-center gap-3">
-              <Link to="/tasks" className="text-xs text-muted-foreground hover:text-foreground">
+              <Link to="/tasks" search={{ due: "week" }} className="text-xs text-muted-foreground hover:text-foreground">
                 Uppgifter →
               </Link>
-              <Link to="/stats" className="text-xs text-muted-foreground hover:text-foreground">
+              <Link to="/stats" search={{ period: "week" }} className="text-xs text-muted-foreground hover:text-foreground">
                 Statistik →
               </Link>
             </div>
@@ -978,30 +1014,100 @@ function Dashboard() {
             `}</style>
 
             <div>
-              <div className="mb-2 text-xs uppercase tracking-wider text-muted-foreground">
-                Studietid
+              <div className="mb-2 flex items-center justify-between text-xs">
+                <span className="uppercase tracking-wider text-muted-foreground text-[10px] font-semibold">
+                  Studietid per dag
+                </span>
+                <div className="flex items-center gap-2.5 text-[10px] text-muted-foreground">
+                  <span className="flex items-center gap-1">
+                    <span className="h-2 w-2 rounded-xs bg-emerald-500" /> Genomfört
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <span className="h-2 w-2 rounded-xs bg-amber-400/40 border border-dashed border-amber-400" /> Planerat
+                  </span>
+                </div>
               </div>
-              <div className="flex items-end gap-1.5">
-                {perDay.map((p) => (
-                  <div key={p.d.toISOString()} className="flex flex-1 flex-col items-center gap-1">
-                    <div className="flex h-16 w-full items-end">
-                      <div
-                        className="w-full rounded-t bg-gradient-to-t from-[var(--c-10)] to-[var(--c-6)]"
-                        style={{ height: `${Math.max(4, (p.hours / maxDayH) * 100)}%` }}
-                      />
-                    </div>
-                    <div
-                      className={`text-[10px] uppercase ${isSameDay(p.d, new Date()) ? "font-semibold text-foreground" : "text-muted-foreground"}`}
-                    >
-                      {format(p.d, "EEEEE", { locale: sv })}
-                    </div>
-                  </div>
-                ))}
-              </div>
+
+              <TooltipProvider delayDuration={100}>
+                <div className="flex items-end gap-1.5">
+                  {perDay.map((p) => {
+                    const isToday = isSameDay(p.d, new Date());
+                    const totalPct = Math.max(4, (p.totalHours / maxDayH) * 100);
+
+                    return (
+                      <Tooltip key={p.d.toISOString()}>
+                        <TooltipTrigger asChild>
+                          <div
+                            className="flex flex-1 flex-col items-center gap-1 group cursor-pointer"
+                            onClick={() => {
+                              toast.info(
+                                `${format(p.d, "EEEE d MMMM", { locale: sv })}: ${formatHoursCompact(p.completedSecs)} genomfört${p.plannedSecs > 0 ? `, ${formatHoursCompact(p.plannedSecs)} planerat` : ""}`,
+                              );
+                            }}
+                          >
+                            <div className="flex h-16 w-full items-end justify-center rounded-t overflow-hidden bg-white/5 hover:bg-white/10 transition-colors p-0.5 relative">
+                              <div
+                                className="w-full flex flex-col-reverse items-center transition-all duration-300 rounded-t overflow-hidden"
+                                style={{ height: `${totalPct}%` }}
+                              >
+                                {/* Genomförd tid - Solid Emerald Green */}
+                                {p.completedHours > 0 && (
+                                  <div
+                                    className="w-full bg-emerald-500 transition-all"
+                                    style={{
+                                      height: p.totalHours > 0 ? `${(p.completedHours / p.totalHours) * 100}%` : "100%",
+                                    }}
+                                  />
+                                )}
+                                {/* Planerad tid - Amber med ränder & sträckad linje */}
+                                {p.plannedHours > 0 && (
+                                  <div
+                                    className="w-full bg-amber-500/30 border-t-2 border-dashed border-amber-400/90 transition-all [background-image:linear-gradient(135deg,rgba(251,191,36,0.25)_25%,transparent_25%,transparent_50%,rgba(251,191,36,0.25)_50%,rgba(251,191,36,0.25)_75%,transparent_75%,transparent)] bg-[length:8px_8px]"
+                                    style={{
+                                      height: p.totalHours > 0 ? `${(p.plannedHours / p.totalHours) * 100}%` : "100%",
+                                    }}
+                                  />
+                                )}
+                              </div>
+                            </div>
+                            <div
+                              className={cn(
+                                "text-[10px] uppercase tracking-wider transition-colors",
+                                isToday ? "font-bold text-foreground" : "text-muted-foreground group-hover:text-foreground",
+                              )}
+                            >
+                              {format(p.d, "EEEEE", { locale: sv })}
+                            </div>
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="text-xs bg-slate-900 border-white/10 p-2 space-y-1">
+                          <div className="font-semibold text-foreground border-b border-white/10 pb-1">
+                            {format(p.d, "EEEE d MMMM", { locale: sv })}
+                          </div>
+                          <div className="flex items-center justify-between gap-4 text-emerald-400">
+                            <span>Genomfört:</span>
+                            <span className="font-mono font-bold">{formatHoursCompact(p.completedSecs)}</span>
+                          </div>
+                          {p.plannedSecs > 0 && (
+                            <div className="flex items-center justify-between gap-4 text-amber-400">
+                              <span>Planerat:</span>
+                              <span className="font-mono font-bold">{formatHoursCompact(p.plannedSecs)}</span>
+                            </div>
+                          )}
+                          <div className="flex items-center justify-between gap-4 text-muted-foreground pt-1 border-t border-white/10 text-[10px]">
+                            <span>Totalt:</span>
+                            <span className="font-mono font-bold text-foreground">{formatHoursCompact(p.completedSecs + p.plannedSecs)}</span>
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
+                    );
+                  })}
+                </div>
+              </TooltipProvider>
             </div>
 
             {/* Streakvisare */}
-            <div className="flex items-center gap-3 rounded-md border border-white/5 bg-white/5 px-3 py-2 text-sm">
+            <div className="flex items-center gap-3 rounded-xl border border-white/5 bg-white/5 px-3 py-2 text-sm">
               <div className="relative w-8 h-8 flex items-center justify-center shrink-0">
                 {currentStreak > 0 ? (
                   <>
@@ -1044,7 +1150,8 @@ function Dashboard() {
 
             <Link
               to="/tasks"
-              className="block rounded-md border border-white/5 bg-white/5 p-3 text-sm space-y-2 hover:bg-white/10 transition-colors"
+              search={{ due: "week" }}
+              className="block rounded-xl border border-white/5 bg-white/5 p-3 text-sm space-y-2 hover:bg-white/10 transition-colors"
             >
               <div className="flex items-center justify-between font-medium text-[11px] text-muted-foreground uppercase tracking-wider">
                 <span className="flex items-center gap-2">
@@ -1077,108 +1184,206 @@ function Dashboard() {
                 </div>
               </div>
             </Link>
-            <div className="rounded-md border border-white/5 bg-white/5 px-3 py-2 text-sm space-y-1.5">
-              <div className="flex items-center justify-between">
-                <span className="flex items-center gap-2">
-                  <Clock className="h-3.5 w-3.5" style={{ color: "var(--c-10)" }} /> Studietid
-                </span>
-                <span className="tabular-nums font-semibold">
-                  {formatHoursCompact(weekCompletedSeconds)}{" "}
-                  <span className="text-muted-foreground font-normal">
-                    / {formatHoursCompact(weekPlannedSeconds)}
-                  </span>
-                </span>
-              </div>
-              <div className="h-1.5 w-full rounded-full bg-white/5 overflow-hidden">
-                <div
-                  className="h-full rounded-full bg-gradient-to-r from-[var(--c-10)] to-[var(--c-6)] transition-all duration-500"
-                  style={{
-                    width: `${weekPlannedSeconds > 0 ? Math.min(100, (weekCompletedSeconds / weekPlannedSeconds) * 100) : 0}%`,
-                  }}
-                />
-              </div>
-            </div>
+            {(() => {
+              const targetPlanned = weekPlannedSeconds > 0 ? weekPlannedSeconds : totalWeeklyGoalSeconds;
+              const pct = targetPlanned > 0 ? Math.min(100, Math.round((weekCompletedSeconds / targetPlanned) * 100)) : 0;
+              return (
+                <Link
+                  to="/time"
+                  search={{ period: "week" }}
+                  className="block rounded-xl border border-white/5 bg-white/5 px-3 py-2.5 text-sm space-y-2 hover:bg-white/10 transition-colors"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-1">
+                    <span className="flex items-center gap-2 font-medium">
+                      <Clock className="h-3.5 w-3.5" style={{ color: "var(--c-10)" }} /> Studietid denna vecka
+                    </span>
+                    <span className="tabular-nums font-semibold text-foreground text-xs">
+                      {formatHoursCompact(weekCompletedSeconds)}{" "}
+                      <span className="text-muted-foreground font-normal">
+                        genomfört av {formatHoursCompact(targetPlanned)} planerat
+                      </span>
+                    </span>
+                  </div>
+                  <div className="h-2 w-full rounded-full bg-white/5 overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-[var(--c-10)] to-[var(--c-6)] transition-all duration-500"
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                </Link>
+              );
+            })()}
           </CardContent>
         </Card>
       </div>
 
-      {/* Grid för Kommande uppgifter & Belöningsburken */}
+      {/* Grid för Uppgifter & Belöningsburken */}
       <div className="mt-6 grid gap-4 lg:grid-cols-3">
-        {/* Kommande uppgifter */}
-        <Card className="glass border-white/5 shadow-lg lg:col-span-2 flex flex-col justify-between">
-          <div>
-            <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="font-display text-base flex items-center gap-2">
-                <ListTodo className="h-4 w-4" style={{ color: "var(--c-4)" }} /> Kommande uppgifter
-              </CardTitle>
-              <Link to="/tasks" className="text-xs text-muted-foreground hover:text-foreground">
-                Se alla →
-              </Link>
-            </CardHeader>
-            <CardContent>
-              {(() => {
-                const upcomingTasks = openTasks.filter(
-                  (t) => !t.due_at || !isSameDay(parseISO(t.due_at), new Date()),
-                );
-                return upcomingTasks.length === 0 ? (
-                  <div className="rounded-md border border-dashed border-border/60 p-6 text-center text-sm text-muted-foreground">
-                    Inga kommande uppgifter. Bra jobbat!
-                  </div>
-                ) : (
-                  <div className="space-y-1">
-                    {upcomingTasks.slice(0, 8).map((t) => {
-                      const c = t.course_id ? coursesMap.get(t.course_id) : null;
-                      const daysLeft = t.due_at
-                        ? differenceInCalendarDays(parseISO(t.due_at), new Date())
-                        : null;
-                      return (
-                        <Link
-                          key={t.id}
-                          to="/tasks"
-                          className="flex items-center gap-3 rounded-md px-2 py-2 text-sm hover:bg-white/5"
-                        >
-                          <div className="flex-1 min-w-0 flex flex-col">
-                            <span className="truncate">{t.title}</span>
-                            {t.parent_id && (() => {
-                              const parent = allTasks.find((x) => x.id === t.parent_id);
-                              return parent ? (
-                                <span className="text-[10px] text-muted-foreground truncate">
-                                  Deluppgift till: <span className="italic">{parent.title}</span>
-                                </span>
-                              ) : null;
-                            })()}
-                          </div>
-                          <span
-                            className={`rounded-full px-1.5 py-0.5 text-[9px] uppercase shrink-0 ${TYPE_COLORS[t.task_type]}`}
+        {/* Vänster spalt: Kommande uppgifter & Sena uppgifter */}
+        <div className="lg:col-span-2 space-y-4">
+          {/* Kommande uppgifter */}
+          <Card className="glass border-white/5 shadow-lg flex flex-col justify-between">
+            <div>
+              <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="font-display text-base flex items-center gap-2">
+                  <ListTodo className="h-4 w-4" style={{ color: "var(--c-4)" }} /> Kommande uppgifter
+                </CardTitle>
+                <Link to="/tasks" className="text-xs text-muted-foreground hover:text-foreground">
+                  Se alla →
+                </Link>
+              </CardHeader>
+              <CardContent>
+                {(() => {
+                  const now = Date.now();
+                  const upcomingTasks = openTasks.filter(
+                    (t) => !t.due_at || parseISO(t.due_at).getTime() >= now,
+                  );
+                  return upcomingTasks.length === 0 ? (
+                    <div className="rounded-xl border border-dashed border-border/60 p-6 text-center text-sm text-muted-foreground">
+                      Inga kommande uppgifter. Bra jobbat!
+                    </div>
+                  ) : (
+                    <div className="space-y-1">
+                      {upcomingTasks.slice(0, 10).map((t) => {
+                        const c = t.course_id ? coursesMap.get(t.course_id) : null;
+                        const daysLeft = t.due_at
+                          ? differenceInCalendarDays(parseISO(t.due_at), new Date())
+                          : null;
+                        return (
+                          <div
+                            key={t.id}
+                            onClick={() => setQuickActionFor(t)}
+                            className="flex items-center gap-3 rounded-lg px-2 py-2 text-sm hover:bg-white/5 transition-colors cursor-pointer"
                           >
-                            {TYPE_LABELS[t.task_type]}
-                          </span>
-                          {c && (
-                            <span className="text-[10px] text-muted-foreground/60 shrink-0 font-medium">
-                              {c.name}
-                            </span>
-                          )}
-                          {t.due_at && (
+                            <div className="flex-1 min-w-0 flex flex-col">
+                              <span className="truncate">{t.title}</span>
+                              {t.parent_id && (() => {
+                                const parent = allTasks.find((x) => x.id === t.parent_id);
+                                return parent ? (
+                                  <span className="text-[10px] text-muted-foreground truncate">
+                                    Deluppgift till: <span className="italic">{parent.title}</span>
+                                  </span>
+                                ) : null;
+                              })()}
+                            </div>
                             <span
-                              className={`text-xs shrink-0 ${daysLeft !== null && daysLeft < 0 ? "text-sunset-rose" : "text-muted-foreground"}`}
+                              className={`rounded-full px-1.5 py-0.5 text-[9px] uppercase shrink-0 ${TYPE_COLORS[t.task_type]}`}
                             >
-                              {format(parseISO(t.due_at), "yyyy-MM-dd HH:mm", { locale: sv })}
-                              {daysLeft !== null && (
-                                <span className="ml-1">
-                                  ({daysLeft < 0 ? `${Math.abs(daysLeft)}d sen` : `${daysLeft}d`})
-                                </span>
-                              )}
+                              {TYPE_LABELS[t.task_type]}
                             </span>
-                          )}
-                        </Link>
-                      );
-                    })}
-                  </div>
-                );
-              })()}
-            </CardContent>
-          </div>
-        </Card>
+                            {c && (
+                              <span className="text-[10px] text-muted-foreground/60 shrink-0 font-medium">
+                                {c.name}
+                              </span>
+                            )}
+                            {t.due_at && (
+                              <span className="text-xs shrink-0 text-muted-foreground">
+                                {format(parseISO(t.due_at), "yyyy-MM-dd HH:mm", { locale: sv })}
+                                {daysLeft !== null && (
+                                  <span className="ml-1">
+                                    ({daysLeft}d)
+                                  </span>
+                                )}
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
+              </CardContent>
+            </div>
+          </Card>
+
+          {/* Sena uppgifter */}
+          {(() => {
+            const now = Date.now();
+            const overdueTasks = openTasks
+              .filter((t) => t.due_at && parseISO(t.due_at).getTime() < now)
+              .sort((a, b) => parseISO(a.due_at!).getTime() - parseISO(b.due_at!).getTime());
+
+            return (
+              <Card className="glass border-white/5 shadow-lg">
+                <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="font-display text-base flex items-center gap-2 text-sunset-rose">
+                    <AlertCircle className="h-4 w-4 text-sunset-rose" /> Sena uppgifter
+                    {overdueTasks.length > 0 && (
+                      <span className="rounded-full bg-sunset-rose/20 text-sunset-rose text-xs px-2 py-0.5 font-bold tabular-nums">
+                        {overdueTasks.length}
+                      </span>
+                    )}
+                  </CardTitle>
+                  <Link to="/tasks" search={{ due: "overdue" }} className="text-xs text-muted-foreground hover:text-foreground">
+                    Se alla →
+                  </Link>
+                </CardHeader>
+                <CardContent>
+                  {overdueTasks.length === 0 ? (
+                    <div className="rounded-xl border border-dashed border-emerald-500/20 bg-emerald-500/5 p-4 text-center text-sm text-emerald-400">
+                      Inga sena uppgifter! Alla deadlines är i fas. 🎉
+                    </div>
+                  ) : (
+                    <div className="space-y-1">
+                      {overdueTasks.slice(0, 5).map((t) => {
+                        const c = t.course_id ? coursesMap.get(t.course_id) : null;
+                        const daysLeft = t.due_at
+                          ? differenceInCalendarDays(parseISO(t.due_at), new Date())
+                          : null;
+                        return (
+                          <div
+                            key={t.id}
+                            onClick={() => setQuickActionFor(t)}
+                            className="flex items-center gap-3 rounded-lg px-2 py-2 text-sm hover:bg-white/5 transition-colors cursor-pointer"
+                          >
+                            <div className="flex-1 min-w-0 flex flex-col">
+                              <span className="truncate font-medium text-foreground">{t.title}</span>
+                              {t.parent_id && (() => {
+                                const parent = allTasks.find((x) => x.id === t.parent_id);
+                                return parent ? (
+                                  <span className="text-[10px] text-muted-foreground truncate">
+                                    Deluppgift till: <span className="italic">{parent.title}</span>
+                                  </span>
+                                ) : null;
+                              })()}
+                            </div>
+                            <span
+                              className={`rounded-full px-1.5 py-0.5 text-[9px] uppercase shrink-0 ${TYPE_COLORS[t.task_type]}`}
+                            >
+                              {TYPE_LABELS[t.task_type]}
+                            </span>
+                            {c && (
+                              <span className="text-[10px] text-muted-foreground/60 shrink-0 font-medium">
+                                {c.name}
+                              </span>
+                            )}
+                            {t.due_at && (
+                              <span className="text-xs shrink-0 font-semibold text-sunset-rose">
+                                {format(parseISO(t.due_at), "yyyy-MM-dd HH:mm", { locale: sv })}
+                                {daysLeft !== null && (
+                                  <span className="ml-1 text-[11px] font-bold">
+                                    ({Math.abs(daysLeft)}d sen)
+                                  </span>
+                                )}
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
+                      {overdueTasks.length > 5 && (
+                        <div className="pt-2 text-center border-t border-white/5 mt-2">
+                          <Link to="/tasks" search={{ due: "overdue" }} className="text-xs text-sunset-rose hover:underline font-medium">
+                            + {overdueTasks.length - 5} sena uppgifter till (visa alla →)
+                          </Link>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })()}
+        </div>
 
         {/* Belöningsburken */}
         <RewardJar
@@ -1196,11 +1401,53 @@ function Dashboard() {
       <div className="mt-6">
         <QuickLinksCard />
       </div>
+      <QuickStatusDialog
+        task={quickActionFor}
+        onClose={() => setQuickActionFor(null)}
+        onChangeStatus={(t, s) => {
+          setQuickActionFor(null);
+          if (s === "done") {
+            setCompleteFor(t);
+          } else {
+            updateTaskStatus.mutate({
+              id: t.id,
+              status: s,
+              pending_review: false,
+              completed_at: null,
+            });
+          }
+        }}
+        onEdit={(t) => {
+          setQuickActionFor(null);
+          setEditingTask(t);
+        }}
+        onAddSubtask={(t) => {
+          setQuickActionFor(null);
+          setCreateParentId(t.id);
+          setCreateOpen(true);
+        }}
+      />
       <TaskDialog
-        open={createOpen}
-        onOpenChange={setCreateOpen}
+        open={createOpen || !!editingTask}
+        onOpenChange={(o) => {
+          if (!o) {
+            setCreateOpen(false);
+            setEditingTask(null);
+            setCreateParentId(null);
+          }
+        }}
         courses={courses}
-        onSave={(v: Partial<Task>) => createTask.mutate(v)}
+        task={editingTask ?? undefined}
+        defaultParentId={createParentId}
+        rootTasks={allTasks.filter((t) => t.parent_id === null)}
+        onSave={(v: Partial<Task>) => {
+          if (editingTask) {
+            updateTaskStatus.mutate({ id: editingTask.id, ...v });
+            setEditingTask(null);
+          } else {
+            createTask.mutate({ ...v, parent_id: createParentId ?? v.parent_id ?? null });
+          }
+        }}
       />
       <CompleteDialog
         task={completeFor}

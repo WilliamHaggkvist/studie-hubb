@@ -55,7 +55,7 @@ function parseValue(value: string): ParsedValue {
     : parseDateInputToISO(datePart);
 
   if (iso) {
-    const d = hasTime && time ? parseISO(`${iso}T${time}:00`) : parseISO(`${iso}T12:00:00`);
+    const d = hasTime && time ? parseISO(`${iso}T${time}:00`) : parseISO(`${iso}T23:59:00`);
     if (isValid(d)) return { date: d, time, hasTime };
   }
 
@@ -100,7 +100,7 @@ export function DatePicker({
     const y = d.getFullYear();
     const m = String(d.getMonth() + 1).padStart(2, "0");
     const day = String(d.getDate()).padStart(2, "0");
-    const effectiveTime = includeTime && t ? t : "12:00";
+    const effectiveTime = includeTime && t ? t : "23:59";
 
     const choice = outputFormat ?? (includeTime ? "datetime-local" : "yyyy-mm-dd");
 
@@ -135,13 +135,13 @@ export function DatePicker({
       : format(parsed.date, "yyyy-MM-dd")
     : "";
 
-  const selectedTime = parsed.time ?? "12:00";
+  const selectedTime = parsed.time ?? "23:59";
   const [hh, mm] = selectedTime.split(":");
   const hours = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0"));
   const minutes = Array.from({ length: 12 }, (_, i) => String(i * 5).padStart(2, "0"));
-  const minuteOptions = minutes.includes(mm ?? "00")
+  const minuteOptions = minutes.includes(mm ?? "59")
     ? minutes
-    : [...minutes, mm ?? "00"].sort();
+    : [...minutes, mm ?? "59"].sort();
 
   const setToday = (offsetDays: number) => {
     const d = new Date();
@@ -240,7 +240,7 @@ export function DatePicker({
                   const next = !timeEnabled;
                   setTimeEnabled(next);
                   if (next && parsed.date) {
-                    emit(parsed.date, parsed.time ?? "12:00");
+                    emit(parsed.date, parsed.time ?? "23:59");
                   } else if (parsed.date) {
                     emit(parsed.date, undefined);
                   }
@@ -254,8 +254,8 @@ export function DatePicker({
               <div className="mt-2 flex items-center justify-between gap-2">
                 <div className="flex items-center gap-1.5">
                   <select
-                    value={hh ?? "12"}
-                    onChange={(e) => emit(parsed.date ?? new Date(), `${e.target.value}:${mm ?? "00"}`)}
+                    value={hh ?? "23"}
+                    onChange={(e) => emit(parsed.date ?? new Date(), `${e.target.value}:${mm ?? "59"}`)}
                     className="h-8 rounded-lg border border-input bg-background px-2 text-xs tabular-nums"
                     aria-label="Timme"
                   >
@@ -267,8 +267,8 @@ export function DatePicker({
                   </select>
                   <span className="text-xs text-muted-foreground">:</span>
                   <select
-                    value={mm ?? "00"}
-                    onChange={(e) => emit(parsed.date ?? new Date(), `${hh ?? "12"}:${e.target.value}`)}
+                    value={mm ?? "59"}
+                    onChange={(e) => emit(parsed.date ?? new Date(), `${hh ?? "23"}:${e.target.value}`)}
                     className="h-8 rounded-lg border border-input bg-background px-2 text-xs tabular-nums"
                     aria-label="Minut"
                   >
