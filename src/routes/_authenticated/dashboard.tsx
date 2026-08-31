@@ -60,6 +60,7 @@ import {
 } from "date-fns";
 import { sv } from "date-fns/locale";
 import { useUserSettings } from "@/lib/settings";
+import { firstPeriod } from "@/lib/course-presets";
 import {
   coursesQuery,
   tasksQuery,
@@ -332,14 +333,11 @@ function Dashboard() {
   ).length;
 
   const activePeriod = todayPeriod(terms);
-  const activeCourses = courses.filter(
-    (c) =>
-      !c.completed && (currentYear === null || c.arskurs === null || c.arskurs === currentYear),
-  );
+  const activeCourses = courses;
 
   const groupedCourses = activeCourses.reduce(
     (acc, c) => {
-      const p = c.period || "Övriga";
+      const p = firstPeriod(c.periods) || c.period || "Övriga";
       if (!acc[p]) acc[p] = [];
       acc[p].push(c);
       return acc;
@@ -611,7 +609,7 @@ function Dashboard() {
         </div>
         {activeCourses.length === 0 ? (
           <div className="rounded-xl border border-dashed border-border/60 p-6 text-center text-sm text-muted-foreground">
-            Inga kurser matchar aktuell årskurs.{" "}
+            Inga aktiva kurser.{" "}
             <Link to="/courses" className="underline">
               Lägg till en
             </Link>

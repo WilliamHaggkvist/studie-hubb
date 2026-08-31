@@ -5,6 +5,7 @@ import { useDebounce } from "@/hooks/use-debounce";
 import { supabase } from "@/integrations/supabase/client";
 import { useUserSettings } from "@/lib/settings";
 import { coursesQuery } from "@/lib/queries";
+import { firstPeriod } from "@/lib/course-presets";
 import { cn } from "@/lib/utils";
 import { timerStore, formatDuration } from "@/lib/timer-store";
 import {
@@ -194,13 +195,18 @@ function SidebarContent() {
   const { data: courses = [] } = useQuery(coursesQuery);
 
   // Filter to active courses, sorted by period
-  const periodOrder = ["P1", "P2", "P3", "P4", "P5"];
+  const periodOrder = ["P1", "P2", "P3", "P4", "P5", "helar"];
   const sidebarCourses = courses
     .filter((c) => !c.completed && !c.archived)
     .sort((a, b) => {
-      const ia = a.period ? periodOrder.indexOf(a.period) : 999;
-      const ib = b.period ? periodOrder.indexOf(b.period) : 999;
-      return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
+      const pa = firstPeriod(a.periods) || a.period;
+      const pb = firstPeriod(b.periods) || b.period;
+      const ia = pa ? periodOrder.indexOf(pa) : 999;
+      const ib = pb ? periodOrder.indexOf(pb) : 999;
+      const orderA = ia !== -1 ? ia : 999;
+      const orderB = ib !== -1 ? ib : 999;
+      if (orderA !== orderB) return orderA - orderB;
+      return a.name.localeCompare(b.name, "sv");
     });
 
   const { data: pages = [] } = useQuery({
