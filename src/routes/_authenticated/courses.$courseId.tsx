@@ -113,6 +113,7 @@ type CourseFile = {
   name: string;
   size_bytes: number | null;
   created_at: string;
+  mime_type?: string | null;
 };
 
 function CourseDetail() {
@@ -229,7 +230,7 @@ function CourseDetail() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("course_files")
-        .select("id,storage_path,name,size_bytes,created_at")
+        .select("id,storage_path,name,size_bytes,created_at,mime_type")
         .eq("course_id", courseId)
         .order("name", { ascending: true });
       if (error) throw error;

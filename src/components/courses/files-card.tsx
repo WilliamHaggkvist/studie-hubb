@@ -3,9 +3,11 @@ import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Upload, Plus, FileText, Download, Trash2, Eye } from "lucide-react";
+import { Upload, Plus, FileText, Download, Trash2, Eye, Link as LinkIcon, ExternalLink, Globe } from "lucide-react";
 
 type CourseFile = {
   id: string;
@@ -13,6 +15,7 @@ type CourseFile = {
   name: string;
   size_bytes: number | null;
   created_at: string;
+  mime_type?: string | null;
 };
 
 export function FilesCard({
@@ -28,6 +31,12 @@ export function FilesCard({
   const fileRef = useRef<HTMLInputElement | null>(null);
   const [uploading, setUploading] = useState(false);
 
+  // Link dialog state
+  const [addLinkOpen, setAddLinkOpen] = useState(false);
+  const [linkTitle, setLinkTitle] = useState("");
+  const [linkUrl, setLinkUrl] = useState("");
+  const [savingLink, setSavingLink] = useState(false);
+
   // Preview state
   const [previewFile, setPreviewFile] = useState<CourseFile | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -35,6 +44,11 @@ export function FilesCard({
 
   const isImage = (name: string) => /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(name);
   const isPdf = (name: string) => /\.pdf$/i.test(name);
+
+  const isLink = (f: CourseFile) =>
+    f.mime_type === "url" ||
+    f.storage_path.startsWith("http://") ||
+    f.storage_path.startsWith("https://");
 
   async function upload(file: File) {
     setUploading(true);
@@ -68,6 +82,46 @@ export function FilesCard({
     setUploading(false);
   }
 
+  async function handleAddLink(e: React.FormEvent) {
+    e.preventDefault();
+    const trimmedUrl = linkUrl.trim();
+    if (!trimmedUrl) return;
+
+    let formattedUrl = trimmedUrl;
+    if (!/^https?:\/\//i.test(formattedUrl)) {
+      formattedUrl = `https://${formattedUrl}`;
+    }
+
+    const finalName = linkTitle.trim() || formattedUrl;
+
+    setSavingLink(true);
+    const { data: u } = await supabase.auth.getUser();
+    if (!u.user) {
+      setSavingLink(false);
+      return;
+    }
+
+    const { error: insErr } = await supabase.from("course_files").insert({
+      user_id: u.user.id,
+      course_id: courseId,
+      storage_path: formattedUrl,
+      name: finalName,
+      mime_type: "url",
+      size_bytes: null,
+    });
+
+    if (insErr) {
+      toast.error(insErr.message);
+    } else {
+      toast.success("Länk tillagd");
+      setLinkTitle("");
+      setLinkUrl("");
+      setAddLinkOpen(false);
+      qc.invalidateQueries({ queryKey: ["course_files", courseId] });
+    }
+    setSavingLink(false);
+  }
+
   async function download(f: CourseFile) {
     const { data, error } = await supabase.storage
       .from("course-files")
@@ -92,9 +146,19 @@ export function FilesCard({
     setLoadingPreview(false);
   }
 
+  function openItem(f: CourseFile) {
+    if (isLink(f)) {
+      window.open(f.storage_path, "_blank", "noopener,noreferrer");
+    } else {
+      openPreview(f);
+    }
+  }
+
   async function remove(f: CourseFile) {
     if (!confirm(`Ta bort ${f.name}?`)) return;
-    await supabase.storage.from("course-files").remove([f.storage_path]);
+    if (!isLink(f)) {
+      await supabase.storage.from("course-files").remove([f.storage_path]);
+    }
     await supabase.from("course_files").delete().eq("id", f.id);
     qc.invalidateQueries({ queryKey: ["course_files", courseId] });
   }
@@ -103,17 +167,27 @@ export function FilesCard({
     <Card className="border-border/60 bg-surface/60 backdrop-blur-md rounded-2xl lg:col-span-2">
       <CardHeader className="pb-2 flex-row items-center justify-between space-y-0">
         <CardTitle className="font-display text-base flex items-center gap-2">
-          <Upload className="h-4 w-4" style={{ color }} /> Kursfiler
+          <Upload className="h-4 w-4" style={{ color }} /> Kursfiler & länkar
         </CardTitle>
-        <Button
-          size="sm"
-          variant="ghost"
-          className="gap-1 rounded-xl"
-          disabled={uploading}
-          onClick={() => fileRef.current?.click()}
-        >
-          <Plus className="h-3.5 w-3.5" /> {uploading ? "Laddar upp…" : "Ladda upp"}
-        </Button>
+        <div className="flex items-center gap-1.5">
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-1 rounded-xl text-xs h-8 cursor-pointer"
+            onClick={() => setAddLinkOpen(true)}
+          >
+            <LinkIcon className="h-3.5 w-3.5" /> Lägg till länk
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="gap-1 rounded-xl text-xs h-8 cursor-pointer"
+            disabled={uploading}
+            onClick={() => fileRef.current?.click()}
+          >
+            <Plus className="h-3.5 w-3.5" /> {uploading ? "Laddar upp…" : "Ladda upp"}
+          </Button>
+        </div>
         <input
           ref={fileRef}
           type="file"
@@ -128,56 +202,138 @@ export function FilesCard({
       <CardContent>
         {files.length === 0 && (
           <div className="rounded-xl border border-dashed border-border/60 p-4 text-center text-xs text-muted-foreground">
-            Inga filer — ladda upp kurs-PM, schema och andra dokument.
+            Inga filer eller länkar — ladda upp kurs-PM, schema eller lägg till länkar.
           </div>
         )}
         <div className="space-y-1">
-          {files.map((f) => (
-            <div
-              key={f.id}
-              className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-surface-2/60 group"
-            >
-              <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-              <button
-                type="button"
-                className="min-w-0 flex-1 text-left truncate hover:underline cursor-pointer font-medium"
-                onClick={() => openPreview(f)}
-                title="Klicka för att förhandsvisa"
+          {files.map((f) => {
+            const link = isLink(f);
+            return (
+              <div
+                key={f.id}
+                className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-surface-2/60 group"
               >
-                {f.name}
-              </button>
-              <span className="text-[10px] text-muted-foreground shrink-0">
-                {f.size_bytes ? `${Math.round(f.size_bytes / 1024)} kB` : ""}
-              </span>
-              <button
-                type="button"
-                className="p-1 text-muted-foreground hover:text-foreground cursor-pointer"
-                onClick={() => openPreview(f)}
-                title="Förhandsvisa"
-              >
-                <Eye className="h-3.5 w-3.5" />
-              </button>
-              <button
-                type="button"
-                className="p-1 text-muted-foreground hover:text-foreground cursor-pointer"
-                onClick={() => download(f)}
-                title="Ladda ned"
-              >
-                <Download className="h-3.5 w-3.5" />
-              </button>
-              <button
-                type="button"
-                className="p-1 text-muted-foreground hover:text-destructive cursor-pointer"
-                onClick={() => remove(f)}
-                title="Ta bort"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          ))}
+                {link ? (
+                  <Globe className="h-3.5 w-3.5 text-primary shrink-0" />
+                ) : (
+                  <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                )}
+                <button
+                  type="button"
+                  className="min-w-0 flex-1 text-left truncate hover:underline cursor-pointer font-medium"
+                  onClick={() => openItem(f)}
+                  title={link ? "Öppna länk i ny flik" : "Klicka för att förhandsvisa"}
+                >
+                  {f.name}
+                </button>
+                <span className="text-[10px] text-muted-foreground shrink-0">
+                  {link
+                    ? "Länk"
+                    : f.size_bytes
+                    ? `${Math.round(f.size_bytes / 1024)} kB`
+                    : ""}
+                </span>
+                {link ? (
+                  <a
+                    href={f.storage_path}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-1 text-muted-foreground hover:text-foreground cursor-pointer flex items-center justify-center"
+                    title="Öppna länk"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" />
+                  </a>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      className="p-1 text-muted-foreground hover:text-foreground cursor-pointer"
+                      onClick={() => openPreview(f)}
+                      title="Förhandsvisa"
+                    >
+                      <Eye className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      className="p-1 text-muted-foreground hover:text-foreground cursor-pointer"
+                      onClick={() => download(f)}
+                      title="Ladda ned"
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                    </button>
+                  </>
+                )}
+                <button
+                  type="button"
+                  className="p-1 text-muted-foreground hover:text-destructive cursor-pointer"
+                  onClick={() => remove(f)}
+                  title="Ta bort"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            );
+          })}
         </div>
       </CardContent>
 
+      {/* Add Link Dialog */}
+      <Dialog open={addLinkOpen} onOpenChange={setAddLinkOpen}>
+        <DialogContent className="max-w-md glass rounded-2xl border-white/10 p-6">
+          <DialogHeader>
+            <DialogTitle className="font-display text-lg flex items-center gap-2">
+              <LinkIcon className="h-5 w-5 text-primary" /> Lägg till länk
+            </DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleAddLink} className="space-y-4 mt-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="link-title" className="text-xs font-medium">
+                Titel / Namn (valfritt)
+              </Label>
+              <Input
+                id="link-title"
+                placeholder="t.ex. Canvas-sida, Zoom-länk"
+                value={linkTitle}
+                onChange={(e) => setLinkTitle(e.target.value)}
+                className="rounded-xl"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="link-url" className="text-xs font-medium">
+                URL / Länk *
+              </Label>
+              <Input
+                id="link-url"
+                type="url"
+                required
+                placeholder="https://canvas.kth.se/courses/..."
+                value={linkUrl}
+                onChange={(e) => setLinkUrl(e.target.value)}
+                className="rounded-xl"
+              />
+            </div>
+            <DialogFooter className="pt-2 gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setAddLinkOpen(false)}
+                className="rounded-xl cursor-pointer"
+              >
+                Avbryt
+              </Button>
+              <Button
+                type="submit"
+                disabled={savingLink}
+                className="rounded-xl cursor-pointer"
+              >
+                {savingLink ? "Sparar…" : "Spara länk"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Preview Dialog */}
       <Dialog
         open={!!previewFile}
         onOpenChange={(open) => {
