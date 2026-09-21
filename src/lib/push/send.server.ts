@@ -83,7 +83,6 @@ export async function sendPushToSubscriptions(
       failed++;
       const text = await res.text();
       console.error("Push send failed", { status: res.status, body: text.slice(0, 500) });
-      await supabase.rpc("noop").catch(() => {});
       const { data: row } = await supabase
         .from("push_subscriptions")
         .select("failure_count")
