@@ -367,6 +367,298 @@ function NotificationsCard() {
 
 
 
+const PUSH_OFFSET_CHOICES: { minutes: number; label: string }[] = [
+  { minutes: 10080, label: "1 vecka innan" },
+  { minutes: 4320, label: "3 dagar innan" },
+  { minutes: 1440, label: "1 dag innan" },
+  { minutes: 240, label: "4 timmar innan" },
+  { minutes: 120, label: "2 timmar innan" },
+  { minutes: 60, label: "1 timme innan" },
+  { minutes: 30, label: "30 min innan" },
+];
+
+function PushCard() {
+  const { data: s } = useUserSettings();
+  const qc = useQueryClient();
+  const [subscribed, setSubscribed] = useState(false);
+  const [supported, setSupported] = useState(true);
+  const [needsOwnTab, setNeedsOwnTab] = useState(false);
+  const [iosHint, setIosHint] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      const push = await import("@/lib/push");
+      if (!active) return;
+      setSupported(push.pushSupported());
+      setNeedsOwnTab(push.inIframe());
+      setIosHint(push.isIOS() && !push.isStandalone());
+      const sub = await push.getExistingSubscription();
+      if (active) setSubscribed(!!sub);
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const save = useMutation({
+    mutationFn: async (patch: Record<string, unknown>) => {
+      const { data: u } = await supabase.auth.getUser();
+      if (!u.user) throw new Error("no user");
+      const { error } = await supabase
+        .from("user_settings")
+        .update(patch as never)
+        .eq("user_id", u.user.id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["user_settings"] }),
+    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Kunde inte spara"),
+  });
+
+  const toggleDevice = async (on: boolean) => {
+    setBusy(true);
+    try {
+      const push = await import("@/lib/push");
+      if (!on) {
+        await push.disablePush();
+        setSubscribed(false);
+        save.mutate({ push_enabled: false });
+        toast.success("Push-notiser avstängda på denna enhet");
+        return;
+      }
+      const { status } = await push.enablePush();
+      if (status === "subscribed") {
+        setSubscribed(true);
+        save.mutate({ push_enabled: true });
+        toast.success("Push-notiser aktiverade på denna enhet");
+      } else if (status === "open-in-new-tab") {
+        toast.error("Öppna StudieHubb i en egen flik (inte i förhandsvisningen) och försök igen.");
+      } else if (status === "denied") {
+        toast.error("Notiser är blockerade. Tillåt notiser för StudieHubb i webbläsarens inställningar.");
+      } else if (status === "unsupported") {
+        toast.error("Den här webbläsaren stöder inte push-notiser.");
+      } else {
+        toast.error("Push är inte konfigurerat på servern.");
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Kunde inte aktivera push");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const testPush = useMutation({
+    mutationFn: async () => {
+      const { sendTestPush } = await import("@/lib/push.functions");
+      return await sendTestPush();
+    },
+    onSuccess: () => toast.success("Testnotis skickad – kolla telefonen/datorn"),
+    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Kunde inte skicka notis"),
+  });
+
+  const pushOffsets = s?.push_offsets ?? [];
+  const togglePushOffset = (min: number) => {
+    const next = pushOffsets.includes(min)
+      ? pushOffsets.filter((o) => o !== min)
+      : [...pushOffsets, min].sort((a, b) => b - a);
+    save.mutate({ push_offsets: next });
+  };
+
+  return (
+    <Card className="border-border/60 bg-surface/60 backdrop-blur-md rounded-2xl">
+      <CardHeader>
+        <CardTitle className="font-display text-base">Push-notiser (telefon & dator)</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {!supported && (
+          <p className="text-[11px] text-muted-foreground">
+            Den här webbläsaren stöder inte push-notiser. Prova Chrome, Edge eller Safari.
+          </p>
+        )}
+        {needsOwnTab && (
+          <p className="text-[11px] text-sunset-amber">
+            Öppna StudieHubb i en egen flik eller på hemskärmen för att kunna slå på notiser.
+          </p>
+        )}
+        {iosHint && (
+          <p className="text-[11px] text-muted-foreground">
+            På iPhone: tryck Dela → &quot;Lägg till på hemskärmen&quot; och öppna appen därifrån innan
+            du slår på notiser.
+          </p>
+        )}
+
+        <div className="flex items-center justify-between rounded-xl border border-border/60 bg-background/40 px-4 py-3">
+          <div>
+            <div className="text-sm font-medium">Notiser på denna enhet</div>
+            <div className="text-[11px] text-muted-foreground">
+              Registrerar telefonen/datorn så att StudieHubb kan skicka notiser även när appen är
+              stängd.
+            </div>
+          </div>
+          <Switch
+            checked={subscribed && !!s?.push_enabled}
+            disabled={!supported || busy}
+            onCheckedChange={toggleDevice}
+          />
+        </div>
+
+        {subscribed && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between rounded-xl border border-border/60 bg-background/40 px-4 py-3">
+              <div>
+                <div className="text-sm font-medium">Påminnelser inför deadlines</div>
+                <div className="text-[11px] text-muted-foreground">
+                  Notis inför uppgifters deadline enligt intervallen nedan.
+                </div>
+              </div>
+              <Switch
+                checked={!!s?.push_deadline_reminders}
+                onCheckedChange={(v) => save.mutate({ push_deadline_reminders: v })}
+              />
+            </div>
+
+            {s?.push_deadline_reminders && (
+              <div className="space-y-2">
+                <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                  Intervall för push
+                </Label>
+                <div className="flex flex-wrap gap-2">
+                  {PUSH_OFFSET_CHOICES.map((c) => {
+                    const active = pushOffsets.includes(c.minutes);
+                    return (
+                      <button
+                        key={c.minutes}
+                        onClick={() => togglePushOffset(c.minutes)}
+                        className={`rounded-xl border px-3 py-1.5 text-xs transition ${active ? "gradient-sunset text-white border-transparent" : "border-border/60 bg-background/40 text-muted-foreground hover:text-foreground"}`}
+                      >
+                        {c.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            <div className="flex items-center justify-between rounded-xl border border-border/60 bg-background/40 px-4 py-3">
+              <div>
+                <div className="text-sm font-medium">Planerade studiepass</div>
+                <div className="text-[11px] text-muted-foreground">
+                  Notis innan ett studiepass från kalendern startar.
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <Input
+                  type="number"
+                  min={0}
+                  max={240}
+                  value={s?.push_session_offset_minutes ?? 15}
+                  onChange={(e) =>
+                    save.mutate({
+                      push_session_offset_minutes: Math.max(
+                        0,
+                        Math.min(240, Number(e.target.value) || 0),
+                      ),
+                    })
+                  }
+                  className="w-16 h-8 text-center rounded-xl"
+                  disabled={!s?.push_session_reminders}
+                />
+                <span className="text-xs text-muted-foreground">min före</span>
+                <Switch
+                  checked={!!s?.push_session_reminders}
+                  onCheckedChange={(v) => save.mutate({ push_session_reminders: v })}
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between rounded-xl border border-border/60 bg-background/40 px-4 py-3">
+              <div>
+                <div className="text-sm font-medium">Daglig överblick</div>
+                <div className="text-[11px] text-muted-foreground">Notis kl 07:00 varje morgon.</div>
+              </div>
+              <Switch
+                checked={!!s?.push_daily_summary}
+                onCheckedChange={(v) => save.mutate({ push_daily_summary: v })}
+              />
+            </div>
+
+            <div className="flex items-center justify-between rounded-xl border border-border/60 bg-background/40 px-4 py-3">
+              <div>
+                <div className="text-sm font-medium">Veckoöverblick</div>
+                <div className="text-[11px] text-muted-foreground">Notis söndag kl 19:00.</div>
+              </div>
+              <Switch
+                checked={!!s?.push_weekly_summary}
+                onCheckedChange={(v) => save.mutate({ push_weekly_summary: v })}
+              />
+            </div>
+
+            <div className="flex items-center justify-between rounded-xl border border-border/60 bg-background/40 px-4 py-3">
+              <div>
+                <div className="text-sm font-medium">Tyst läge</div>
+                <div className="text-[11px] text-muted-foreground">
+                  Inga notiser mellan valda timmar.
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="number"
+                  min={0}
+                  max={23}
+                  value={s?.push_quiet_start_hour ?? 23}
+                  onChange={(e) =>
+                    save.mutate({
+                      push_quiet_start_hour: Math.max(0, Math.min(23, Number(e.target.value) || 0)),
+                    })
+                  }
+                  className="w-14 h-8 text-center rounded-xl"
+                  disabled={!s?.push_quiet_hours_enabled}
+                />
+                <span className="text-xs text-muted-foreground">–</span>
+                <Input
+                  type="number"
+                  min={0}
+                  max={23}
+                  value={s?.push_quiet_end_hour ?? 7}
+                  onChange={(e) =>
+                    save.mutate({
+                      push_quiet_end_hour: Math.max(0, Math.min(23, Number(e.target.value) || 0)),
+                    })
+                  }
+                  className="w-14 h-8 text-center rounded-xl"
+                  disabled={!s?.push_quiet_hours_enabled}
+                />
+                <Switch
+                  checked={!!s?.push_quiet_hours_enabled}
+                  onCheckedChange={(v) => save.mutate({ push_quiet_hours_enabled: v })}
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between pt-3 border-t border-border/60">
+              <div>
+                <div className="text-sm font-medium">Skicka testnotis</div>
+                <div className="text-[11px] text-muted-foreground">
+                  Skickas till alla enheter du registrerat.
+                </div>
+              </div>
+              <Button
+                size="sm"
+                onClick={() => testPush.mutate()}
+                disabled={testPush.isPending}
+                className="rounded-xl bg-surface hover:bg-surface-2 border border-border/60 text-foreground text-xs"
+              >
+                {testPush.isPending ? "Skickar..." : "Skicka testnotis"}
+              </Button>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 function UniversitiesCard() {
   const { data: unis = [] } = useUniversities();
   const qc = useQueryClient();

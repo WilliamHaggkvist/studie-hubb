@@ -18,6 +18,16 @@ export type UserSettings = {
   reminder_email_verified: boolean;
   reminder_email_verification_code: string | null;
   reminder_email_verification_sent_at: string | null;
+  push_enabled: boolean;
+  push_deadline_reminders: boolean;
+  push_offsets: number[];
+  push_daily_summary: boolean;
+  push_weekly_summary: boolean;
+  push_session_reminders: boolean;
+  push_session_offset_minutes: number;
+  push_quiet_hours_enabled: boolean;
+  push_quiet_start_hour: number;
+  push_quiet_end_hour: number;
 };
 
 export type University = {
