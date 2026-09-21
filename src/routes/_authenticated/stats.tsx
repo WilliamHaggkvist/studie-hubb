@@ -1507,7 +1507,7 @@ function StatsPage() {
 
                   return (
                     <div
-                      key={day.dayKey}
+                      key={day.dateStr}
                       className={cn(
                         "w-[10px] h-[10px] rounded-[1.5px] transition-all cursor-pointer",
                         colorClass,
