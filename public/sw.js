@@ -19,8 +19,8 @@ self.addEventListener("push", (event) => {
   const title = payload.title || "StudieHubb";
   const options = {
     body: payload.body || "",
-    icon: "/favicon.ico",
-    badge: "/favicon.ico",
+    icon: "/app-icon-192.png",
+    badge: "/app-icon-192.png",
     tag: payload.tag || undefined,
     renotify: false,
     data: { url: payload.url || "/dashboard" },
