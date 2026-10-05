@@ -31,6 +31,7 @@ export type UserSettings = {
   notif_categories: Record<string, boolean> | null;
   google_last_sync_at: string | null;
   google_last_sync_error: string | null;
+  notif_review_days: number;
 };
 
 export type University = {
