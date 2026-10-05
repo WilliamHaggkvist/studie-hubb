@@ -71,6 +71,9 @@ export function buildNotifications(input: {
   terms: TermRow[];
   settings: UserSettings | null | undefined;
   pushOnThisDevice: boolean | null;
+  csnPeriods?: CsnPeriod[];
+  devices?: DeviceLite[];
+  currentDeviceId?: string | null;
   now?: Date;
 }): AppNotification[] {
   const now = input.now ?? new Date();
@@ -78,6 +81,7 @@ export function buildNotifications(input: {
   const courseName = new Map(input.courses.map((c) => [c.id, c.code || c.name]));
   const today = ymd(now);
   const tomorrow = ymd(new Date(now.getTime() + DAY));
+  const reviewDays = input.settings?.notif_review_days ?? 14;
 
   // ---- Uppgifter
   for (const t of input.tasks) {
@@ -110,13 +114,13 @@ export function buildNotifications(input: {
     }
     if (t.pending_review && t.status !== "done") {
       const since = t.completed_at ?? t.due_at;
-      if (since && now.getTime() - new Date(since).getTime() > 14 * DAY) {
+      if (since && now.getTime() - new Date(since).getTime() > reviewDays * DAY) {
         out.push({
           key: `review:${t.id}`,
           category: "tasks",
           severity: "action",
           title: `Fyll i resultat: ${t.title}`,
-          body: `${prefix}Har väntat på bedömning i över 14 dagar`,
+          body: `${prefix}Har väntat på bedömning i över ${reviewDays} dagar`,
           to: "/tasks",
         });
       }
@@ -144,6 +148,7 @@ export function buildNotifications(input: {
   }
 
   // ---- Kurser
+  const windows = periodWindows(input.terms);
   for (const c of input.courses) {
     if (c.archived) continue;
     const link = { to: "/courses/$courseId", params: { courseId: c.id } };
@@ -187,13 +192,35 @@ export function buildNotifications(input: {
         ...link,
       });
     }
-    if (!c.completed && !input.tasks.some((t) => t.course_id === c.id)) {
+    if (!c.completed && !mods.length && !input.tasks.some((t) => t.course_id === c.id)) {
+      const ps = new Set<string>([
+        ...input.enrollments.filter((e) => e.course_id === c.id).flatMap((e) => e.periods),
+        ...(c.periods ?? []),
+        ...(c.period ? [c.period] : []),
+      ]);
+      const end = windows.find(
+        (w) => ps.has(w.period) && w.end.getTime() > now.getTime() && w.end.getTime() - now.getTime() < 21 * DAY && w.start.getTime() < now.getTime(),
+      );
+      if (end) {
+        out.push({
+          key: `course-empty:${c.id}:${ymd(end.end)}`,
+          category: "courses",
+          severity: "action",
+          title: `Tom kurs: ${label}`,
+          body: `${end.period} slutar ${ymd(end.end)} – inga uppgifter eller moment inlagda`,
+          ...link,
+        });
+      }
+    }
+    // Kurs nästan klar
+    if (mods.length >= 2 && mods.filter((m) => !m.completed).length === 1 && !c.completed) {
+      const left = mods.find((m) => !m.completed)!;
       out.push({
-        key: `course-no-tasks:${c.id}`,
-        category: "courses",
+        key: `course-almost:${c.id}:${left.id}`,
+        category: "progress",
         severity: "info",
-        title: `Inga uppgifter: ${label}`,
-        body: "Lägg till uppgifter så att du har koll på deadlines",
+        title: `Nästan klar: ${label}`,
+        body: `Bara ${left.name} (${left.hp} hp) kvar`,
         ...link,
       });
     }
@@ -205,7 +232,7 @@ export function buildNotifications(input: {
     out.push({
       key: `session-inbox:${inbox.map((s) => s.id).sort().join(",").slice(0, 200)}`,
       category: "sessions",
-      severity: "action",
+      severity: inbox.some((s) => now.getTime() - new Date(s.created_at).getTime() > 2 * DAY) ? "urgent" : "action",
       title: `${inbox.length} studiepass att koppla`,
       body: "Koppla passen till uppgifter i Inkorgen",
       to: "/time",
@@ -265,6 +292,117 @@ export function buildNotifications(input: {
       body: "Behövs för att perioder och statistik ska räknas rätt",
       to: "/settings",
     });
+  }
+
+  if (st?.google_connected && !st.google_last_sync_error) {
+    const last = st.google_last_sync_at ? new Date(st.google_last_sync_at).getTime() : 0;
+    if (now.getTime() - last > 2 * 3600000) {
+      out.push({
+        key: `gcal-stale:${st.google_last_sync_at ?? ""}`,
+        category: "system",
+        severity: "action",
+        title: "Kalendersynken har inte kört på över 2 timmar",
+        body: st.google_last_sync_at ? `Senast ${st.google_last_sync_at.slice(0, 16).replace("T", " ")}` : "Har aldrig kört",
+        to: "/settings",
+      });
+    }
+  }
+  for (const e of CHANGELOG) {
+    out.push({ key: `changelog:${e.id}`, category: "system", severity: "info", title: `Nytt: ${e.title}`, body: e.body, to: "/dashboard" });
+  }
+  const devs = input.devices ?? [];
+  if (devs.length > 1) {
+    const firstSeen = Math.min(...devs.map((d) => new Date(d.first_seen_at).getTime()));
+    for (const d of devs) {
+      const t = new Date(d.first_seen_at).getTime();
+      if (t === firstSeen || now.getTime() - t > 14 * DAY) continue;
+      out.push({
+        key: `new-device:${d.device_id}`,
+        category: "system",
+        severity: d.device_id === input.currentDeviceId ? "info" : "action",
+        title: `Ny inloggning: ${deviceName(d.user_agent)}`,
+        body: `${d.first_seen_at.slice(0, 16).replace("T", " ")}${d.device_id === input.currentDeviceId ? " · den här enheten" : " · var det du?"}`,
+        to: "/settings",
+      });
+    }
+  }
+
+  // ---- Framsteg: HP-milstolpar
+  let doneHp = 0;
+  for (const c of input.courses) {
+    const mods = input.modules.filter((m) => m.course_id === c.id);
+    if (mods.length) doneHp += mods.filter((m) => m.completed).reduce((a, m) => a + Number(m.hp || 0), 0);
+    else if (c.completed) doneHp += Number(c.hp || 0);
+  }
+  const milestone = [180, 150, 120, 90, 60, 30].find((m) => doneHp >= m);
+  if (milestone) {
+    out.push({
+      key: `hp-milestone:${milestone}`,
+      category: "progress",
+      severity: "info",
+      title: `Grattis, du har klarat ${milestone} HP!`,
+      body: `Totalt ${fmtH(doneHp)} hp avklarade`,
+      to: "/stats",
+    });
+  }
+
+  // ---- Veckomål (sön kväll → mån) och inget pass på länge
+  const dow = now.getDay();
+  const showWeek = (dow === 0 && now.getHours() >= 18) || dow === 1;
+  const weekStart = dow === 1 ? new Date(mondayOf(now).getTime() - 7 * DAY) : mondayOf(now);
+  const weekEnd = new Date(weekStart.getTime() + 7 * DAY);
+  const done = input.sessions.filter((s) => s.completed && s.course_id);
+  for (const c of input.courses) {
+    const goal = Number(c.weekly_goal_hours || 0);
+    if (c.archived || c.completed || goal <= 0) continue;
+    const label = c.code || c.name;
+    const link = { to: "/courses/$courseId", params: { courseId: c.id } };
+    const cs = done.filter((s) => s.course_id === c.id);
+    if (showWeek) {
+      const h = cs
+        .filter((s) => { const t = new Date(s.planned_start).getTime(); return t >= weekStart.getTime() && t < weekEnd.getTime(); })
+        .reduce((a, s) => a + sessionHours(s), 0);
+      const wk = ymd(weekStart);
+      if (h >= goal) {
+        out.push({ key: `week-goal:${c.id}:${wk}`, category: "progress", severity: "info", title: `Veckomål nått: ${label}`, body: `${fmtH(h)}/${fmtH(goal)} h`, ...link });
+      } else if (h < goal * 0.75) {
+        out.push({ key: `week-goal:${c.id}:${wk}`, category: "progress", severity: "action", title: `Veckomål missat: ${label}`, body: `${fmtH(h)}/${fmtH(goal)} h`, ...link });
+      }
+    }
+    const last = cs.reduce((m, s) => Math.max(m, new Date(s.planned_start).getTime()), 0);
+    if (now.getTime() - last > 10 * DAY) {
+      out.push({
+        key: `no-session:${c.id}:${last}`,
+        category: "sessions",
+        severity: "action",
+        title: `Inget studiepass på länge: ${label}`,
+        body: last ? `Senaste genomförda pass ${ymd(new Date(last))}` : "Inget genomfört pass senaste 60 dagarna",
+        ...link,
+      });
+    }
+  }
+
+  // ---- CSN
+  for (const p of input.csnPeriods ?? []) {
+    if (!p.endDate) continue;
+    const end = new Date(`${p.endDate.slice(0, 10)}T23:59:59`);
+    const left = end.getTime() - now.getTime();
+    if (left < 0 || left > 30 * DAY) continue;
+    const { requiredHp } = calculateCsnMetrics(p.weeks);
+    const start = p.startDate.slice(0, 10), endD = p.endDate.slice(0, 10);
+    const reg = input.modules
+      .filter((m) => m.completed && m.registered_on && m.registered_on.slice(0, 10) >= start && m.registered_on.slice(0, 10) <= endD)
+      .reduce((a, m) => a + Number(m.hp || 0), 0);
+    if (reg < requiredHp) {
+      out.push({
+        key: `csn:${p.id}:${reg}`,
+        category: "csn",
+        severity: left < 14 * DAY ? "urgent" : "action",
+        title: `CSN: ${fmtH(requiredHp - reg)} hp kvar till kravet`,
+        body: `${p.name ? p.name + " · " : ""}${fmtH(reg)}/${requiredHp} hp registrerade, perioden slutar ${endD}`,
+        to: "/stats",
+      });
+    }
   }
 
   const cats = (st?.notif_categories ?? {}) as Record<string, boolean>;
