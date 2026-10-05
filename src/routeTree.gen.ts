@@ -9,7 +9,6 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as UnsubscribeRouteImport } from './routes/unsubscribe'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
@@ -32,11 +31,6 @@ import { Route as LovableEmailTransactionalPreviewRouteImport } from './routes/l
 import { Route as ApiPublicHooksSyncGoogleCalendarRouteImport } from './routes/api/public/hooks/sync-google-calendar'
 import { Route as ApiPublicHooksEmailJobsRouteImport } from './routes/api/public/hooks/email-jobs'
 
-const UnsubscribeRoute = UnsubscribeRouteImport.update({
-  id: '/unsubscribe',
-  path: '/unsubscribe',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
@@ -151,7 +145,6 @@ const ApiPublicHooksEmailJobsRoute = ApiPublicHooksEmailJobsRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
-  '/unsubscribe': typeof UnsubscribeRoute
   '/calendar': typeof AuthenticatedCalendarRoute
   '/courses': typeof AuthenticatedCoursesRouteWithChildren
   '/dashboard': typeof AuthenticatedDashboardRoute
@@ -174,7 +167,6 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
-  '/unsubscribe': typeof UnsubscribeRoute
   '/calendar': typeof AuthenticatedCalendarRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/information': typeof AuthenticatedInformationRoute
@@ -197,7 +189,6 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
-  '/unsubscribe': typeof UnsubscribeRoute
   '/_authenticated/calendar': typeof AuthenticatedCalendarRoute
   '/_authenticated/courses': typeof AuthenticatedCoursesRouteWithChildren
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
@@ -222,7 +213,6 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/auth'
-    | '/unsubscribe'
     | '/calendar'
     | '/courses'
     | '/dashboard'
@@ -245,7 +235,6 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/auth'
-    | '/unsubscribe'
     | '/calendar'
     | '/dashboard'
     | '/information'
@@ -267,7 +256,6 @@ export interface FileRouteTypes {
     | '/'
     | '/_authenticated'
     | '/auth'
-    | '/unsubscribe'
     | '/_authenticated/calendar'
     | '/_authenticated/courses'
     | '/_authenticated/dashboard'
@@ -292,7 +280,6 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
-  UnsubscribeRoute: typeof UnsubscribeRoute
   LovableEmailEventsRoute: typeof LovableEmailEventsRoute
   ApiPublicHooksEmailJobsRoute: typeof ApiPublicHooksEmailJobsRoute
   ApiPublicHooksSyncGoogleCalendarRoute: typeof ApiPublicHooksSyncGoogleCalendarRoute
@@ -301,13 +288,6 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/unsubscribe': {
-      id: '/unsubscribe'
-      path: '/unsubscribe'
-      fullPath: '/unsubscribe'
-      preLoaderRoute: typeof UnsubscribeRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/auth': {
       id: '/auth'
       path: '/auth'
@@ -517,7 +497,6 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
-  UnsubscribeRoute: UnsubscribeRoute,
   LovableEmailEventsRoute: LovableEmailEventsRoute,
   ApiPublicHooksEmailJobsRoute: ApiPublicHooksEmailJobsRoute,
   ApiPublicHooksSyncGoogleCalendarRoute: ApiPublicHooksSyncGoogleCalendarRoute,
