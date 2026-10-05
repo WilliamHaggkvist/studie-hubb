@@ -381,20 +381,13 @@ function StatsPage() {
     return entries.filter((e) => {
       if (!e.started_at) return false;
       if (new Date(e.started_at).getTime() > now) return false;
-      if (!e.course_id) return true;
-      const course = coursesMap.get(e.course_id);
-      return course ? (includeArchived ? true : !course.archived) : true;
+      return true;
     });
-  }, [entries, coursesMap, includeArchived]);
+  }, [entries, coursesMap]);
 
   const filteredSessionRows = useMemo(
-    () =>
-      sessionRows.filter((s) => {
-        if (!s.course_id) return true;
-        const course = coursesMap.get(s.course_id);
-        return course ? (includeArchived ? true : !course.archived) : true;
-      }),
-    [sessionRows, coursesMap, includeArchived],
+    () => sessionRows,
+    [sessionRows],
   );
 
   // Endast genomförda studiepass (där slut-tid har passerats) räknas i statistiken.
@@ -443,12 +436,8 @@ function StatsPage() {
 
   const { data: allTasks = [] } = useQuery(tasksQuery);
   const tasks = useMemo(() => {
-    return allTasks.filter((t) => {
-      if (!t.course_id) return true;
-      const course = coursesMap.get(t.course_id);
-      return course ? (includeArchived ? true : !course.archived) : true;
-    });
-  }, [allTasks, coursesMap, includeArchived]);
+    return allTasks;
+  }, [allTasks]);
 
   const sessionsCount = useMemo(() => {
     const now = Date.now();
@@ -797,27 +786,15 @@ function StatsPage() {
     const yearsMap = new Map<number, YearStat>();
     const windows = periodWindows(terms);
 
-    for (const c of courses) {
+    // HP Antagen baseras på samtliga kurser (allCourses) och deras antagningsomgångar.
+    // HP antagen blandas inte ihop med rapporteringsmoment.
+    for (const c of allCourses) {
       const isInactive = Boolean(c.archived);
-      const courseDoneModules = allModules.filter(
-        (m) => m.course_id === c.id && isModuleDone(m)
-      );
-      const doneModulesHp = courseDoneModules.reduce(
-        (sum, m) => sum + (Number(m.hp) || 0),
-        0
-      );
-      const hasCompletedModules = courseDoneModules.length > 0;
-
-      // Om kursen är inaktiv och inte har några avklarade moment, exkluderas den från HP-statistiken
-      if (isInactive && !hasCompletedModules) {
-        continue;
-      }
-
       const courseHp = c.hp ?? 0;
       const courseEnrollments = enrollmentsForCourse(c, allEnrollments);
 
-      // En kurs ingår i statistiken om och endast om den har minst en omgång
-      // där BÅDE årskurs och period(er) är valda, eller om den är inaktiv med avklarade moment
+      // En kurs ingår i HP - Antagen om och endast om den har minst en omgång
+      // där BÅDE årskurs och period(er) är valda
       const validEnrollments = courseEnrollments.filter((enr) => {
         const hasArskurs = enr.arskurs != null && Number(enr.arskurs) > 0;
         const validPs = (enr.periods ?? []).filter((p) =>
@@ -826,221 +803,88 @@ function StatsPage() {
         return hasArskurs && validPs.length > 0;
       });
 
-      if (validEnrollments.length === 0 && (!isInactive || !hasCompletedModules)) {
+      if (validEnrollments.length === 0) {
         excludedCoursesCount++;
         continue;
       }
 
-      if (isInactive) {
-        // Inaktiv kurs med avklarade rapporteringsmoment:
-        // Inkludera de avklarade momentens HP i avklarat och totalt,
-        // men räkna INTE resten av kursen som pågående.
-        totalHp += doneModulesHp;
-        completedHp += doneModulesHp;
-        if (courseHp > 0 && doneModulesHp >= courseHp) {
-          completedCount++;
-        }
+      totalHp += courseHp;
+      if (c.completed) {
+        completedHp += courseHp;
+        completedCount++;
+      } else if (!isInactive) {
+        ongoingHp += courseHp;
+        ongoingCount++;
+      }
 
-        if (c.is_standalone) {
-          standaloneHp += doneModulesHp;
-          standaloneCompletedHp += doneModulesHp;
-          standaloneCount++;
-        } else {
-          programHp += doneModulesHp;
-          programCompletedHp += doneModulesHp;
-          programCount++;
-        }
-
-        if (c.mode === "distans") {
-          distansHp += doneModulesHp;
-          distansCompletedHp += doneModulesHp;
-          distansCount++;
-        } else {
-          campusHp += doneModulesHp;
-          campusCompletedHp += doneModulesHp;
-          campusCount++;
-        }
-
-        if (validEnrollments.length > 0) {
-          for (const enr of validEnrollments) {
-            const arskurs = Number(enr.arskurs);
-            if (!yearsMap.has(arskurs)) {
-              yearsMap.set(arskurs, {
-                arskurs,
-                label: `Årskurs ${arskurs}`,
-                completedHp: 0,
-                ongoingHp: 0,
-                totalHp: 0,
-                terms: createDefaultTerms(),
-              });
-            }
-            const yearObj = yearsMap.get(arskurs)!;
-
-            const validPs = (enr.periods ?? []).filter((p): p is CoursePeriod =>
-              validPeriodKeys.includes(p as any)
-            );
-            if (validPs.length === 0) continue;
-
-            const hpPerPeriod = doneModulesHp / validPs.length;
-
-            for (const p of validPs) {
-              const termKey = PERIOD_TO_TERM[p] as "HT" | "VT" | "ST";
-              const termObj = yearObj.terms.find((t) => t.key === termKey);
-              if (!termObj) continue;
-              const periodObj = termObj.periods.find((item) => item.period === p);
-              if (!periodObj) continue;
-
-              periodObj.totalHp += hpPerPeriod;
-              termObj.totalHp += hpPerPeriod;
-              yearObj.totalHp += hpPerPeriod;
-
-              periodObj.completedHp += hpPerPeriod;
-              termObj.completedHp += hpPerPeriod;
-              yearObj.completedHp += hpPerPeriod;
-
-              const existingCourseInPeriod = periodObj.courses.find((item) => item.course.id === c.id);
-              if (existingCourseInPeriod) {
-                existingCourseInPeriod.hpInPeriod = +(existingCourseInPeriod.hpInPeriod + hpPerPeriod).toFixed(1);
-              } else {
-                periodObj.courses.push({ course: c, hpInPeriod: +hpPerPeriod.toFixed(1) });
-              }
-            }
-          }
-        } else {
-          // Fallback om den inaktiva kursen saknar fullständig enrollment
-          let fallbackArskurs = Number(c.arskurs) || 1;
-          const enrs = enrollmentsForCourse(c, allEnrollments);
-          const enrWithArskurs = enrs.find((e) => e.arskurs != null && Number(e.arskurs) > 0);
-          if (enrWithArskurs) {
-            fallbackArskurs = Number(enrWithArskurs.arskurs);
-          }
-
-          let fallbackPeriod: CoursePeriod = "P1";
-          const doneWithDate = courseDoneModules.find((m) => m.registered_on);
-          if (doneWithDate?.registered_on) {
-            const win = resolvePeriod(doneWithDate.registered_on, windows);
-            if (win && validPeriodKeys.includes(win.period as any)) {
-              fallbackPeriod = win.period as CoursePeriod;
-            }
-          } else if (c.period && validPeriodKeys.includes(c.period as any)) {
-            fallbackPeriod = c.period as CoursePeriod;
-          } else if (c.periods && c.periods.length > 0 && validPeriodKeys.includes(c.periods[0] as any)) {
-            fallbackPeriod = c.periods[0] as CoursePeriod;
-          }
-
-          if (!yearsMap.has(fallbackArskurs)) {
-            yearsMap.set(fallbackArskurs, {
-              arskurs: fallbackArskurs,
-              label: `Årskurs ${fallbackArskurs}`,
-              completedHp: 0,
-              ongoingHp: 0,
-              totalHp: 0,
-              terms: createDefaultTerms(),
-            });
-          }
-          const yearObj = yearsMap.get(fallbackArskurs)!;
-          const termKey = PERIOD_TO_TERM[fallbackPeriod] as "HT" | "VT" | "ST";
-          const termObj = yearObj.terms.find((t) => t.key === termKey);
-          if (termObj) {
-            const periodObj = termObj.periods.find((item) => item.period === fallbackPeriod);
-            if (periodObj) {
-              periodObj.totalHp += doneModulesHp;
-              termObj.totalHp += doneModulesHp;
-              yearObj.totalHp += doneModulesHp;
-
-              periodObj.completedHp += doneModulesHp;
-              termObj.completedHp += doneModulesHp;
-              yearObj.completedHp += doneModulesHp;
-
-              const existingCourseInPeriod = periodObj.courses.find((item) => item.course.id === c.id);
-              if (existingCourseInPeriod) {
-                existingCourseInPeriod.hpInPeriod = +(existingCourseInPeriod.hpInPeriod + doneModulesHp).toFixed(1);
-              } else {
-                periodObj.courses.push({ course: c, hpInPeriod: +doneModulesHp.toFixed(1) });
-              }
-            }
-          }
-        }
+      if (c.is_standalone) {
+        standaloneHp += courseHp;
+        standaloneCount++;
+        if (c.completed) standaloneCompletedHp += courseHp;
       } else {
-        // Aktiv kurs
-        totalHp += courseHp;
-        if (c.completed) {
-          completedHp += courseHp;
-          completedCount++;
-        } else {
-          ongoingHp += courseHp;
-          ongoingCount++;
-        }
+        programHp += courseHp;
+        programCount++;
+        if (c.completed) programCompletedHp += courseHp;
+      }
 
-        if (c.is_standalone) {
-          standaloneHp += courseHp;
-          standaloneCount++;
-          if (c.completed) standaloneCompletedHp += courseHp;
-        } else {
-          programHp += courseHp;
-          programCount++;
-          if (c.completed) programCompletedHp += courseHp;
-        }
+      if (c.mode === "distans") {
+        distansHp += courseHp;
+        distansCount++;
+        if (c.completed) distansCompletedHp += courseHp;
+      } else {
+        campusHp += courseHp;
+        campusCount++;
+        if (c.completed) campusCompletedHp += courseHp;
+      }
 
-        if (c.mode === "distans") {
-          distansHp += courseHp;
-          distansCount++;
-          if (c.completed) distansCompletedHp += courseHp;
-        } else {
-          campusHp += courseHp;
-          campusCount++;
-          if (c.completed) campusCompletedHp += courseHp;
+      for (const enr of validEnrollments) {
+        const arskurs = Number(enr.arskurs);
+        if (!yearsMap.has(arskurs)) {
+          yearsMap.set(arskurs, {
+            arskurs,
+            label: `Årskurs ${arskurs}`,
+            completedHp: 0,
+            ongoingHp: 0,
+            totalHp: 0,
+            terms: createDefaultTerms(),
+          });
         }
+        const yearObj = yearsMap.get(arskurs)!;
 
-        for (const enr of validEnrollments) {
-          const arskurs = Number(enr.arskurs);
-          if (!yearsMap.has(arskurs)) {
-            yearsMap.set(arskurs, {
-              arskurs,
-              label: `Årskurs ${arskurs}`,
-              completedHp: 0,
-              ongoingHp: 0,
-              totalHp: 0,
-              terms: createDefaultTerms(),
-            });
+        const validPs = (enr.periods ?? []).filter((p): p is CoursePeriod =>
+          validPeriodKeys.includes(p as any)
+        );
+        if (validPs.length === 0) continue;
+
+        // För varje antagningsomgång delas kursens HP lika över omgångens valda läsperioder
+        const hpPerPeriod = courseHp / validPs.length;
+
+        for (const p of validPs) {
+          const termKey = PERIOD_TO_TERM[p] as "HT" | "VT" | "ST";
+          const termObj = yearObj.terms.find((t) => t.key === termKey);
+          if (!termObj) continue;
+          const periodObj = termObj.periods.find((item) => item.period === p);
+          if (!periodObj) continue;
+
+          periodObj.totalHp += hpPerPeriod;
+          termObj.totalHp += hpPerPeriod;
+          yearObj.totalHp += hpPerPeriod;
+
+          if (c.completed) {
+            periodObj.completedHp += hpPerPeriod;
+            termObj.completedHp += hpPerPeriod;
+            yearObj.completedHp += hpPerPeriod;
+          } else if (!isInactive) {
+            periodObj.ongoingHp += hpPerPeriod;
+            termObj.ongoingHp += hpPerPeriod;
+            yearObj.ongoingHp += hpPerPeriod;
           }
-          const yearObj = yearsMap.get(arskurs)!;
 
-          const validPs = (enr.periods ?? []).filter((p): p is CoursePeriod =>
-            validPeriodKeys.includes(p as any)
-          );
-          if (validPs.length === 0) continue;
-
-          // För varje antagningsomgång delas kursens HP lika över omgångens valda läsperioder
-          const hpPerPeriod = courseHp / validPs.length;
-
-          for (const p of validPs) {
-            const termKey = PERIOD_TO_TERM[p] as "HT" | "VT" | "ST";
-            const termObj = yearObj.terms.find((t) => t.key === termKey);
-            if (!termObj) continue;
-            const periodObj = termObj.periods.find((item) => item.period === p);
-            if (!periodObj) continue;
-
-            periodObj.totalHp += hpPerPeriod;
-            termObj.totalHp += hpPerPeriod;
-            yearObj.totalHp += hpPerPeriod;
-
-            if (c.completed) {
-              periodObj.completedHp += hpPerPeriod;
-              termObj.completedHp += hpPerPeriod;
-              yearObj.completedHp += hpPerPeriod;
-            } else {
-              periodObj.ongoingHp += hpPerPeriod;
-              termObj.ongoingHp += hpPerPeriod;
-              yearObj.ongoingHp += hpPerPeriod;
-            }
-
-            const existingCourseInPeriod = periodObj.courses.find((item) => item.course.id === c.id);
-            if (existingCourseInPeriod) {
-              existingCourseInPeriod.hpInPeriod = +(existingCourseInPeriod.hpInPeriod + hpPerPeriod).toFixed(1);
-            } else {
-              periodObj.courses.push({ course: c, hpInPeriod: +hpPerPeriod.toFixed(1) });
-            }
+          const existingCourseInPeriod = periodObj.courses.find((item) => item.course.id === c.id);
+          if (existingCourseInPeriod) {
+            existingCourseInPeriod.hpInPeriod = +(existingCourseInPeriod.hpInPeriod + hpPerPeriod).toFixed(1);
+          } else {
+            periodObj.courses.push({ course: c, hpInPeriod: +hpPerPeriod.toFixed(1) });
           }
         }
       }
@@ -1104,12 +948,12 @@ function StatsPage() {
       yearStats: yearStatsList,
       chartPeriodData,
     };
-  }, [courses, allEnrollments, allModules, terms]);
+  }, [allCourses, allEnrollments, terms]);
 
   // --- Högskolepoäng (HP) Registrerade statistik ---
   const registeredStats = useMemo(() => {
-    // Registrerade kurser = aktiva (icke-arkiverade) samt slutförda kurser
-    const registeredCourses = courses.filter((c) => !c.archived || c.completed);
+    // Registrerade kurser = alla kurser inkl. inaktiva (archived), de ska alltid visas i statistiken
+    const registeredCourses = courses;
 
     let completedHp = 0;
     let ongoingHp = 0;
