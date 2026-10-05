@@ -1868,7 +1868,7 @@ function StatsPage() {
                     }}
                     itemStyle={{ color: "var(--foreground)" }}
                     labelStyle={{ color: "var(--muted-foreground)" }}
-                    formatter={(v: number) => [`${v} h`, ""]}
+                    formatter={(v: any) => [`${v} h`, ""]}
                   />
                   <Legend wrapperStyle={{ fontSize: 11 }} />
                   {courses.map((c) => (
@@ -1926,7 +1926,7 @@ function StatsPage() {
                       }}
                       itemStyle={{ color: "var(--foreground)" }}
                       labelStyle={{ color: "var(--muted-foreground)" }}
-                      formatter={(v: number, n: string) => [`${v} h`, n]}
+                      formatter={(v: any, n: any) => [`${v} h`, n]}
                     />
                   </PieChart>
                 </ResponsiveContainer>
@@ -2126,7 +2126,7 @@ function StatsPage() {
                       fontSize: 12,
                       color: "var(--foreground)",
                     }}
-                    formatter={(v: number) => [`${v} h`, "Studietid"]}
+                    formatter={(v: any) => [`${v} h`, "Studietid"]}
                   />
                   <Bar dataKey="timmar" radius={[4, 4, 0, 0]}>
                     {weekdayData.map((d, i) => (
@@ -2180,7 +2180,7 @@ function StatsPage() {
                       fontSize: 12,
                       color: "var(--foreground)",
                     }}
-                    formatter={(v: number, _: string, props: { payload?: { hour: number } }) => [
+                    formatter={(v: any, _: any, props: { payload?: { hour: number } }) => [
                       `${v} h`,
                       `Kl. ${props.payload?.hour?.toString().padStart(2, "0") ?? ""}:00`,
                     ]}
@@ -2288,7 +2288,7 @@ function StatsPage() {
                     }}
                     itemStyle={{ color: "var(--foreground)" }}
                     labelStyle={{ color: "var(--muted-foreground)" }}
-                    formatter={(v: number, name: string) => [`${v} h`, name]}
+                    formatter={(v: any, name: any) => [`${v} h`, name]}
                   />
                   <Legend wrapperStyle={{ fontSize: 11 }} />
                   <Bar dataKey="Planerat" fill="#6366f1" fillOpacity={0.5} radius={[4, 4, 0, 0]} />
@@ -2667,7 +2667,7 @@ function StatsPage() {
                           fontSize: 12,
                           color: "var(--foreground)",
                         }}
-                        formatter={(v: number, name: string) => [`${v} HP`, name]}
+                        formatter={(v: any, name: any) => [`${v} HP`, name]}
                       />
                       <Legend wrapperStyle={{ fontSize: 11 }} />
                       <Bar dataKey="Avklarade HP" stackId="hp" fill="#10b981" radius={[0, 0, 3, 3]} />
@@ -3703,7 +3703,7 @@ function StatsPage() {
                             fontSize: 12,
                             color: "var(--foreground)",
                           }}
-                          formatter={(v: number, name: string) => [
+                          formatter={(v: any, name: any) => [
                             name === "Antal" ? `${v} kurser` : `${v} HP`,
                             name,
                           ]}
