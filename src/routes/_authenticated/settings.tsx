@@ -21,6 +21,7 @@ import { ARSKURS_OPTIONS } from "@/lib/course-presets";
 import { formatDateYYYYMMDD, parseDateInputToISO } from "@/lib/date-utils";
 import { DatePicker } from "@/components/ui/date-picker";
 import { termsQuery } from "@/lib/queries";
+import { NOTIF_CATEGORIES, type NotifCategory } from "@/lib/notifications";
 import { academicYearOf, getArskursFromAcademicYear } from "@/lib/academic-periods";
 import {
   useCsnPeriods,
@@ -1453,6 +1454,42 @@ function GoogleCard() {
             </div>
           )}
         </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function InboxCategoriesCard() {
+  const { data: s } = useUserSettings();
+  const qc = useQueryClient();
+  const cats = (s?.notif_categories ?? {}) as Record<string, boolean>;
+  const save = async (key: NotifCategory, on: boolean) => {
+    if (!s) return;
+    const { error } = await supabase
+      .from("user_settings")
+      .update({ notif_categories: { ...cats, [key]: on } })
+      .eq("user_id", s.user_id);
+    if (error) return toast.error(error.message);
+    qc.invalidateQueries({ queryKey: ["user_settings"] });
+  };
+  return (
+    <Card className="border-border/60 bg-surface/60 backdrop-blur-md rounded-2xl">
+      <CardHeader>
+        <CardTitle className="font-display text-base">Notisinkorg</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <p className="text-sm text-muted-foreground">
+          Välj vilka typer av notiser som visas under klockan uppe till höger.
+        </p>
+        {NOTIF_CATEGORIES.map((c) => (
+          <div key={c.key} className="flex items-center justify-between gap-4">
+            <div>
+              <div className="text-sm font-medium">{c.label}</div>
+              <div className="text-xs text-muted-foreground">{c.description}</div>
+            </div>
+            <Switch checked={cats[c.key] !== false} onCheckedChange={(v) => save(c.key, v)} />
+          </div>
+        ))}
       </CardContent>
     </Card>
   );
