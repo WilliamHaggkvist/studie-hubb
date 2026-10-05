@@ -51,6 +51,7 @@ function SettingsPage() {
       </div>
       <NotificationsCard />
       <PushCard />
+      <InboxCategoriesCard />
       <UniversitiesCard />
       <TermsCard />
       <CsnPeriodsCard />

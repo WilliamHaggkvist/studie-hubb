@@ -39,6 +39,24 @@ export async function syncGoogleCalendarForUser(
   supabase: SupabaseClient<Database>,
   userId: string,
 ) {
+  try {
+    const r = await runSync(supabase, userId);
+    await supabase
+      .from("user_settings")
+      .update({ google_last_sync_at: new Date().toISOString(), google_last_sync_error: null })
+      .eq("user_id", userId);
+    return r;
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    await supabase
+      .from("user_settings")
+      .update({ google_last_sync_at: new Date().toISOString(), google_last_sync_error: msg.slice(0, 500) })
+      .eq("user_id", userId);
+    throw e;
+  }
+}
+
+async function runSync(supabase: SupabaseClient<Database>, userId: string) {
   const headers = gatewayHeaders();
   const now = new Date();
   const timeMin = new Date(now.getTime() - 30 * 24 * 3600 * 1000).toISOString();
