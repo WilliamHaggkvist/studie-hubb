@@ -135,6 +135,7 @@ export function NotificationBell() {
   const markRead = (k: string) => upsert([k], { read_at: now() });
   const dismiss = (k: string) => upsert([k], { dismissed_at: now(), read_at: now() });
   const markAll = () => upsert(unread.map((n) => n.key), { read_at: now() });
+  const dismissAll = () => upsert(visible.map((n) => n.key), { dismissed_at: now(), read_at: now() });
 
   const groups: { label: string; sev: AppNotification["severity"] }[] = [
     { label: "Brådskande", sev: "urgent" },
@@ -146,11 +147,18 @@ export function NotificationBell() {
     <div className="flex max-h-[70vh] flex-col">
       <div className="flex items-center justify-between border-b border-border/60 px-4 py-3">
         <span className="font-display text-sm font-semibold">Notiser</span>
-        {unread.length > 0 && (
-          <button onClick={markAll} className="text-xs text-muted-foreground hover:text-foreground">
-            Markera alla som lästa
-          </button>
-        )}
+        <div className="flex items-center gap-3">
+          {unread.length > 0 && (
+            <button onClick={markAll} className="text-xs text-muted-foreground hover:text-foreground">
+              Markera alla som lästa
+            </button>
+          )}
+          {visible.length > 0 && (
+            <button onClick={dismissAll} className="text-xs text-muted-foreground hover:text-destructive">
+              Rensa alla
+            </button>
+          )}
+        </div>
       </div>
       <div className="overflow-y-auto">
         {visible.length === 0 && (
