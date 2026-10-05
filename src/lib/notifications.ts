@@ -1,14 +1,19 @@
 import type { Course, Task, ReportingModule, CourseEnrollment, TermRow } from "@/lib/queries";
 import type { UserSettings } from "@/lib/settings";
+import { calculateCsnMetrics, type CsnPeriod } from "@/lib/csn";
+import { periodWindows } from "@/lib/academic-periods";
+import { CHANGELOG } from "@/lib/changelog";
 
-export type NotifCategory = "tasks" | "courses" | "sessions" | "system";
+export type NotifCategory = "tasks" | "courses" | "sessions" | "system" | "progress" | "csn";
 export type NotifSeverity = "urgent" | "action" | "info";
 
 export const NOTIF_CATEGORIES: { key: NotifCategory; label: string; description: string }[] = [
   { key: "tasks", label: "Uppgifter", description: "Försenade, deadline snart, väntar på bedömning" },
-  { key: "courses", label: "Kurser", description: "Saknade uppgifter, HP-fel, ej avslutade kurser" },
-  { key: "sessions", label: "Studiepass", description: "Okopplade pass och pass som startar snart" },
-  { key: "system", label: "System", description: "Kalendersynk, push, e-post och terminsdatum" },
+  { key: "courses", label: "Kurser", description: "Tomma kurser, HP-fel, ej avslutade kurser" },
+  { key: "progress", label: "Framsteg & mål", description: "HP-milstolpar, veckomål, kurs nästan klar" },
+  { key: "csn", label: "CSN", description: "Varning när CSN-kravet riskerar att missas" },
+  { key: "sessions", label: "Studiepass", description: "Okopplade pass, pass snart, inget pass på länge" },
+  { key: "system", label: "System", description: "Kalendersynk, push, e-post, nyheter, ny inloggning" },
 ];
 
 export type AppNotification = {
@@ -24,15 +29,38 @@ export type AppNotification = {
 
 export type SessionLite = {
   id: string;
+  course_id: string | null;
   planned_start: string;
   planned_end: string;
+  actual_start: string | null;
+  actual_end: string | null;
   needs_review: boolean;
   completed: boolean;
+  created_at: string;
 };
+
+export type DeviceLite = { device_id: string; user_agent: string | null; first_seen_at: string };
 
 const DAY = 86400000;
 const ymd = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const fmtH = (h: number) => (Math.round(h * 10) / 10).toString().replace(".", ",");
+function mondayOf(d: Date) {
+  const m = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  m.setDate(m.getDate() - ((m.getDay() + 6) % 7));
+  return m;
+}
+function sessionHours(s: SessionLite) {
+  const a = new Date(s.actual_start ?? s.planned_start).getTime();
+  const b = new Date(s.actual_end ?? s.planned_end).getTime();
+  return Math.max(0, (b - a) / 3600000);
+}
+function deviceName(ua: string | null) {
+  if (!ua) return "okänd enhet";
+  const os = /iPhone/.test(ua) ? "iPhone" : /iPad/.test(ua) ? "iPad" : /Android/.test(ua) ? "Android" : /Mac/.test(ua) ? "Mac" : /Windows/.test(ua) ? "Windows" : /Linux/.test(ua) ? "Linux" : "okänt system";
+  const br = /Edg\//.test(ua) ? "Edge" : /Firefox/.test(ua) ? "Firefox" : /Chrome/.test(ua) ? "Chrome" : /Safari/.test(ua) ? "Safari" : "webbläsare";
+  return `${br} på ${os}`;
+}
 
 export function buildNotifications(input: {
   courses: Course[];
