@@ -1170,10 +1170,42 @@ function StatsPage() {
     let distansModulesCount = 0;
     let distansModulesHp = 0;
 
+    // Bygg ett set av kurs-IDs som har minst en giltig antagningsomgång (arskurs + period)
+    const validPeriodKeysSet = new Set(["P1", "P2", "P3", "P4", "P5"]);
+    const validCourseIds = new Set<string>();
+    for (const c of allCourses) {
+      const enrs = enrollmentsForCourse(c, allEnrollments);
+      const hasValid = enrs.some(
+        (e) =>
+          e.arskurs != null &&
+          Number(e.arskurs) > 0 &&
+          (e.periods ?? []).some((p) => validPeriodKeysSet.has(p)),
+      );
+      if (hasValid) validCourseIds.add(c.id);
+    }
+
+    // Beräkna antal moduler totalt vs avklarade per kurs (endast kurser med giltig enrollment)
+    const courseModuleTotals = new Map<string, { total: number; done: number }>();
+    for (const m of allModules) {
+      if (!validCourseIds.has(m.course_id)) continue;
+      const entry = courseModuleTotals.get(m.course_id) ?? { total: 0, done: 0 };
+      entry.total++;
+      if (isModuleDone(m)) entry.done++;
+      courseModuleTotals.set(m.course_id, entry);
+    }
+    // Kurser med ≥1 avklarat moment
+    const coursesWithAnyDone = Array.from(courseModuleTotals.values()).filter((v) => v.done >= 1).length;
+    // Kurser där inte alla moment är avklarade (dvs. något kvarstår)
+    const coursesWithIncomplete = Array.from(courseModuleTotals.values()).filter(
+      (v) => v.total > 0 && v.done < v.total,
+    ).length;
+
     // Processera ENDAST course_reporting_modules (klarmarkerade eller med betyg/datum/poäng)
+    // och ENDAST för kurser med giltig antagningsomgång
     for (const m of allModules) {
       const isDone = Boolean(m.completed || hasEnteredValue(m.grade) || m.registered_on || hasEnteredValue(m.points));
       if (!isDone) continue;
+      if (!validCourseIds.has(m.course_id)) continue;
       const course = courseById.get(m.course_id);
       if (!course) continue;
 
@@ -1408,6 +1440,8 @@ function StatsPage() {
     return {
       grandTotalHp: +grandTotalHp.toFixed(1),
       grandModuleCount,
+      coursesWithAnyDone,
+      coursesWithIncomplete,
       programModulesCount,
       programModulesHp: +programModulesHp.toFixed(1),
       standaloneModulesCount,
@@ -2328,17 +2362,17 @@ function StatsPage() {
                   <span className="flex items-center gap-1.5 text-emerald-400 font-semibold">
                     <CheckCircle2 className="h-3.5 w-3.5" /> Avklarat
                   </span>
-                  <span className="text-[10px] text-emerald-400 font-medium">{hpStats.completedCount} kurser</span>
+                  <span className="text-[10px] text-emerald-400 font-medium">{registeredHpStats.coursesWithAnyDone} kurser</span>
                 </div>
                 <div className="mt-1 flex items-baseline justify-between">
                   <span className="font-display text-2xl font-bold tabular-nums text-emerald-400">
-                    {hpStats.completedHp} <span className="text-xs font-normal text-muted-foreground">HP</span>
+                    {registeredHpStats.grandTotalHp} <span className="text-xs font-normal text-muted-foreground">HP</span>
                   </span>
                 </div>
                 <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-surface-2">
                   <div
                     className="h-full rounded-full bg-emerald-500 transition-all duration-300"
-                    style={{ width: `${Math.min(100, hpStats.pctCompleted)}%` }}
+                    style={{ width: `${hpStats.totalHp > 0 ? Math.min(100, Math.round((registeredHpStats.grandTotalHp / hpStats.totalHp) * 100)) : 0}%` }}
                   />
                 </div>
               </Card>
@@ -2348,7 +2382,7 @@ function StatsPage() {
                   <span className="flex items-center gap-1.5 text-sky-400 font-semibold">
                     <BookOpen className="h-3.5 w-3.5" /> Pågående
                   </span>
-                  <span className="text-[10px] text-sky-400 font-medium">{hpStats.ongoingCount} kurser</span>
+                  <span className="text-[10px] text-sky-400 font-medium">{registeredHpStats.coursesWithIncomplete} kurser</span>
                 </div>
                 <div className="mt-1 font-display text-2xl font-bold tabular-nums text-sky-400">
                   {hpStats.ongoingHp} <span className="text-xs font-normal text-muted-foreground">HP</span>
@@ -2373,9 +2407,9 @@ function StatsPage() {
                   </span>
                 </div>
                 <div className="mt-1 font-display text-2xl font-bold tabular-nums text-amber-400">
-                  {hpStats.pctCompleted}%
+                  {hpStats.totalHp > 0 ? Math.min(100, Math.round((registeredHpStats.grandTotalHp / hpStats.totalHp) * 100)) : 0}%
                 </div>
-                <p className="mt-1 text-[10px] text-muted-foreground truncate">Av totala poäng</p>
+                <p className="mt-1 text-[10px] text-muted-foreground truncate">Registrerade av totala</p>
               </Card>
             </div>
 
@@ -2389,12 +2423,12 @@ function StatsPage() {
                   <div className="rounded bg-surface-2/30 p-2">
                     <span className="text-[11px] text-muted-foreground block">Program</span>
                     <span className="font-bold text-foreground font-mono">{hpStats.programHp} HP</span>
-                    <span className="text-[9px] text-emerald-400 block font-medium">({hpStats.programCompletedHp} HP klara)</span>
+                    <span className="text-[9px] text-emerald-400 block font-medium">({registeredHpStats.programModulesHp} HP klara)</span>
                   </div>
                   <div className="rounded bg-surface-2/30 p-2">
                     <span className="text-[11px] text-muted-foreground block">Fristående</span>
                     <span className="font-bold text-foreground font-mono">{hpStats.standaloneHp} HP</span>
-                    <span className="text-[9px] text-emerald-400 block font-medium">({hpStats.standaloneCompletedHp} HP klara)</span>
+                    <span className="text-[9px] text-emerald-400 block font-medium">({registeredHpStats.standaloneModulesHp} HP klara)</span>
                   </div>
                 </div>
               </Card>
@@ -2407,12 +2441,12 @@ function StatsPage() {
                   <div className="rounded bg-surface-2/30 p-2">
                     <span className="text-[11px] text-muted-foreground block">Campus</span>
                     <span className="font-bold text-foreground font-mono">{hpStats.campusHp} HP</span>
-                    <span className="text-[9px] text-emerald-400 block font-medium">({hpStats.campusCompletedHp} HP klara)</span>
+                    <span className="text-[9px] text-emerald-400 block font-medium">({registeredHpStats.campusModulesHp} HP klara)</span>
                   </div>
                   <div className="rounded bg-surface-2/30 p-2">
                     <span className="text-[11px] text-muted-foreground block">Distans</span>
                     <span className="font-bold text-foreground font-mono">{hpStats.distansHp} HP</span>
-                    <span className="text-[9px] text-emerald-400 block font-medium">({hpStats.distansCompletedHp} HP klara)</span>
+                    <span className="text-[9px] text-emerald-400 block font-medium">({registeredHpStats.distansModulesHp} HP klara)</span>
                   </div>
                 </div>
               </Card>
@@ -2570,11 +2604,7 @@ function StatsPage() {
                                           <span className="font-mono text-[10px] font-semibold tabular-nums text-muted-foreground">
                                             {hpInPeriod} HP
                                           </span>
-                                          {c.archived ? (
-                                            <span className="inline-flex items-center gap-0.5 rounded bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 text-[9px] font-semibold text-amber-400">
-                                              <CheckCircle2 className="h-2.5 w-2.5" /> Inaktiv
-                                            </span>
-                                          ) : c.completed ? (
+                                          {c.completed ? (
                                             <span className="inline-flex items-center gap-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-400">
                                               <CheckCircle2 className="h-2.5 w-2.5" /> Klart
                                             </span>

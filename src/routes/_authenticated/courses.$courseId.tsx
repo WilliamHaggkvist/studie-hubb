@@ -48,6 +48,7 @@ import {
   TrendingUp,
   ChevronRight,
   ChevronDown,
+  AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatHoursCompact } from "@/lib/timer-store";
@@ -575,6 +576,9 @@ function CourseDetail() {
   const modulesHpTotal = modules.reduce((s, m) => s + (Number(m.hp) || 0), 0);
   const modulesHpDone = doneModules.reduce((s, m) => s + (Number(m.hp) || 0), 0);
   const allModulesDone = modules.length === 0 || doneModules.length === modules.length;
+  const hasValidEnrollment = courseEnrollments.some(
+    (e) => e.arskurs != null && Number(e.arskurs) > 0 && (e.periods ?? []).some((p) => ["P1","P2","P3","P4","P5"].includes(p)),
+  );
 
   const updateModule = useMutation({
     mutationFn: async (payload: {
@@ -630,6 +634,17 @@ function CourseDetail() {
           </BreadcrumbItem>
         </BreadcrumbList>
       </Breadcrumb>
+
+      {/* VARNING: saknar antagningsomgång */}
+      {!hasValidEnrollment && (
+        <div className="mb-4 flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
+          <div>
+            <span className="font-semibold text-amber-300">Ingen antagningsomgång angiven.</span>{" "}
+            Den här kursen visas inte i HP-statistiken och avklarade rapporteringsmoment räknas inte in i statistiken. Ange årskurs och läsperiod under kursens antagningsomgångar.
+          </div>
+        </div>
+      )}
 
       {/* HEADER */}
       <div className="relative mb-4 overflow-hidden rounded-2xl border border-border/60 bg-surface/60 backdrop-blur-xl p-5">
