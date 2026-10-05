@@ -1490,6 +1490,27 @@ function InboxCategoriesCard() {
             <Switch checked={cats[c.key] !== false} onCheckedChange={(v) => save(c.key, v)} />
           </div>
         ))}
+        <div className="flex items-center justify-between gap-4 border-t border-border/60 pt-3">
+          <div>
+            <div className="text-sm font-medium">Dagar innan påminnelse om bedömning</div>
+            <div className="text-xs text-muted-foreground">När en uppgift väntat på bedömning så här länge</div>
+          </div>
+          <input
+            type="number"
+            min={1}
+            max={180}
+            defaultValue={s?.notif_review_days ?? 14}
+            key={s?.notif_review_days}
+            onBlur={async (e) => {
+              const v = Math.max(1, Math.min(180, Number(e.target.value) || 14));
+              if (!s || v === s.notif_review_days) return;
+              const { error } = await supabase.from("user_settings").update({ notif_review_days: v }).eq("user_id", s.user_id);
+              if (error) return toast.error(error.message);
+              qc.invalidateQueries({ queryKey: ["user_settings"] });
+            }}
+            className="h-9 w-20 rounded-md border border-input bg-background px-2 text-sm"
+          />
+        </div>
       </CardContent>
     </Card>
   );

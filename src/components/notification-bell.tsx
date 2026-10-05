@@ -16,6 +16,8 @@ import {
 } from "@/lib/queries";
 import { buildNotifications, type AppNotification, type SessionLite } from "@/lib/notifications";
 import { getExistingSubscription } from "@/lib/push";
+import { useCsnPeriods } from "@/lib/csn";
+import type { DeviceLite } from "@/lib/notifications";
 import { cn } from "@/lib/utils";
 
 type StateRow = { key: string; read_at: string | null; dismissed_at: string | null };
@@ -26,6 +28,36 @@ export function NotificationBell() {
   const [open, setOpen] = useState(false);
   const [pushOnDevice, setPushOnDevice] = useState<boolean | null>(null);
   const [tick, setTick] = useState(0);
+  const [deviceId, setDeviceId] = useState<string | null>(null);
+  const csn = useCsnPeriods();
+  const csnPeriods = (csn as { data?: unknown }).data as import("@/lib/csn").CsnPeriod[] | undefined;
+
+  useEffect(() => {
+    let id = localStorage.getItem("studiehubb_device_id");
+    if (!id) {
+      id = crypto.randomUUID();
+      localStorage.setItem("studiehubb_device_id", id);
+    }
+    setDeviceId(id);
+    (async () => {
+      const { data: u } = await supabase.auth.getUser();
+      if (!u.user) return;
+      await supabase.from("user_devices").upsert(
+        { user_id: u.user.id, device_id: id!, user_agent: navigator.userAgent, last_seen_at: new Date().toISOString() },
+        { onConflict: "user_id,device_id" },
+      );
+      qc.invalidateQueries({ queryKey: ["user_devices"] });
+    })();
+  }, [qc]);
+  const { data: devices = [] } = useQuery({
+    queryKey: ["user_devices"],
+    queryFn: async (): Promise<DeviceLite[]> => {
+      const { data, error } = await supabase.from("user_devices").select("device_id,user_agent,first_seen_at");
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: typeof window !== "undefined",
+  });
 
   useEffect(() => {
     getExistingSubscription()
@@ -47,7 +79,7 @@ export function NotificationBell() {
       const from = new Date(Date.now() - 60 * 86400000).toISOString();
       const { data, error } = await supabase
         .from("study_sessions")
-        .select("id,planned_start,planned_end,needs_review,completed")
+        .select("id,course_id,planned_start,planned_end,actual_start,actual_end,needs_review,completed,created_at")
         .gte("planned_start", from);
       if (error) throw error;
       return data ?? [];
@@ -77,9 +109,12 @@ export function NotificationBell() {
         terms,
         settings,
         pushOnThisDevice: pushOnDevice,
+        csnPeriods,
+        devices,
+        currentDeviceId: deviceId,
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [courses, tasks, modules, enrollments, sessions, terms, settings, pushOnDevice, tick],
+    [courses, tasks, modules, enrollments, sessions, terms, settings, pushOnDevice, tick, csnPeriods, devices, deviceId],
   );
   const stateMap = useMemo(() => new Map(states.map((s) => [s.key, s])), [states]);
   const visible = all.filter((n) => !stateMap.get(n.key)?.dismissed_at);
