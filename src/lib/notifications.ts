@@ -296,7 +296,7 @@ export function buildNotifications(input: {
 
   if (st?.google_connected && !st.google_last_sync_error) {
     const last = st.google_last_sync_at ? new Date(st.google_last_sync_at).getTime() : 0;
-    if (now.getTime() - last > 2 * 3600000) {
+    if (now.getTime() - last > 9 * 3600000) {
       out.push({
         key: `gcal-stale:${st.google_last_sync_at ?? ""}`,
         category: "system",
