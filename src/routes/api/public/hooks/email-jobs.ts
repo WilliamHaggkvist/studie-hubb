@@ -8,7 +8,7 @@ import {
 } from "@/lib/push/send.server";
 
 /**
- * Runs every 15 minutes via pg_cron. Handles, per user:
+ * Runs hourly 04-21 UTC via pg_cron (first run covers the night). Handles, per user:
  *  - Deadline reminders (email + push, per-user + per-task offsets)
  *  - Study session start reminders (push only)
  *  - Daily summary (fires ~07:00 local per user)
@@ -241,6 +241,8 @@ export const Route = createFileRoute("/api/public/hooks/email-jobs")({
           return !error;
         }
 
+        // Hourly cadence; the first run of the day (04 UTC) also catches overnight items.
+        const WINDOW_MS = (now.getUTCHours() === 4 ? 7 * 60 + 5 : 65) * 60_000;
         const results: Record<string, number> = {
           reminders: 0,
           daily: 0,
@@ -317,7 +319,7 @@ export const Route = createFileRoute("/api/public/hooks/email-jobs")({
               const inWindow = (scheduled: Date | null): boolean => {
                 if (!scheduled) return false;
                 const diff = now.getTime() - scheduled.getTime();
-                return diff >= 0 && diff <= 20 * 60_000;
+                return diff >= 0 && diff <= WINDOW_MS;
               };
 
               if (wantEmailReminders) {
@@ -373,10 +375,9 @@ export const Route = createFileRoute("/api/public/hooks/email-jobs")({
             );
             for (const session of userSessions) {
               const start = new Date(session.planned_start);
-              const scheduled = new Date(start.getTime() - offsetMin * 60_000);
-              const diff = now.getTime() - scheduled.getTime();
-              if (diff < 0 || diff > 20 * 60_000) continue;
-              if (start.getTime() < now.getTime()) continue;
+              // Send in the last run before the session starts (within offset + 1h).
+              const until = start.getTime() - now.getTime();
+              if (until <= 0 || until > offsetMin * 60_000 + 60 * 60_000) continue;
               const dedupeKey = `push-session:${session.id}:${offsetMin}`;
               if (!(await reserve(s.user_id, "push_session", dedupeKey))) continue;
               const cInfo = session.course_id ? courseMap.get(session.course_id) : null;
