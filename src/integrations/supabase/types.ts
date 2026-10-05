@@ -945,6 +945,33 @@ export type Database = {
         }
         Relationships: []
       }
+      user_devices: {
+        Row: {
+          device_id: string
+          first_seen_at: string
+          id: string
+          last_seen_at: string
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          device_id: string
+          first_seen_at?: string
+          id?: string
+          last_seen_at?: string
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          device_id?: string
+          first_seen_at?: string
+          id?: string
+          last_seen_at?: string
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_settings: {
         Row: {
           created_at: string
@@ -957,6 +984,7 @@ export type Database = {
           google_last_sync_at: string | null
           google_last_sync_error: string | null
           notif_categories: Json
+          notif_review_days: number
           push_daily_summary: boolean
           push_deadline_reminders: boolean
           push_enabled: boolean
@@ -990,6 +1018,7 @@ export type Database = {
           google_last_sync_at?: string | null
           google_last_sync_error?: string | null
           notif_categories?: Json
+          notif_review_days?: number
           push_daily_summary?: boolean
           push_deadline_reminders?: boolean
           push_enabled?: boolean
@@ -1023,6 +1052,7 @@ export type Database = {
           google_last_sync_at?: string | null
           google_last_sync_error?: string | null
           notif_categories?: Json
+          notif_review_days?: number
           push_daily_summary?: boolean
           push_deadline_reminders?: boolean
           push_enabled?: boolean
