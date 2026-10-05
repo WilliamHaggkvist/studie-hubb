@@ -26,6 +26,7 @@ export type RegisteredModuleForCsn = {
   grade: string | null;
   points: string | null;
   registeredOn: string;
+  isArchived?: boolean;
 };
 
 export type CsnPeriodProgress = {
