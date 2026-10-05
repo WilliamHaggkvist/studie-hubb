@@ -28,6 +28,9 @@ export type UserSettings = {
   push_quiet_hours_enabled: boolean;
   push_quiet_start_hour: number;
   push_quiet_end_hour: number;
+  notif_categories: Record<string, boolean> | null;
+  google_last_sync_at: string | null;
+  google_last_sync_error: string | null;
 };
 
 export type University = {

@@ -452,6 +452,30 @@ export type Database = {
         }
         Relationships: []
       }
+      notification_states: {
+        Row: {
+          created_at: string
+          dismissed_at: string | null
+          key: string
+          read_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          dismissed_at?: string | null
+          key: string
+          read_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          dismissed_at?: string | null
+          key?: string
+          read_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       pages: {
         Row: {
           archived: boolean
@@ -930,6 +954,9 @@ export type Database = {
           email_reminders_enabled: boolean
           google_calendar_id: string | null
           google_connected: boolean
+          google_last_sync_at: string | null
+          google_last_sync_error: string | null
+          notif_categories: Json
           push_daily_summary: boolean
           push_deadline_reminders: boolean
           push_enabled: boolean
@@ -960,6 +987,9 @@ export type Database = {
           email_reminders_enabled?: boolean
           google_calendar_id?: string | null
           google_connected?: boolean
+          google_last_sync_at?: string | null
+          google_last_sync_error?: string | null
+          notif_categories?: Json
           push_daily_summary?: boolean
           push_deadline_reminders?: boolean
           push_enabled?: boolean
@@ -990,6 +1020,9 @@ export type Database = {
           email_reminders_enabled?: boolean
           google_calendar_id?: string | null
           google_connected?: boolean
+          google_last_sync_at?: string | null
+          google_last_sync_error?: string | null
+          notif_categories?: Json
           push_daily_summary?: boolean
           push_deadline_reminders?: boolean
           push_enabled?: boolean

@@ -1,4 +1,5 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
+import { NotificationBell } from "@/components/notification-bell";
 import { useQuery } from "@tanstack/react-query";
 import { useSyncExternalStore, useEffect, useState, type ReactNode } from "react";
 import { useDebounce } from "@/hooks/use-debounce";
@@ -534,6 +535,7 @@ function TopBar({ onMenuClick }: { onMenuClick: () => void }) {
       </button>
       <GlobalSearch />
       <div className="flex-1" />
+      <NotificationBell />
       <TimerWidget />
     </header>
   );
