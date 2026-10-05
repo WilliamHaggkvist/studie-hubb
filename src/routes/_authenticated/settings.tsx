@@ -14,7 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Trash2, Save, Calendar as CalIcon } from "lucide-react";
+import { Plus, Trash2, Save, Calendar as CalIcon, GraduationCap, Pencil, Info, Check, X } from "lucide-react";
 import { toast } from "sonner";
 import { useUniversities, useUserSettings } from "@/lib/settings";
 import { ARSKURS_OPTIONS } from "@/lib/course-presets";
@@ -22,6 +22,13 @@ import { formatDateYYYYMMDD, parseDateInputToISO } from "@/lib/date-utils";
 import { DatePicker } from "@/components/ui/date-picker";
 import { termsQuery } from "@/lib/queries";
 import { academicYearOf, getArskursFromAcademicYear } from "@/lib/academic-periods";
+import {
+  useCsnPeriods,
+  calculateWeeksFromDates,
+  calculateCsnMetrics,
+  getCsnPeriodStatus,
+  type CsnPeriod,
+} from "@/lib/csn";
 
 export const Route = createFileRoute("/_authenticated/settings")({
   component: SettingsPage,
@@ -46,6 +53,7 @@ function SettingsPage() {
       <PushCard />
       <UniversitiesCard />
       <TermsCard />
+      <CsnPeriodsCard />
       <GoogleCard />
     </div>
   );
@@ -877,6 +885,386 @@ function TermsCard() {
           >
             Spara
           </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function CsnPeriodsCard() {
+  const { periods, addPeriod, updatePeriod, deletePeriod, isSaving } = useCsnPeriods();
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  // Ny period form state
+  const [name, setName] = useState("");
+  const [start, setStart] = useState("");
+  const [end, setEnd] = useState("");
+  const [weeks, setWeeks] = useState<string>("");
+
+  // Edit period form state
+  const [editName, setEditName] = useState("");
+  const [editStart, setEditStart] = useState("");
+  const [editEnd, setEditEnd] = useState("");
+  const [editWeeks, setEditWeeks] = useState<string>("");
+
+  const handleStartChange = (val: string) => {
+    setStart(val);
+  };
+
+  const handleEndChange = (val: string) => {
+    setEnd(val);
+  };
+
+  const handleEditStartChange = (val: string) => {
+    setEditStart(val);
+  };
+
+  const handleEditEndChange = (val: string) => {
+    setEditEnd(val);
+  };
+
+  const startEditing = (p: CsnPeriod) => {
+    setEditingId(p.id);
+    setEditName(p.name);
+    setEditStart(p.startDate);
+    setEditEnd(p.endDate);
+    setEditWeeks(String(p.weeks));
+  };
+
+  const cancelEditing = () => {
+    setEditingId(null);
+  };
+
+  const saveEdit = async () => {
+    if (!editingId || !editStart || !editEnd || !editWeeks) return;
+    const finalWeeks = Math.max(1, Number(editWeeks));
+    try {
+      await updatePeriod({
+        id: editingId,
+        name:
+          editName.trim() ||
+          `CSN-period (${formatDateYYYYMMDD(editStart)} – ${formatDateYYYYMMDD(editEnd)})`,
+        startDate: editStart,
+        endDate: editEnd,
+        weeks: finalWeeks,
+      });
+      toast.success("CSN-perioden har sparats");
+      setEditingId(null);
+    } catch {
+      toast.error("Kunde inte spara ändringar");
+    }
+  };
+
+  const handleAdd = async () => {
+    if (!start || !end || !weeks) return;
+    const finalWeeks = Math.max(1, Number(weeks));
+    try {
+      await addPeriod({
+        name:
+          name.trim() ||
+          `CSN-period (${formatDateYYYYMMDD(start)} – ${formatDateYYYYMMDD(end)})`,
+        startDate: start,
+        endDate: end,
+        weeks: finalWeeks,
+      });
+      toast.success("CSN-period tillagd");
+      setName("");
+      setStart("");
+      setEnd("");
+      setWeeks("");
+    } catch {
+      toast.error("Kunde inte lägga till CSN-period");
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      await deletePeriod(id);
+      toast.success("CSN-period borttagen");
+    } catch {
+      toast.error("Kunde inte ta bort perioden");
+    }
+  };
+
+  const previewWeeks = Number(weeks) || 0;
+  const previewMetrics = calculateCsnMetrics(previewWeeks);
+
+  const editPreviewWeeks = Number(editWeeks) || 0;
+  const editPreviewMetrics = calculateCsnMetrics(editPreviewWeeks);
+
+  return (
+    <Card id="csn-periods" className="border-border/60 bg-surface/60 backdrop-blur-md rounded-2xl scroll-mt-20">
+      <CardHeader>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <CardTitle className="font-display text-base flex items-center gap-2">
+            <GraduationCap className="h-4.5 w-4.5 text-amber-400" /> CSN-perioder
+          </CardTitle>
+          <span className="text-[11px] text-muted-foreground font-mono bg-surface-2/60 border border-border/40 rounded-lg px-2.5 py-0.5">
+            Krav: 75% av beviljade veckor med CSN
+          </span>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* Lista över befintliga CSN-perioder */}
+        <div className="space-y-2.5">
+          <div className="text-xs font-semibold text-foreground/80 flex items-center justify-between">
+            <span>Dina inlagda CSN-perioder ({periods.length})</span>
+            {periods.length > 0 && (
+              <span className="text-[11px] text-muted-foreground font-normal">
+                Klicka på "Ändra" för att uppdatera sista utbetalningsvecka
+              </span>
+            )}
+          </div>
+
+          {periods.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-border/70 p-6 text-center text-xs text-muted-foreground bg-background/20">
+              Inga CSN-perioder inlagda än. Fyll i datum och antal veckor nedan för att lägga till din första period.
+            </div>
+          ) : (
+            periods.map((p) => {
+              const status = getCsnPeriodStatus(p);
+              const metrics = calculateCsnMetrics(p.weeks);
+              const isEditing = editingId === p.id;
+
+              if (isEditing) {
+                return (
+                  <div
+                    key={p.id}
+                    className="rounded-xl border-2 border-primary/40 bg-surface-2/70 p-3.5 space-y-3 transition-all"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-primary flex items-center gap-1.5">
+                        <Pencil className="h-3.5 w-3.5" /> Redigera CSN-period
+                      </span>
+                      <span className="text-[10px] text-muted-foreground">
+                        Ändra datum, antal veckor eller namn vid behov
+                      </span>
+                    </div>
+
+                    <div className="grid gap-2.5 sm:grid-cols-2">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Periodens namn / beskrivning</Label>
+                        <Input
+                          value={editName}
+                          onChange={(e) => setEditName(e.target.value)}
+                          placeholder="t.ex. Hösttermin 2024 eller Beslut 1"
+                          className="rounded-xl h-9 text-xs"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Antal veckor med CSN</Label>
+                        <Input
+                          type="number"
+                          min="1"
+                          max="100"
+                          value={editWeeks}
+                          onChange={(e) => setEditWeeks(e.target.value)}
+                          placeholder="t.ex. 20"
+                          className="rounded-xl h-9 text-xs font-mono"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid gap-2.5 sm:grid-cols-2">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Beslutsdatum / Startvecka (yyyy-mm-dd)</Label>
+                        <DatePicker
+                          value={editStart}
+                          onChange={handleEditStartChange}
+                          placeholder="yyyy-mm-dd"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs text-amber-300 font-medium">
+                          Sista utbetalningsvecka / Slutdatum (kan ändras)
+                        </Label>
+                        <DatePicker
+                          value={editEnd}
+                          onChange={handleEditEndChange}
+                          placeholder="yyyy-mm-dd"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Live preview under redigering */}
+                    <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-surface/80 border border-border/50 px-3 py-2 text-xs">
+                      <div className="flex flex-wrap items-center gap-3">
+                        <span className="font-mono text-foreground font-semibold">
+                          {editPreviewWeeks} veckor = {editPreviewMetrics.totalHp} HP beviljat
+                        </span>
+                        <span className="text-muted-foreground">•</span>
+                        <span className="text-amber-400 font-semibold font-mono">
+                          Studiekrav (75 %): {editPreviewMetrics.requiredHp} HP
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 ml-auto">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={cancelEditing}
+                          className="rounded-xl h-8 text-xs"
+                        >
+                          Avbryt
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={saveEdit}
+                          disabled={!editStart || !editEnd || !editWeeks || isSaving}
+                          className="rounded-xl h-8 text-xs gap-1.5"
+                        >
+                          <Save className="h-3.5 w-3.5" /> Spara ändringar
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+
+              return (
+                <div
+                  key={p.id}
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/60 bg-background/40 p-3 text-sm hover:border-border transition-all"
+                >
+                  <div className="space-y-1 min-w-[200px]">
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-foreground text-xs sm:text-sm">
+                        {p.name || `CSN-period (${formatDateYYYYMMDD(p.startDate)} – ${formatDateYYYYMMDD(p.endDate)})`}
+                      </span>
+                      {status === "active" && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 text-[10px] font-semibold text-emerald-400">
+                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                          Aktiv
+                        </span>
+                      )}
+                      {status === "upcoming" && (
+                        <span className="rounded-full bg-purple-500/10 border border-purple-500/30 px-2 py-0.5 text-[10px] font-semibold text-purple-400">
+                          Kommande
+                        </span>
+                      )}
+                      {status === "past" && (
+                        <span className="rounded-full bg-muted/40 border border-border/40 px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                          Avslutad
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-xs text-muted-foreground font-mono flex items-center gap-2">
+                      <span>
+                        {formatDateYYYYMMDD(p.startDate)} → {formatDateYYYYMMDD(p.endDate)}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2 text-xs">
+                    <span className="rounded-lg bg-surface-2/80 border border-border/50 px-2.5 py-1 font-mono font-medium text-foreground">
+                      {p.weeks} veckor
+                    </span>
+                    <span className="rounded-lg bg-sky-500/10 border border-sky-500/20 px-2.5 py-1 font-mono text-sky-300">
+                      {metrics.totalHp} HP beviljat
+                    </span>
+                    <span className="rounded-lg bg-amber-500/10 border border-amber-500/30 px-2.5 py-1 font-mono font-bold text-amber-400">
+                      Krav 75%: {metrics.requiredHp} HP
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-1 ml-auto">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="rounded-xl h-8 px-2.5 text-xs gap-1 border-border/60 hover:bg-surface-2"
+                      onClick={() => startEditing(p)}
+                      title="Ändra slutdatum eller veckor"
+                    >
+                      <Pencil className="h-3.5 w-3.5" /> Ändra
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-8 w-8 rounded-xl text-destructive hover:bg-destructive/10"
+                      onClick={() => handleDelete(p.id)}
+                      title="Ta bort CSN-period"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* Formulär för att lägga till ny CSN-period */}
+        <div className="pt-3 border-t border-border/60 space-y-3">
+          <div className="text-xs font-semibold text-foreground/90 flex items-center gap-1.5">
+            <Plus className="h-3.5 w-3.5 text-primary" /> Lägg till ny CSN-period
+          </div>
+
+          <div className="grid gap-2.5 sm:grid-cols-2">
+            <div className="space-y-1">
+              <Label className="text-xs">Periodens namn / termin (valfritt)</Label>
+              <Input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="t.ex. Hösttermin 2024 eller Beslut HT24"
+                className="rounded-xl h-9 text-xs"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Antal veckor med CSN</Label>
+              <Input
+                type="number"
+                min="1"
+                max="100"
+                value={weeks}
+                onChange={(e) => setWeeks(e.target.value)}
+                placeholder="t.ex. 20"
+                className="rounded-xl h-9 text-xs font-mono"
+              />
+            </div>
+          </div>
+
+          <div className="grid gap-2.5 sm:grid-cols-2">
+            <div className="space-y-1">
+              <Label className="text-xs">Beslutsdatum / Startdatum (yyyy-mm-dd)</Label>
+              <DatePicker
+                value={start}
+                onChange={handleStartChange}
+                placeholder="yyyy-mm-dd"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">
+                Sista utbetalningsvecka / Slutdatum <span className="text-muted-foreground">(kan ändras senare)</span>
+              </Label>
+              <DatePicker
+                value={end}
+                onChange={handleEndChange}
+                placeholder="yyyy-mm-dd"
+              />
+            </div>
+          </div>
+
+          {/* Live beräkning och Spara-knapp */}
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+            <div className="text-xs text-muted-foreground font-mono">
+              {weeks && Number(weeks) > 0 ? (
+                <span>
+                  {previewWeeks} veckor = <strong className="text-foreground">{previewMetrics.totalHp} HP</strong> beviljat.{" "}
+                  Studiekrav (75 %): <strong className="text-amber-400">{previewMetrics.requiredHp} HP</strong>.
+                </span>
+              ) : (
+                <span>Fyll i antal veckor samt start- och slutdatum.</span>
+              )}
+            </div>
+
+            <Button
+              size="sm"
+              className="rounded-xl h-9 px-4 gap-1.5 ml-auto"
+              disabled={!start || !end || !weeks || Number(weeks) <= 0 || isSaving}
+              onClick={handleAdd}
+            >
+              <Plus className="h-4 w-4" /> Lägg till CSN-period
+            </Button>
+          </div>
         </div>
       </CardContent>
     </Card>

@@ -1,7 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Bar,
@@ -36,7 +37,33 @@ import {
   Award,
   School,
   Building2,
+  ChevronDown,
+  ChevronUp,
+  SlidersHorizontal,
+  ExternalLink,
+  AlertCircle,
+  Pencil,
+  Trash2,
 } from "lucide-react";
+import {
+  useCsnPeriods,
+  calculateCsnMetrics,
+  getCsnPeriodStatus,
+  type CsnPeriod,
+  type CsnPeriodProgress,
+  type RegisteredModuleForCsn,
+} from "@/lib/csn";
+import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { toast } from "sonner";
 import { formatPeriods } from "@/lib/course-presets";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -58,7 +85,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import {
   coursesQuery,
   tasksQuery,
@@ -118,6 +145,13 @@ function StatsPage() {
   const { data: terms = [] } = useQuery(termsQuery);
   const { data: allEnrollments = [] } = useQuery(enrollmentsQuery);
   const { data: allModules = [] } = useQuery(reportingModulesQuery);
+  const { periods: csnPeriods = [], updatePeriod, deletePeriod } = useCsnPeriods();
+  const [expandedCsnPeriodIds, setExpandedCsnPeriodIds] = useState<Record<string, boolean>>({});
+  const togglePeriodExpanded = (id: string) => {
+    setExpandedCsnPeriodIds((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+  const [editingPeriod, setEditingPeriod] = useState<CsnPeriod | null>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
 
   const heatmapStart = useMemo(() => subDays(new Date(), 364), []);
   const heatmapEnd = useMemo(() => new Date(), []);
@@ -1321,6 +1355,103 @@ function StatsPage() {
     };
   }, [allModules, allCourses, terms, allEnrollments]);
 
+  // --- CSN-statistik per CSN-period (baserat på registrerade moment och studiekrav) ---
+  const csnStats = useMemo(() => {
+    const courseById = new Map(allCourses.map((c) => [c.id, c]));
+
+    const periodResults: CsnPeriodProgress[] = csnPeriods.map((period) => {
+      const status = getCsnPeriodStatus(period);
+      const metrics = calculateCsnMetrics(period.weeks);
+      const pStart = period.startDate ? period.startDate.slice(0, 10) : "";
+      const pEnd = period.endDate ? period.endDate.slice(0, 10) : "";
+
+      const matchingModules: RegisteredModuleForCsn[] = [];
+      let periodRegisteredHp = 0;
+
+      for (const m of allModules) {
+        const isDone = Boolean(m.completed || m.grade || m.registered_on || m.points);
+        if (!isDone) continue;
+
+        const regDate = m.registered_on ? m.registered_on.slice(0, 10) : null;
+        if (!regDate) continue;
+
+        if (pStart && regDate < pStart) continue;
+        if (pEnd && regDate > pEnd) continue;
+
+        const course = courseById.get(m.course_id);
+        const hp = Number(m.hp) || 0;
+        periodRegisteredHp += hp;
+
+        matchingModules.push({
+          id: m.id,
+          moduleName: m.name,
+          courseName: course?.name ?? "Okänd kurs",
+          courseCode: course?.code ?? null,
+          courseColor: course?.color ?? "#3b82f6",
+          hp,
+          grade: m.grade,
+          points: m.points,
+          registeredOn: formatDateYYYYMMDD(regDate),
+        });
+      }
+
+      // Sortera moment kronologiskt
+      matchingModules.sort((a, b) => b.registeredOn.localeCompare(a.registeredOn));
+
+      const registeredHp = +periodRegisteredHp.toFixed(1);
+      const requiredHp = metrics.requiredHp;
+      const totalHp = metrics.totalHp;
+      const remainingHp = Math.max(0, +(requiredHp - registeredHp).toFixed(1));
+      const surplusHp = Math.max(0, +(registeredHp - requiredHp).toFixed(1));
+      const isFulfilled = registeredHp >= requiredHp;
+      const requirementPercentReached =
+        requiredHp > 0 ? Math.round((registeredHp / requiredHp) * 100) : 0;
+      const totalPercentReached =
+        totalHp > 0 ? Math.round((registeredHp / totalHp) * 100) : 0;
+
+      return {
+        period,
+        status,
+        weeks: period.weeks,
+        totalHp,
+        requiredHp,
+        registeredHp,
+        remainingHp,
+        surplusHp,
+        requirementPercentReached,
+        totalPercentReached,
+        isFulfilled,
+        modules: matchingModules,
+      };
+    });
+
+    // Aktiv period eller första
+    const activePeriod =
+      periodResults.find((p) => p.status === "active") ??
+      periodResults[0] ??
+      null;
+
+    const grandTotalRegisteredHp = +periodResults
+      .reduce((sum, p) => sum + p.registeredHp, 0)
+      .toFixed(1);
+    const grandTotalRequiredHp = +periodResults
+      .reduce((sum, p) => sum + p.requiredHp, 0)
+      .toFixed(1);
+    const grandTotalCsnHp = +periodResults
+      .reduce((sum, p) => sum + p.totalHp, 0)
+      .toFixed(1);
+    const grandTotalWeeks = periodResults.reduce((sum, p) => sum + p.weeks, 0);
+
+    return {
+      periods: periodResults,
+      activePeriod,
+      grandTotalRegisteredHp,
+      grandTotalRequiredHp,
+      grandTotalCsnHp,
+      grandTotalWeeks,
+    };
+  }, [csnPeriods, allModules, allCourses]);
+
   // --- Betygsstatistik ---
   const gradeStats = useMemo(() => {
     const gradedCourses = courses.filter((c) => c.final_grade && c.final_grade.trim() !== "");
@@ -2054,6 +2185,14 @@ function StatsPage() {
                 <Award className="h-3.5 w-3.5 text-emerald-400" />
                 3. Registrerade
               </button>
+              <button
+                type="button"
+                onClick={() => document.getElementById("hp-csn")?.scrollIntoView({ behavior: "smooth" })}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-surface-2/80 hover:bg-amber-500/15 hover:text-amber-400 border border-border/50 px-3 py-1.5 text-xs font-medium text-foreground transition-all cursor-pointer"
+              >
+                <GraduationCap className="h-3.5 w-3.5 text-amber-400" />
+                4. CSN
+              </button>
             </div>
           </div>
 
@@ -2690,6 +2829,559 @@ function StatsPage() {
               )}
             </div>
           </section>
+
+          {/* ───────────────────────────────────────────────────────────── */}
+          {/* HUVUDRUBRIK 4: Högskolepoäng - CSN                           */}
+          {/* ───────────────────────────────────────────────────────────── */}
+          <section id="hp-csn" className="space-y-4 pt-4 border-t border-border/40">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/40 pb-3">
+              <div>
+                <h2 className="font-display text-lg font-bold tracking-tight text-foreground flex items-center gap-2">
+                  <GraduationCap className="h-5 w-5 text-amber-400" />
+                  Högskolepoäng - CSN
+                </h2>
+                <p className="text-xs text-muted-foreground mt-1 leading-relaxed max-w-3xl">
+                  Uppföljning av studiekravet för CSN (75 % av beviljade veckor med CSN). Studiekravet grundar sig på hur många veckor du har CSN för i perioden, där 1 heltidsvecka motsvarar 1,5 HP (40 veckor = 60 HP, studiekrav 45 HP). Här sammanställs dina registrerade HP gentemot studiekravet.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Button
+                  asChild
+                  variant="outline"
+                  size="sm"
+                  className="rounded-xl border-border/60 hover:bg-surface-2 text-xs gap-1.5 h-8.5"
+                >
+                  <Link to="/settings">
+                    <SlidersHorizontal className="h-3.5 w-3.5 text-amber-400" />
+                    <span>Inställningar för CSN</span>
+                  </Link>
+                </Button>
+              </div>
+            </div>
+
+            {csnStats.periods.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-border/70 bg-surface/40 p-8 text-center space-y-4 backdrop-blur-sm">
+                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400">
+                  <GraduationCap className="h-7 w-7" />
+                </div>
+                <div className="space-y-1.5 max-w-md mx-auto">
+                  <h3 className="font-display text-base font-bold text-foreground">
+                    Inga CSN-perioder inlagda än
+                  </h3>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    För att sammanställa hur många HP du har fått registrerade och hur du ligger till gentemot studiekravet (75 %) behöver du ställa in dina CSN-perioder i inställningar.
+                  </p>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2 max-w-lg mx-auto text-left pt-2">
+                  <div className="rounded-xl border border-border/50 bg-surface-2/40 p-3 space-y-1">
+                    <span className="text-[11px] font-semibold text-amber-300 block">
+                      📅 Period mellan två datum
+                    </span>
+                    <span className="text-[11px] text-muted-foreground block leading-snug">
+                      Från när beslutet kommit till sista veckan med utbetalning. Slutdatumet kan uppdateras vid nytt beslut.
+                    </span>
+                  </div>
+                  <div className="rounded-xl border border-border/50 bg-surface-2/40 p-3 space-y-1">
+                    <span className="text-[11px] font-semibold text-amber-300 block">
+                      🎯 75 % studiekrav
+                    </span>
+                    <span className="text-[11px] text-muted-foreground block leading-snug">
+                      1 vecka = 1,5 HP. Exempel: 20 veckor ger 30 HP, där studiekravet är 22,5 HP (75 %).
+                    </span>
+                  </div>
+                </div>
+
+                <div className="pt-2">
+                  <Button asChild className="rounded-xl px-5 gap-2">
+                    <Link to="/settings">
+                      <SlidersHorizontal className="h-4 w-4" />
+                      Gå till Inställningar och lägg till CSN-period
+                    </Link>
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {/* 1. Övergripande KPI-sammanställning för aktiv/senaste CSN-period */}
+                {csnStats.activePeriod && (
+                  <div className="rounded-2xl border border-border/60 bg-surface/80 p-4.5 backdrop-blur-sm space-y-4 shadow-sm">
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/40 pb-3">
+                      <div className="flex items-center gap-2">
+                        <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400">
+                          <GraduationCap className="h-3.5 w-3.5" />
+                        </span>
+                        <div>
+                          <span className="text-xs font-bold text-foreground block">
+                            {csnStats.activePeriod.period.name || "Aktiv CSN-period"}
+                          </span>
+                          <span className="text-[11px] text-muted-foreground font-mono">
+                            {formatDateYYYYMMDD(csnStats.activePeriod.period.startDate)} →{" "}
+                            {formatDateYYYYMMDD(csnStats.activePeriod.period.endDate)} (
+                            {csnStats.activePeriod.weeks} veckor)
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        {csnStats.activePeriod.status === "active" && (
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-0.5 text-xs font-semibold text-emerald-400">
+                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                            Aktiv period
+                          </span>
+                        )}
+                        {csnStats.activePeriod.isFulfilled ? (
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-0.5 text-xs font-bold text-emerald-400">
+                            <CheckCircle2 className="h-3.5 w-3.5" /> Studiekrav uppnått
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 px-2.5 py-0.5 text-xs font-semibold text-amber-400">
+                            <Clock className="h-3.5 w-3.5" /> {csnStats.activePeriod.remainingHp} HP kvar till kravet
+                          </span>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="rounded-xl h-7.5 px-2.5 text-xs gap-1.5 border-border/60 hover:bg-surface-2"
+                          onClick={() => {
+                            setEditingPeriod(csnStats.activePeriod!.period);
+                            setEditDialogOpen(true);
+                          }}
+                          title="Ändra hela CSN-perioden"
+                        >
+                          <Pencil className="h-3.5 w-3.5 text-primary" />
+                          <span>Ändra period</span>
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* KPI-kort */}
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                      {/* KPI 1: Registrerade HP */}
+                      <Card className="border-border/60 bg-surface-2/40 p-3.5 flex flex-col justify-between">
+                        <div>
+                          <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground block">
+                            Registrerat i perioden
+                          </span>
+                          <div className="mt-1 flex items-baseline gap-1.5">
+                            <span className={cn(
+                              "font-display text-2xl font-extrabold tabular-nums",
+                              csnStats.activePeriod.isFulfilled ? "text-emerald-400" : "text-sky-400"
+                            )}>
+                              {csnStats.activePeriod.registeredHp}
+                            </span>
+                            <span className="text-xs text-muted-foreground font-mono">
+                              / {csnStats.activePeriod.requiredHp} HP krav
+                            </span>
+                          </div>
+                        </div>
+                        <div className="mt-2 text-[10px] text-muted-foreground">
+                          {csnStats.activePeriod.modules.length} godkända moment inrapporterade
+                        </div>
+                      </Card>
+
+                      {/* KPI 2: Studiekrav (75 %) */}
+                      <Card className="border-border/60 bg-surface-2/40 p-3.5 flex flex-col justify-between">
+                        <div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                              Studiekrav CSN
+                            </span>
+                            <span className="text-[10px] font-mono text-amber-400 font-bold bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded">
+                              75 %
+                            </span>
+                          </div>
+                          <div className="mt-1 flex items-baseline gap-1.5">
+                            <span className="font-display text-2xl font-extrabold tabular-nums text-amber-400">
+                              {csnStats.activePeriod.requiredHp}
+                            </span>
+                            <span className="text-xs text-muted-foreground font-mono">
+                              HP krävs
+                            </span>
+                          </div>
+                        </div>
+                        <div className="mt-2 text-[10px] text-muted-foreground truncate font-mono">
+                          Baserat på {csnStats.activePeriod.weeks} v ({csnStats.activePeriod.totalHp} HP beviljat)
+                        </div>
+                      </Card>
+
+                      {/* KPI 3: Status / Marginal */}
+                      <Card className="border-border/60 bg-surface-2/40 p-3.5 flex flex-col justify-between">
+                        <div>
+                          <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground block">
+                            Kravstatus
+                          </span>
+                          <div className="mt-1">
+                            {csnStats.activePeriod.isFulfilled ? (
+                              <div className="font-display text-xl font-bold text-emerald-400 flex items-center gap-1.5">
+                                <CheckCircle2 className="h-5 w-5" /> Klart!
+                              </div>
+                            ) : (
+                              <div className="font-display text-xl font-bold text-amber-400 flex items-center gap-1.5">
+                                <Clock className="h-5 w-5" /> Pågår
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <div className="mt-2 text-[11px] font-mono">
+                          {csnStats.activePeriod.isFulfilled ? (
+                            <span className="text-emerald-400 font-medium">
+                              +{csnStats.activePeriod.surplusHp} HP marginal över kravet
+                            </span>
+                          ) : (
+                            <span className="text-amber-300 font-medium">
+                              {csnStats.activePeriod.remainingHp} HP kvar att registrera
+                            </span>
+                          )}
+                        </div>
+                      </Card>
+
+                      {/* KPI 4: Beviljat studiemedel */}
+                      <Card className="border-border/60 bg-surface-2/40 p-3.5 flex flex-col justify-between">
+                        <div>
+                          <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground block">
+                            Beviljat studiemedel
+                          </span>
+                          <div className="mt-1 flex items-baseline gap-1.5">
+                            <span className="font-display text-2xl font-extrabold tabular-nums text-foreground">
+                              {csnStats.activePeriod.totalHp}
+                            </span>
+                            <span className="text-xs text-muted-foreground font-mono">
+                              HP ({csnStats.activePeriod.weeks} v)
+                            </span>
+                          </div>
+                        </div>
+                        <div className="mt-2 text-[10px] text-muted-foreground font-mono">
+                          1 heltidsvecka = 1,5 HP
+                        </div>
+                      </Card>
+                    </div>
+
+                    {/* Visuell Progress Bar mot 75%-kravet och 100% */}
+                    <div className="space-y-1.5 pt-1">
+                      <div className="flex flex-wrap items-center justify-between text-xs font-mono">
+                        <span className="text-muted-foreground">
+                          Framsteg:{" "}
+                          <strong className={csnStats.activePeriod.isFulfilled ? "text-emerald-400" : "text-sky-300"}>
+                            {csnStats.activePeriod.requirementPercentReached}%
+                          </strong>{" "}
+                          av studiekravet uppnått ({csnStats.activePeriod.registeredHp} av {csnStats.activePeriod.requiredHp} HP)
+                        </span>
+                        <span className="text-muted-foreground text-[11px]">
+                          Totalt beviljat: {csnStats.activePeriod.totalHp} HP
+                        </span>
+                      </div>
+
+                      {/* Bar med 75%-markör */}
+                      <div className="relative h-4 w-full overflow-hidden rounded-full bg-surface-2 border border-border/50">
+                        {/* Fyllning för registrerade HP i relation till beviljat (100%) */}
+                        <div
+                          className={cn(
+                            "h-full rounded-full transition-all duration-500",
+                            csnStats.activePeriod.isFulfilled
+                              ? "bg-gradient-to-r from-emerald-500 to-emerald-400 shadow-[0_0_12px_rgba(16,185,129,0.35)]"
+                              : "bg-gradient-to-r from-sky-500 to-amber-400"
+                          )}
+                          style={{
+                            width: `${Math.min(100, (csnStats.activePeriod.registeredHp / (csnStats.activePeriod.totalHp || 1)) * 100)}%`,
+                          }}
+                        />
+
+                        {/* Vertikalt CSN 75% krav-streck */}
+                        <div
+                          className="absolute top-0 bottom-0 w-0.5 bg-amber-400 z-10 shadow-[0_0_6px_rgba(251,191,36,0.8)]"
+                          style={{ left: "75%" }}
+                          title={`CSN Studiekrav (75% = ${csnStats.activePeriod.requiredHp} HP)`}
+                        />
+                      </div>
+
+                      <div className="relative flex justify-between text-[10px] font-mono text-muted-foreground pt-0.5">
+                        <span>0 HP</span>
+                        <span className="absolute left-[75%] -translate-x-1/2 text-amber-400 font-bold">
+                          ▲ Krav 75% ({csnStats.activePeriod.requiredHp} HP)
+                        </span>
+                        <span>100% ({csnStats.activePeriod.totalHp} HP)</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* 2. Sammanställning av alla CSN-perioder */}
+                <div className="space-y-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/40 pb-2">
+                    <h3 className="font-display text-sm font-bold text-foreground flex items-center gap-2">
+                      <span>Alla CSN-perioder</span>
+                      <span className="rounded-full bg-surface-2 border border-border/50 px-2 py-0.5 text-[11px] text-muted-foreground font-mono">
+                        {csnStats.periods.length} {csnStats.periods.length === 1 ? "period" : "perioder"}
+                      </span>
+                    </h3>
+
+                    <div className="flex items-center gap-3 text-xs font-mono text-muted-foreground">
+                      <span>
+                        Totalt registrerat:{" "}
+                        <strong className="text-foreground">{csnStats.grandTotalRegisteredHp} HP</strong>
+                      </span>
+                      <span>•</span>
+                      <span>
+                        Totalt beviljat:{" "}
+                        <strong className="text-foreground">{csnStats.grandTotalCsnHp} HP</strong> ({csnStats.grandTotalWeeks} v)
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3.5">
+                    {csnStats.periods.map((p) => {
+                      const isExpanded = Boolean(expandedCsnPeriodIds[p.period.id]);
+
+                      return (
+                        <div
+                          key={p.period.id}
+                          className="rounded-xl border border-border/60 bg-surface/50 overflow-hidden shadow-sm transition-all hover:border-border/90"
+                        >
+                          {/* Period-huvud */}
+                          <div className="p-4 space-y-3">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <div className="space-y-0.5">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-display text-sm font-bold text-foreground">
+                                    {p.period.name || `CSN-period (${formatDateYYYYMMDD(p.period.startDate)} – ${formatDateYYYYMMDD(p.period.endDate)})`}
+                                  </span>
+                                  {p.status === "active" && (
+                                    <span className="rounded-full bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 text-[10px] font-semibold text-emerald-400">
+                                      Aktiv period
+                                    </span>
+                                  )}
+                                  {p.status === "upcoming" && (
+                                    <span className="rounded-full bg-purple-500/10 border border-purple-500/30 px-2 py-0.5 text-[10px] font-semibold text-purple-400">
+                                      Kommande
+                                    </span>
+                                  )}
+                                  {p.status === "past" && (
+                                    <span className="rounded-full bg-muted/40 border border-border/40 px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                                      Avslutad
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="text-xs text-muted-foreground font-mono">
+                                  {formatDateYYYYMMDD(p.period.startDate)} → {formatDateYYYYMMDD(p.period.endDate)}
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="rounded-xl h-7.5 px-2.5 text-xs gap-1.5 border-border/60 hover:bg-surface-2"
+                                  onClick={() => {
+                                    setEditingPeriod(p.period);
+                                    setEditDialogOpen(true);
+                                  }}
+                                  title="Ändra hela CSN-perioden"
+                                >
+                                  <Pencil className="h-3.5 w-3.5 text-primary" />
+                                  <span>Ändra period</span>
+                                </Button>
+                                {p.isFulfilled ? (
+                                  <span className="rounded-lg bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-1 text-xs font-bold text-emerald-400 font-mono flex items-center gap-1.5">
+                                    <CheckCircle2 className="h-3.5 w-3.5" />
+                                    Krav uppnått ({p.registeredHp} / {p.requiredHp} HP)
+                                  </span>
+                                ) : (
+                                  <span className={cn(
+                                    "rounded-lg px-2.5 py-1 text-xs font-bold font-mono flex items-center gap-1.5",
+                                    p.status === "past"
+                                      ? "bg-rose-500/10 border border-rose-500/30 text-rose-400"
+                                      : "bg-amber-500/10 border border-amber-500/30 text-amber-400"
+                                  )}>
+                                    <Clock className="h-3.5 w-3.5" />
+                                    {p.registeredHp} / {p.requiredHp} HP ({p.remainingHp} HP kvar)
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Detalj-grid för perioden */}
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 text-xs">
+                              <div className="rounded-lg bg-surface-2/40 border border-border/30 p-2.5">
+                                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground block">
+                                  Veckor med CSN
+                                </span>
+                                <span className="font-mono font-bold text-sm text-foreground mt-0.5 block">
+                                  {p.weeks} veckor
+                                </span>
+                              </div>
+                              <div className="rounded-lg bg-surface-2/40 border border-border/30 p-2.5">
+                                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground block">
+                                  Beviljade poäng
+                                </span>
+                                <span className="font-mono font-bold text-sm text-sky-400 mt-0.5 block">
+                                  {p.totalHp} HP
+                                </span>
+                              </div>
+                              <div className="rounded-lg bg-surface-2/40 border border-border/30 p-2.5">
+                                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground block">
+                                  Studiekrav (75 %)
+                                </span>
+                                <span className="font-mono font-bold text-sm text-amber-400 mt-0.5 block">
+                                  {p.requiredHp} HP
+                                </span>
+                              </div>
+                              <div className="rounded-lg bg-surface-2/40 border border-border/30 p-2.5">
+                                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground block">
+                                  Registrerat i perioden
+                                </span>
+                                <span className={cn(
+                                  "font-mono font-bold text-sm mt-0.5 block",
+                                  p.isFulfilled ? "text-emerald-400" : "text-foreground"
+                                )}>
+                                  {p.registeredHp} HP{" "}
+                                  <span className="text-[10px] font-normal text-muted-foreground">
+                                    ({p.modules.length} moment)
+                                  </span>
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Mini progress bar */}
+                            <div className="space-y-1">
+                              <div className="relative h-2.5 w-full overflow-hidden rounded-full bg-surface-2">
+                                <div
+                                  className={cn(
+                                    "h-full rounded-full transition-all duration-300",
+                                    p.isFulfilled ? "bg-emerald-500" : "bg-amber-400"
+                                  )}
+                                  style={{
+                                    width: `${Math.min(100, (p.registeredHp / (p.totalHp || 1)) * 100)}%`,
+                                  }}
+                                />
+                                <div
+                                  className="absolute top-0 bottom-0 w-0.5 bg-amber-400 z-10"
+                                  style={{ left: "75%" }}
+                                  title="Studiekrav (75%)"
+                                />
+                              </div>
+                              <div className="flex justify-between text-[10px] font-mono text-muted-foreground">
+                                <span>{p.requirementPercentReached} % av studiekravet</span>
+                                <span>Kravlinje vid 75 %</span>
+                              </div>
+                            </div>
+
+                            {/* Toggle-knapp för att fälla ut registrerade moment & Ändra-knapp */}
+                            <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-border/40">
+                              <button
+                                type="button"
+                                onClick={() => togglePeriodExpanded(p.period.id)}
+                                className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline cursor-pointer"
+                              >
+                                {isExpanded ? (
+                                  <>
+                                    <ChevronUp className="h-3.5 w-3.5" /> Dölj registrerade moment ({p.modules.length} st)
+                                  </>
+                                ) : (
+                                  <>
+                                    <ChevronDown className="h-3.5 w-3.5" /> Visa registrerade moment under perioden ({p.modules.length} st • {p.registeredHp} HP)
+                                  </>
+                                )}
+                              </button>
+
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEditingPeriod(p.period);
+                                    setEditDialogOpen(true);
+                                  }}
+                                  className="text-[11px] text-primary hover:underline inline-flex items-center gap-1 cursor-pointer font-medium"
+                                >
+                                  <Pencil className="h-3 w-3" />
+                                  <span>Ändra hela perioden</span>
+                                </button>
+                                <span className="text-muted-foreground/30">•</span>
+                                <Link
+                                  to="/settings"
+                                  className="text-[11px] text-muted-foreground hover:text-foreground transition-colors inline-flex items-center gap-1"
+                                >
+                                  <span>Inställningar</span>
+                                  <ExternalLink className="h-3 w-3" />
+                                </Link>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Utfällbar lista över moment som registrerats under perioden */}
+                          {isExpanded && (
+                            <div className="border-t border-border/40 bg-surface-2/30 p-3.5 space-y-2.5">
+                              <div className="text-xs font-semibold text-foreground/80 flex items-center justify-between">
+                                <span>Inrapporterade moment under perioden</span>
+                                <span className="font-mono text-[11px] text-muted-foreground">
+                                  {p.modules.length} st • {p.registeredHp} HP totalt
+                                </span>
+                              </div>
+
+                              {p.modules.length === 0 ? (
+                                <div className="rounded-lg border border-dashed border-border/60 p-4 text-center text-xs text-muted-foreground">
+                                  Inga moment har registrerats med datum mellan{" "}
+                                  <span className="font-mono text-foreground">{formatDateYYYYMMDD(p.period.startDate)}</span> och{" "}
+                                  <span className="font-mono text-foreground">{formatDateYYYYMMDD(p.period.endDate)}</span>.
+                                  <p className="mt-1 text-[11px] text-muted-foreground">
+                                    Gå till respektive kurs och ange registreringsdatum för godkända rapporteringsmoment för att de ska kopplas hit.
+                                  </p>
+                                </div>
+                              ) : (
+                                <div className="space-y-1.5">
+                                  {p.modules.map((mod) => (
+                                    <div
+                                      key={mod.id}
+                                      className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border/40 bg-surface/70 px-3 py-2 text-xs"
+                                    >
+                                      <div className="flex items-center gap-2.5 min-w-[200px]">
+                                        <span
+                                          className="h-2 w-2 rounded-full shrink-0"
+                                          style={{ backgroundColor: mod.courseColor }}
+                                        />
+                                        <div>
+                                          <div className="font-medium text-foreground flex items-center gap-1.5">
+                                            <span>{mod.moduleName}</span>
+                                            {mod.courseCode && (
+                                              <span className="rounded bg-surface-2 px-1.5 py-0.2 text-[10px] font-mono text-muted-foreground">
+                                                {mod.courseCode}
+                                              </span>
+                                            )}
+                                          </div>
+                                          <div className="text-[11px] text-muted-foreground truncate">
+                                            {mod.courseName}
+                                          </div>
+                                        </div>
+                                      </div>
+
+                                      <div className="flex items-center gap-3 text-xs font-mono ml-auto sm:ml-0">
+                                        <span className="text-muted-foreground text-[11px]">
+                                          Reg: {mod.registeredOn}
+                                        </span>
+                                        {mod.grade && (
+                                          <span className="rounded bg-primary/10 border border-primary/20 px-1.5 py-0.5 text-[10px] font-bold text-primary">
+                                            Betyg: {mod.grade}
+                                          </span>
+                                        )}
+                                        <span className="font-bold text-foreground">
+                                          {mod.hp} HP
+                                        </span>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+          </section>
         </TabsContent>
 
         <TabsContent value="betyg" className="space-y-6">
@@ -2933,6 +3625,186 @@ function StatsPage() {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Dialog för att redigera hela CSN-perioden direkt från statistiksidan */}
+      <EditCsnPeriodDialog
+        period={editingPeriod}
+        open={editDialogOpen}
+        onOpenChange={(open) => {
+          setEditDialogOpen(open);
+          if (!open) setEditingPeriod(null);
+        }}
+        onSave={async (updated) => {
+          await updatePeriod(updated);
+        }}
+        onDelete={async (id) => {
+          await deletePeriod(id);
+        }}
+      />
     </div>
+  );
+}
+
+function EditCsnPeriodDialog({
+  period,
+  open,
+  onOpenChange,
+  onSave,
+  onDelete,
+}: {
+  period: CsnPeriod | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSave: (updated: CsnPeriod) => Promise<void>;
+  onDelete?: (id: string) => Promise<void>;
+}) {
+  const [name, setName] = useState("");
+  const [start, setStart] = useState("");
+  const [end, setEnd] = useState("");
+  const [weeks, setWeeks] = useState<string>("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (period && open) {
+      setName(period.name);
+      setStart(period.startDate);
+      setEnd(period.endDate);
+      setWeeks(String(period.weeks));
+    }
+  }, [period, open]);
+
+  if (!period) return null;
+
+  const numWeeks = Number(weeks) || 0;
+  const metrics = calculateCsnMetrics(numWeeks);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!start || !end || !weeks) return;
+    setIsSubmitting(true);
+    try {
+      await onSave({
+        ...period,
+        name: name.trim() || `CSN-period (${formatDateYYYYMMDD(start)} – ${formatDateYYYYMMDD(end)})`,
+        startDate: start,
+        endDate: end,
+        weeks: Math.max(1, Number(weeks)),
+      });
+      toast.success("CSN-perioden har sparats");
+      onOpenChange(false);
+    } catch {
+      toast.error("Kunde inte spara CSN-perioden");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md border-border/60 bg-surface/95 backdrop-blur-xl">
+        <DialogHeader>
+          <DialogTitle className="font-display text-base flex items-center gap-2">
+            <Pencil className="h-4 w-4 text-primary" /> Redigera CSN-period
+          </DialogTitle>
+          <DialogDescription className="text-xs text-muted-foreground">
+            Hela CSN-perioden kan ändras vid behov: namn, antal veckor, startdatum och slutdatum.
+          </DialogDescription>
+        </DialogHeader>
+
+        <form onSubmit={handleSubmit} className="space-y-3.5 pt-1">
+          <div className="space-y-1">
+            <Label className="text-xs">Periodens namn / beskrivning</Label>
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="t.ex. Hösttermin 2024"
+              className="rounded-xl h-9 text-xs"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <Label className="text-xs">Antal veckor med CSN</Label>
+            <Input
+              type="number"
+              min="1"
+              max="100"
+              value={weeks}
+              onChange={(e) => setWeeks(e.target.value)}
+              placeholder="t.ex. 20"
+              className="rounded-xl h-9 text-xs font-mono"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-2.5">
+            <div className="space-y-1">
+              <Label className="text-xs">Startdatum (beslut)</Label>
+              <DatePicker
+                value={start}
+                onChange={setStart}
+                placeholder="yyyy-mm-dd"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Slutdatum (sista vecka)</Label>
+              <DatePicker
+                value={end}
+                onChange={setEnd}
+                placeholder="yyyy-mm-dd"
+              />
+            </div>
+          </div>
+
+          {/* Live förhandsvisning av krav baserat på angivna veckor */}
+          <div className="rounded-xl bg-surface-2/60 border border-border/50 p-3 text-xs space-y-1">
+            <div className="flex justify-between font-mono">
+              <span className="text-muted-foreground">Beviljade poäng:</span>
+              <span className="font-semibold text-foreground">{metrics.totalHp} HP ({numWeeks} veckor)</span>
+            </div>
+            <div className="flex justify-between font-mono">
+              <span className="text-muted-foreground">Studiekrav (75 %):</span>
+              <span className="font-bold text-amber-400">{metrics.requiredHp} HP</span>
+            </div>
+          </div>
+
+          <DialogFooter className="flex items-center justify-between sm:justify-between gap-2 pt-2">
+            {onDelete ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="text-destructive hover:bg-destructive/10 rounded-xl text-xs gap-1"
+                onClick={async () => {
+                  await onDelete(period.id);
+                  toast.success("CSN-period borttagen");
+                  onOpenChange(false);
+                }}
+              >
+                <Trash2 className="h-3.5 w-3.5" /> Ta bort
+              </Button>
+            ) : <div />}
+
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => onOpenChange(false)}
+                className="rounded-xl text-xs"
+              >
+                Avbryt
+              </Button>
+              <Button
+                type="submit"
+                size="sm"
+                disabled={!start || !end || !weeks || isSubmitting}
+                className="rounded-xl text-xs"
+              >
+                Spara ändringar
+              </Button>
+            </div>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
