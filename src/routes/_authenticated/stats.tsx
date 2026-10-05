@@ -145,13 +145,11 @@ function StatsPage() {
   const { data: terms = [] } = useQuery(termsQuery);
   const { data: allEnrollments = [] } = useQuery(enrollmentsQuery);
   const { data: allModules = [] } = useQuery(reportingModulesQuery);
-  const { periods: csnPeriods = [], updatePeriod, deletePeriod } = useCsnPeriods();
+  const { periods: csnPeriods = [] } = useCsnPeriods();
   const [expandedCsnPeriodIds, setExpandedCsnPeriodIds] = useState<Record<string, boolean>>({});
   const togglePeriodExpanded = (id: string) => {
     setExpandedCsnPeriodIds((prev) => ({ ...prev, [id]: !prev[id] }));
   };
-  const [editingPeriod, setEditingPeriod] = useState<CsnPeriod | null>(null);
-  const [editDialogOpen, setEditDialogOpen] = useState(false);
 
   const heatmapStart = useMemo(() => subDays(new Date(), 364), []);
   const heatmapEnd = useMemo(() => new Date(), []);
@@ -2843,20 +2841,6 @@ function StatsPage() {
                   Högskolepoäng - Studiekrav CSN
                 </h2>
               </div>
-
-              <div className="flex items-center gap-2">
-                <Button
-                  asChild
-                  variant="outline"
-                  size="sm"
-                  className="rounded-xl border-border/60 hover:bg-surface-2 text-xs gap-1.5 h-8.5"
-                >
-                  <Link to="/settings">
-                    <SlidersHorizontal className="h-3.5 w-3.5 text-amber-400" />
-                    <span>Inställningar för CSN</span>
-                  </Link>
-                </Button>
-              </div>
             </div>
 
             {csnStats.periods.length === 0 ? (
@@ -2869,7 +2853,7 @@ function StatsPage() {
                     Inga CSN-perioder inlagda än
                   </h3>
                   <p className="text-xs text-muted-foreground leading-relaxed">
-                    För att sammanställa hur många HP du har fått registrerade och hur du ligger till gentemot studiekravet (75 %) behöver du ställa in dina CSN-perioder i inställningar.
+                    För att sammanställa hur många HP du har fått registrerade och hur du ligger till gentemot studiekravet (75 %) behöver du ställa in dina CSN-perioder.
                   </p>
                 </div>
 
@@ -2887,18 +2871,9 @@ function StatsPage() {
                       🎯 75 % studiekrav
                     </span>
                     <span className="text-[11px] text-muted-foreground block leading-snug">
-                      1 vecka = 1,5 HP. Exempel: 20 veckor ger 30 HP, där studiekravet är 22,5 HP (75 %).
+                      1 vecka = 1,5 HP. Exempel: 20 veckor ger 30 HP, där studiekravet är 22 HP (avrundat nedåt).
                     </span>
                   </div>
-                </div>
-
-                <div className="pt-2">
-                  <Button asChild className="rounded-xl px-5 gap-2">
-                    <Link to="/settings">
-                      <SlidersHorizontal className="h-4 w-4" />
-                      Gå till Inställningar och lägg till CSN-period
-                    </Link>
-                  </Button>
                 </div>
               </div>
             ) : (
@@ -2939,19 +2914,6 @@ function StatsPage() {
                             <Clock className="h-3.5 w-3.5" /> {csnStats.activePeriod.remainingHp} HP kvar till kravet
                           </span>
                         )}
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="rounded-xl h-7.5 px-2.5 text-xs gap-1.5 border-border/60 hover:bg-surface-2"
-                          onClick={() => {
-                            setEditingPeriod(csnStats.activePeriod!.period);
-                            setEditDialogOpen(true);
-                          }}
-                          title="Ändra hela CSN-perioden"
-                        >
-                          <Pencil className="h-3.5 w-3.5 text-primary" />
-                          <span>Ändra period</span>
-                        </Button>
                       </div>
                     </div>
 
@@ -3001,7 +2963,7 @@ function StatsPage() {
                           </div>
                         </div>
                         <div className="mt-2 text-[10px] text-muted-foreground truncate font-mono">
-                          Baserat på {csnStats.activePeriod.weeks} v ({csnStats.activePeriod.totalHp} HP beviljat • avrundat nedåt)
+                          Baserat på {csnStats.activePeriod.weeks} v
                         </div>
                       </Card>
 
@@ -3178,19 +3140,6 @@ function StatsPage() {
                               </div>
 
                               <div className="flex items-center gap-2">
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="rounded-xl h-7.5 px-2.5 text-xs gap-1.5 border-border/60 hover:bg-surface-2"
-                                  onClick={() => {
-                                    setEditingPeriod(p.period);
-                                    setEditDialogOpen(true);
-                                  }}
-                                  title="Ändra hela CSN-perioden"
-                                >
-                                  <Pencil className="h-3.5 w-3.5 text-primary" />
-                                  <span>Ändra period</span>
-                                </Button>
                                 {p.isFulfilled ? (
                                   <span className="rounded-lg bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-1 text-xs font-bold text-emerald-400 font-mono flex items-center gap-1.5">
                                     <CheckCircle2 className="h-3.5 w-3.5" />
@@ -3298,28 +3247,6 @@ function StatsPage() {
                                   </>
                                 )}
                               </button>
-
-                              <div className="flex items-center gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setEditingPeriod(p.period);
-                                    setEditDialogOpen(true);
-                                  }}
-                                  className="text-[11px] text-primary hover:underline inline-flex items-center gap-1 cursor-pointer font-medium"
-                                >
-                                  <Pencil className="h-3 w-3" />
-                                  <span>Ändra hela perioden</span>
-                                </button>
-                                <span className="text-muted-foreground/30">•</span>
-                                <Link
-                                  to="/settings"
-                                  className="text-[11px] text-muted-foreground hover:text-foreground transition-colors inline-flex items-center gap-1"
-                                >
-                                  <span>Inställningar</span>
-                                  <ExternalLink className="h-3 w-3" />
-                                </Link>
-                              </div>
                             </div>
                           </div>
 
@@ -3644,190 +3571,6 @@ function StatsPage() {
           )}
         </TabsContent>
       </Tabs>
-
-      {/* Dialog för att redigera hela CSN-perioden direkt från statistiksidan */}
-      <EditCsnPeriodDialog
-        period={editingPeriod}
-        open={editDialogOpen}
-        onOpenChange={(open) => {
-          setEditDialogOpen(open);
-          if (!open) setEditingPeriod(null);
-        }}
-        onSave={async (updated) => {
-          await updatePeriod(updated);
-        }}
-        onDelete={async (id) => {
-          await deletePeriod(id);
-        }}
-      />
     </div>
-  );
-}
-
-function EditCsnPeriodDialog({
-  period,
-  open,
-  onOpenChange,
-  onSave,
-  onDelete,
-}: {
-  period: CsnPeriod | null;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onSave: (updated: CsnPeriod) => Promise<void>;
-  onDelete?: (id: string) => Promise<void>;
-}) {
-  const [name, setName] = useState("");
-  const [start, setStart] = useState("");
-  const [end, setEnd] = useState("");
-  const [weeks, setWeeks] = useState<string>("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  useEffect(() => {
-    if (period && open) {
-      setName(period.name);
-      setStart(period.startDate);
-      setEnd(period.endDate);
-      setWeeks(String(period.weeks));
-    }
-  }, [period, open]);
-
-  if (!period) return null;
-
-  const numWeeks = Number(weeks) || 0;
-  const metrics = calculateCsnMetrics(numWeeks);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!start || !end || !weeks) return;
-    setIsSubmitting(true);
-    try {
-      await onSave({
-        ...period,
-        name: name.trim() || `CSN-period (${formatDateYYYYMMDD(start)} – ${formatDateYYYYMMDD(end)})`,
-        startDate: start,
-        endDate: end,
-        weeks: Math.max(1, Number(weeks)),
-        requirementPercent: 75,
-      });
-      toast.success("CSN-perioden har sparats");
-      onOpenChange(false);
-    } catch {
-      toast.error("Kunde inte spara CSN-perioden");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md border-border/60 bg-surface/95 backdrop-blur-xl">
-        <DialogHeader>
-          <DialogTitle className="font-display text-base flex items-center gap-2">
-            <Pencil className="h-4 w-4 text-primary" /> Redigera CSN-period
-          </DialogTitle>
-          <DialogDescription className="text-xs text-muted-foreground">
-            Hela CSN-perioden kan ändras vid behov: namn, antal veckor, startdatum och slutdatum.
-          </DialogDescription>
-        </DialogHeader>
-
-        <form onSubmit={handleSubmit} className="space-y-3.5 pt-1">
-          <div className="space-y-1">
-            <Label className="text-xs">Periodens namn / beskrivning</Label>
-            <Input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="t.ex. Hösttermin 2024"
-              className="rounded-xl h-9 text-xs"
-            />
-          </div>
-
-          <div className="space-y-1">
-            <Label className="text-xs">Antal veckor med CSN</Label>
-            <Input
-              type="number"
-              min="1"
-              max="100"
-              value={weeks}
-              onChange={(e) => setWeeks(e.target.value)}
-              placeholder="t.ex. 20"
-              className="rounded-xl h-9 text-xs font-mono"
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-2.5">
-            <div className="space-y-1">
-              <Label className="text-xs">Startdatum (beslut)</Label>
-              <DatePicker
-                value={start}
-                onChange={setStart}
-                placeholder="yyyy-mm-dd"
-              />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs">Slutdatum (sista vecka)</Label>
-              <DatePicker
-                value={end}
-                onChange={setEnd}
-                placeholder="yyyy-mm-dd"
-              />
-            </div>
-          </div>
-
-          {/* Live förhandsvisning av krav baserat på angivna veckor */}
-          <div className="rounded-xl bg-surface-2/60 border border-border/50 p-3 text-xs space-y-1">
-            <div className="flex justify-between font-mono">
-              <span className="text-muted-foreground">Beviljade poäng (1,5 HP/v):</span>
-              <span className="font-semibold text-foreground">{metrics.totalHp} HP ({numWeeks} veckor)</span>
-            </div>
-            <div className="flex justify-between font-mono">
-              <span className="text-muted-foreground">Studiekrav (75 %):</span>
-              <span className="font-bold text-amber-400">{metrics.requiredHp} HP</span>
-            </div>
-            <div className="text-[10px] text-muted-foreground pt-0.5 italic">
-              Avrundat nedåt till närmaste heltal enligt CSN:s regler.
-            </div>
-          </div>
-
-          <DialogFooter className="flex items-center justify-between sm:justify-between gap-2 pt-2">
-            {onDelete ? (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="text-destructive hover:bg-destructive/10 rounded-xl text-xs gap-1"
-                onClick={async () => {
-                  await onDelete(period.id);
-                  toast.success("CSN-period borttagen");
-                  onOpenChange(false);
-                }}
-              >
-                <Trash2 className="h-3.5 w-3.5" /> Ta bort
-              </Button>
-            ) : <div />}
-
-            <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => onOpenChange(false)}
-                className="rounded-xl text-xs"
-              >
-                Avbryt
-              </Button>
-              <Button
-                type="submit"
-                size="sm"
-                disabled={!start || !end || !weeks || isSubmitting}
-                className="rounded-xl text-xs"
-              >
-                Spara ändringar
-              </Button>
-            </div>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
   );
 }
