@@ -2180,7 +2180,7 @@ function StatsPage() {
                       fontSize: 12,
                       color: "var(--foreground)",
                     }}
-                    formatter={(v: any, _: string, props: { payload?: { hour: number } }) => [
+                    formatter={(v: any, _: any, props: { payload?: { hour: number } }) => [
                       `${v} h`,
                       `Kl. ${props.payload?.hour?.toString().padStart(2, "0") ?? ""}:00`,
                     ]}
@@ -2288,7 +2288,7 @@ function StatsPage() {
                     }}
                     itemStyle={{ color: "var(--foreground)" }}
                     labelStyle={{ color: "var(--muted-foreground)" }}
-                    formatter={(v: number, name: string) => [`${v} h`, name]}
+                    formatter={(v: any, name: any) => [`${v} h`, name]}
                   />
                   <Legend wrapperStyle={{ fontSize: 11 }} />
                   <Bar dataKey="Planerat" fill="#6366f1" fillOpacity={0.5} radius={[4, 4, 0, 0]} />
