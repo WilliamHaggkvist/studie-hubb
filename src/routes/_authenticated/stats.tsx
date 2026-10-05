@@ -2667,7 +2667,7 @@ function StatsPage() {
                           fontSize: 12,
                           color: "var(--foreground)",
                         }}
-                        formatter={(v: number, name: string) => [`${v} HP`, name]}
+                        formatter={(v: any, name: any) => [`${v} HP`, name]}
                       />
                       <Legend wrapperStyle={{ fontSize: 11 }} />
                       <Bar dataKey="Avklarade HP" stackId="hp" fill="#10b981" radius={[0, 0, 3, 3]} />
@@ -3703,7 +3703,7 @@ function StatsPage() {
                             fontSize: 12,
                             color: "var(--foreground)",
                           }}
-                          formatter={(v: number, name: string) => [
+                          formatter={(v: any, name: any) => [
                             name === "Antal" ? `${v} kurser` : `${v} HP`,
                             name,
                           ]}
