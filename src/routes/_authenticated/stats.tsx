@@ -1122,6 +1122,21 @@ function StatsPage() {
         if (month >= 1 && month <= 5) termKey = "VT";
         else if (month >= 6 && month <= 8) termKey = "ST";
         else termKey = "HT";
+      } else {
+        // Fallback när datum saknas: använd kursens schemalagda perioder
+        const enrs = enrollmentsForCourse(course, allEnrollments);
+        const periods = enrs.flatMap((e) =>
+          e.periods && e.periods.length > 0
+            ? e.periods
+            : course.periods ?? (course.period ? [course.period] : []),
+        );
+        if (periods.some((p) => p === "P3" || p === "P4")) {
+          termKey = "VT";
+        } else if (periods.some((p) => p === "P5")) {
+          termKey = "ST";
+        } else {
+          termKey = "HT";
+        }
       }
 
       let arskurs: number | null = null;
@@ -1217,7 +1232,8 @@ function StatsPage() {
       }
 
       let isLateReporting = false;
-      if (courseTermsSet.size > 0) {
+      // Kontrollera endast sen rapportering om ett faktiskt datum finns
+      if (regDate && courseTermsSet.size > 0) {
         if (!courseTermsSet.has(termKey)) {
           isLateReporting = true;
         } else {
@@ -1373,7 +1389,7 @@ function StatsPage() {
   }, [courses, tasks]);
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8 lg:px-8">
+    <div className="mx-auto max-w-7xl px-4 py-8 lg:px-8">
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
           <div>
@@ -2392,16 +2408,16 @@ function StatsPage() {
                 Högskolepoäng - Registrerade
               </h2>
               <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-                Rapporterade HP per termin (Sommar, Höst, Vår) baserat på registreringsdatum och dina terminsdatum. Moment som registreras under en termin eller årskurs då kursen inte var schemalagd märks med en Sen rapportering-banner.
+                Rapporterade HP per termin (Sommar, Höst, Vår) baserat på registreringsdatum och dina terminsdatum. Moment som registreras under en termin eller årskurs då kursen inte var schemalagd märks med en Sen-märkning.
               </p>
             </div>
 
-            {/* Full-width sammanfogad enhetlig modul för Totalt & Kurstyp */}
-            <div className="rounded-xl border border-border/60 bg-surface/80 p-3.5 backdrop-blur-sm w-full shadow-sm space-y-3">
-              <div className="flex items-center justify-between gap-3 border-b border-border/40 pb-2">
+            {/* Full-width sammanfogad enhetlig modul för Totalt, Kurstyp & Studieform */}
+            <div className="rounded-xl border border-border/60 bg-surface/80 p-4 backdrop-blur-sm w-full shadow-sm space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/40 pb-2.5">
                 <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
                   <School className="h-4 w-4 text-purple-400" />
-                  <span>Kurstyp &amp; Totalt</span>
+                  <span>Registrerade Högskolepoäng • Översikt &amp; Fördelning</span>
                 </div>
                 <div className="flex items-center gap-2 font-mono text-xs">
                   <span className="text-muted-foreground font-medium">Totalt registrerat:</span>
@@ -2410,17 +2426,41 @@ function StatsPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 text-xs">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
                 <div className="flex flex-col rounded-lg bg-surface-2/40 border border-border/30 p-3">
-                  <span className="text-xs font-medium text-muted-foreground">Program</span>
+                  <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Program</span>
                   <span className="font-mono font-extrabold text-base text-foreground mt-0.5">
                     {registeredHpStats.programModulesHp} <span className="text-xs font-normal text-muted-foreground">HP</span>
                   </span>
+                  <span className="text-[10px] text-muted-foreground mt-0.5">
+                    {registeredHpStats.programModulesCount} {registeredHpStats.programModulesCount === 1 ? "moment" : "moment"}
+                  </span>
                 </div>
                 <div className="flex flex-col rounded-lg bg-surface-2/40 border border-border/30 p-3">
-                  <span className="text-xs font-medium text-muted-foreground">Fristående</span>
+                  <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Fristående</span>
                   <span className="font-mono font-extrabold text-base text-foreground mt-0.5">
                     {registeredHpStats.standaloneModulesHp} <span className="text-xs font-normal text-muted-foreground">HP</span>
+                  </span>
+                  <span className="text-[10px] text-muted-foreground mt-0.5">
+                    {registeredHpStats.standaloneModulesCount} {registeredHpStats.standaloneModulesCount === 1 ? "moment" : "moment"}
+                  </span>
+                </div>
+                <div className="flex flex-col rounded-lg bg-surface-2/40 border border-border/30 p-3">
+                  <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Campus</span>
+                  <span className="font-mono font-extrabold text-base text-foreground mt-0.5">
+                    {registeredHpStats.campusModulesHp} <span className="text-xs font-normal text-muted-foreground">HP</span>
+                  </span>
+                  <span className="text-[10px] text-muted-foreground mt-0.5">
+                    {registeredHpStats.campusModulesCount} {registeredHpStats.campusModulesCount === 1 ? "moment" : "moment"}
+                  </span>
+                </div>
+                <div className="flex flex-col rounded-lg bg-surface-2/40 border border-border/30 p-3">
+                  <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Distans</span>
+                  <span className="font-mono font-extrabold text-base text-foreground mt-0.5">
+                    {registeredHpStats.distansModulesHp} <span className="text-xs font-normal text-muted-foreground">HP</span>
+                  </span>
+                  <span className="text-[10px] text-muted-foreground mt-0.5">
+                    {registeredHpStats.distansModulesCount} {registeredHpStats.distansModulesCount === 1 ? "moment" : "moment"}
                   </span>
                 </div>
               </div>
@@ -2433,141 +2473,220 @@ function StatsPage() {
                   Inga registrerade rapporteringsmoment än.
                 </Card>
               ) : (
-                registeredHpStats.yearStats.map((y) => (
-                  <div
-                    key={y.arskurs}
-                    className="relative overflow-hidden space-y-3 rounded-xl border border-border/60 bg-surface/40 p-4 pl-11 shadow-sm"
-                  >
-                    {/* Vänster vertikal linje med upprepad årskurstext */}
-                    <div className="absolute top-0 bottom-0 left-0 h-full w-7 bg-sky-500/15 border-r border-sky-500/30 flex flex-col items-center justify-start py-3 gap-5 overflow-hidden select-none pointer-events-none">
-                      {Array.from({ length: 16 }).map((_, idx) => (
-                        <span
-                          key={idx}
-                          className="font-display text-[9px] font-extrabold uppercase tracking-widest text-sky-400/80 [writing-mode:vertical-lr] rotate-180 whitespace-nowrap leading-none shrink-0"
-                        >
-                          {y.label}
-                        </span>
-                      ))}
-                    </div>
+                registeredHpStats.yearStats.map((y) => {
+                  const hasSummerModules = y.terms.some(
+                    (term) => term.key === "ST" && term.modules.length > 0
+                  );
+                  const activeTerms = hasSummerModules
+                    ? y.terms
+                    : y.terms.filter((term) => term.key !== "ST");
 
-                    <div className="flex flex-wrap items-center justify-between border-b border-border/40 pb-2 gap-2">
-                      <div className="flex items-center gap-2">
-                        <span className="rounded-lg bg-sky-500/10 border border-sky-500/20 px-3 py-1 font-display font-bold text-sm text-sky-400">
-                          {y.label}
-                        </span>
+                  return (
+                    <div
+                      key={y.arskurs}
+                      className="relative overflow-hidden space-y-4 rounded-xl border border-border/60 bg-surface/40 p-4 pl-11 shadow-sm"
+                    >
+                      {/* Vänster vertikal linje med upprepad årskurstext */}
+                      <div className="absolute top-0 bottom-0 left-0 h-full w-7 bg-sky-500/15 border-r border-sky-500/30 flex flex-col items-center justify-start py-3 gap-5 overflow-hidden select-none pointer-events-none">
+                        {Array.from({ length: 16 }).map((_, idx) => (
+                          <span
+                            key={idx}
+                            className="font-display text-[9px] font-extrabold uppercase tracking-widest text-sky-400/80 [writing-mode:vertical-lr] rotate-180 whitespace-nowrap leading-none shrink-0"
+                          >
+                            {y.label}
+                          </span>
+                        ))}
                       </div>
-                      <div className="flex flex-wrap items-center gap-2 text-xs">
-                        <span className="rounded bg-purple-500/10 border border-purple-500/20 px-2 py-0.5 text-[11px] font-medium text-purple-400">
-                          Program: {y.programHp} HP
-                        </span>
-                        <span className="rounded bg-purple-500/10 border border-purple-500/20 px-2 py-0.5 text-[11px] font-medium text-purple-400">
-                          Fristående: {y.standaloneHp} HP
-                        </span>
-                        <span className="rounded bg-sky-500/10 border border-sky-500/20 px-2 py-0.5 text-[11px] font-medium text-sky-400">
-                          Campus: {y.campusHp} HP
-                        </span>
-                        <span className="rounded bg-sky-500/10 border border-sky-500/20 px-2 py-0.5 text-[11px] font-medium text-sky-400">
-                          Distans: {y.distansHp} HP
-                        </span>
-                        <span className="text-sky-400 font-bold font-mono text-xs ml-1">
-                          ({y.totalHp} HP tot)
-                        </span>
+
+                      <div className="flex flex-wrap items-center justify-between border-b border-border/40 pb-2.5 gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className="rounded-lg bg-sky-500/10 border border-sky-500/20 px-3 py-1 font-display font-bold text-sm text-sky-400">
+                            {y.label}
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2 text-xs">
+                          <span className="rounded bg-purple-500/10 border border-purple-500/20 px-2 py-0.5 text-[11px] font-medium text-purple-400">
+                            Program: {y.programHp} HP
+                          </span>
+                          <span className="rounded bg-purple-500/10 border border-purple-500/20 px-2 py-0.5 text-[11px] font-medium text-purple-400">
+                            Fristående: {y.standaloneHp} HP
+                          </span>
+                          <span className="rounded bg-sky-500/10 border border-sky-500/20 px-2 py-0.5 text-[11px] font-medium text-sky-400">
+                            Campus: {y.campusHp} HP
+                          </span>
+                          <span className="rounded bg-sky-500/10 border border-sky-500/20 px-2 py-0.5 text-[11px] font-medium text-sky-400">
+                            Distans: {y.distansHp} HP
+                          </span>
+                          <span className="text-sky-400 font-bold font-mono text-xs ml-1">
+                            ({y.totalHp} HP tot)
+                          </span>
+                        </div>
                       </div>
-                    </div>
 
-                    <div className="grid gap-4 lg:grid-cols-3">
-                      {y.terms.map((term) => (
-                        <Card
-                          key={`${y.arskurs}-${term.key}`}
-                          className={cn(
-                            "border-border/60 bg-surface/60 overflow-hidden flex flex-col justify-between transition-all",
-                            term.totalHp === 0 && "opacity-60"
-                          )}
-                        >
-                          <CardHeader className="pb-3 border-b border-border/40 bg-surface-2/30 space-y-1.5">
-                            <div className="flex items-center justify-between">
-                              <span className={cn("font-bold text-sm font-display", term.color)}>
-                                {term.name}
-                              </span>
-                              <span className="text-xs font-mono font-bold text-foreground tabular-nums bg-surface-2/80 px-2 py-0.5 rounded border border-border/40">
-                                {term.totalHp} HP
-                              </span>
-                            </div>
-                            <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
-                              <span className="rounded bg-purple-500/10 border border-purple-500/20 px-1.5 py-0.5 text-purple-400 font-medium">
-                                Program: {term.programHp} HP
-                              </span>
-                              <span className="rounded bg-purple-500/10 border border-purple-500/20 px-1.5 py-0.5 text-purple-400 font-medium">
-                                Fristående: {term.standaloneHp} HP
-                              </span>
-                              <span className="rounded bg-sky-500/10 border border-sky-500/20 px-1.5 py-0.5 text-sky-400 font-medium">
-                                Campus: {term.campusHp} HP
-                              </span>
-                              <span className="rounded bg-sky-500/10 border border-sky-500/20 px-1.5 py-0.5 text-sky-400 font-medium">
-                                Distans: {term.distansHp} HP
-                              </span>
-                            </div>
-                          </CardHeader>
-
-                          <CardContent className="p-3 space-y-2 flex-1">
-                            {term.modules.length === 0 ? (
-                              <div className="py-4 text-center text-[11px] text-muted-foreground/60 italic">
-                                Inga moment för {term.name.toLowerCase()}
-                              </div>
-                            ) : (
-                              <div className="space-y-1.5">
-                                {term.modules.map((m) => (
-                                  <div
-                                    key={m.id}
-                                    className={cn(
-                                      "flex items-center justify-between gap-2 rounded-lg bg-surface/80 px-2.5 py-1.5 text-xs border border-border/30",
-                                      m.isLateReporting && "border-amber-500/40 bg-amber-500/5"
-                                    )}
-                                  >
-                                    <div className="flex items-center gap-2 truncate">
-                                      <span
-                                        className="h-2 w-2 shrink-0 rounded-full"
-                                        style={{ background: m.courseColor }}
-                                      />
-                                      {m.courseCode && (
-                                        <span className="font-mono text-[10px] font-semibold text-muted-foreground">
-                                          {m.courseCode}
-                                        </span>
-                                      )}
-                                      <span className="truncate font-medium text-foreground">
-                                        {m.moduleName}
-                                      </span>
-                                    </div>
-                                    <div className="flex items-center gap-1.5 shrink-0">
-                                      {m.isLateReporting && (
-                                        <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                                          <Clock className="h-2.5 w-2.5 text-amber-400" />
-                                          Sen rapportering
-                                        </span>
-                                      )}
-                                      <span className="font-mono text-[10px] text-muted-foreground">
-                                        {m.registeredOn}
-                                      </span>
-                                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-surface-2/60 border border-border/40 text-muted-foreground hidden sm:inline">
-                                        {m.isStandalone ? "Fristående" : "Program"}
-                                      </span>
-                                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-surface-2/60 border border-border/40 text-muted-foreground hidden sm:inline">
-                                        {m.mode === "distans" ? "Distans" : "Campus"}
-                                      </span>
-                                      <span className="font-mono text-[10px] font-bold text-sky-400 bg-sky-500/10 border border-sky-500/20 px-1.5 py-0.5 rounded">
-                                        {m.hp} HP
-                                      </span>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
+                      {/* Terminskort med smart responsiv grid */}
+                      <div
+                        className={cn(
+                          "grid gap-4 grid-cols-1",
+                          hasSummerModules ? "lg:grid-cols-3" : "lg:grid-cols-2"
+                        )}
+                      >
+                        {activeTerms.map((term) => (
+                          <Card
+                            key={`${y.arskurs}-${term.key}`}
+                            className={cn(
+                              "border-border/60 bg-surface/60 overflow-hidden flex flex-col justify-between transition-all",
+                              term.totalHp === 0 && "opacity-60"
                             )}
-                          </CardContent>
-                        </Card>
-                      ))}
+                          >
+                            <CardHeader className="pb-3 border-b border-border/40 bg-surface-2/30 space-y-2">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <span className={cn("font-bold text-sm font-display", term.color)}>
+                                    {term.name}
+                                  </span>
+                                  <span className="text-[11px] text-muted-foreground font-medium">
+                                    ({term.modules.length} {term.modules.length === 1 ? "moment" : "moment"})
+                                  </span>
+                                </div>
+                                <span className="text-xs font-mono font-bold text-foreground tabular-nums bg-surface-2/80 px-2 py-0.5 rounded border border-border/40">
+                                  {term.totalHp} HP
+                                </span>
+                              </div>
+                              <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
+                                {term.programHp > 0 && (
+                                  <span className="rounded bg-purple-500/10 border border-purple-500/20 px-1.5 py-0.5 text-purple-400 font-medium">
+                                    Program: {term.programHp} HP
+                                  </span>
+                                )}
+                                {term.standaloneHp > 0 && (
+                                  <span className="rounded bg-purple-500/10 border border-purple-500/20 px-1.5 py-0.5 text-purple-400 font-medium">
+                                    Fristående: {term.standaloneHp} HP
+                                  </span>
+                                )}
+                                {term.campusHp > 0 && (
+                                  <span className="rounded bg-sky-500/10 border border-sky-500/20 px-1.5 py-0.5 text-sky-400 font-medium">
+                                    Campus: {term.campusHp} HP
+                                  </span>
+                                )}
+                                {term.distansHp > 0 && (
+                                  <span className="rounded bg-sky-500/10 border border-sky-500/20 px-1.5 py-0.5 text-sky-400 font-medium">
+                                    Distans: {term.distansHp} HP
+                                  </span>
+                                )}
+                                {term.totalHp === 0 && (
+                                  <span className="text-muted-foreground/60 italic">0 HP i terminen</span>
+                                )}
+                              </div>
+                            </CardHeader>
+
+                            <CardContent className="p-3.5 space-y-2.5 flex-1">
+                              {term.modules.length === 0 ? (
+                                <div className="py-6 text-center text-xs text-muted-foreground/60 italic">
+                                  Inga moment registrerade för {term.name.toLowerCase()}
+                                </div>
+                              ) : (
+                                <div className="space-y-2">
+                                  {term.modules.map((m) => (
+                                    <div
+                                      key={m.id}
+                                      className={cn(
+                                        "group rounded-xl border border-border/40 bg-surface/80 p-3 transition-all hover:bg-surface/95 hover:border-border/70 hover:shadow-xs space-y-2",
+                                        m.isLateReporting && "border-amber-500/40 bg-amber-500/5 hover:border-amber-500/60"
+                                      )}
+                                    >
+                                      {/* Huvudrad: Kurs & Moment med tydlig typografi och HP-badge */}
+                                      <div className="flex items-start justify-between gap-3">
+                                        <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                                          <span
+                                            className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full shadow-xs"
+                                            style={{ background: m.courseColor }}
+                                            title={m.courseName}
+                                          />
+                                          <div className="min-w-0 flex-1 space-y-0.5 break-words">
+                                            <div className="flex flex-wrap items-center gap-1.5 leading-snug">
+                                              {m.courseCode && (
+                                                <span className="font-mono text-[10px] font-bold text-muted-foreground bg-surface-2/90 px-1.5 py-0.5 rounded border border-border/40 shrink-0">
+                                                  {m.courseCode}
+                                                </span>
+                                              )}
+                                              <span className="text-xs font-semibold text-foreground group-hover:text-primary transition-colors break-words">
+                                                {m.courseName}
+                                              </span>
+                                            </div>
+                                            <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                                              <span className="font-medium text-foreground/90 break-words">{m.moduleName}</span>
+                                              {m.grade && (
+                                                <span className="rounded bg-emerald-500/10 border border-emerald-500/25 px-1.5 py-0.2 text-[10px] font-bold text-emerald-400 shrink-0">
+                                                  Betyg: {m.grade}
+                                                </span>
+                                              )}
+                                              {m.points && (
+                                                <span className="rounded bg-purple-500/10 border border-purple-500/25 px-1.5 py-0.2 text-[10px] font-medium text-purple-300 shrink-0">
+                                                  Poäng: {m.points}
+                                                </span>
+                                              )}
+                                            </div>
+                                          </div>
+                                        </div>
+
+                                        {/* HP-badge */}
+                                        <div className="shrink-0 flex items-center">
+                                          <span className="font-mono text-xs font-bold text-sky-400 bg-sky-500/10 border border-sky-500/20 px-2 py-0.5 rounded-lg tabular-nums shadow-xs">
+                                            {m.hp} HP
+                                          </span>
+                                        </div>
+                                      </div>
+
+                                      {/* Inforad: Datum, Sen & studieform */}
+                                      <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1.5 pt-1.5 border-t border-border/20 text-[11px]">
+                                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-muted-foreground min-w-0">
+                                          <span className="inline-flex items-center gap-1 font-mono text-[10px] text-muted-foreground/90 shrink-0">
+                                            <CalendarDays className="h-3 w-3 text-muted-foreground/60" />
+                                            {m.registeredOn}
+                                          </span>
+                                          <span className="text-border/60 text-[10px]">•</span>
+                                          <span className="text-[10px] rounded bg-surface-2/50 border border-border/30 px-1.5 py-0.2 text-muted-foreground/90 shrink-0">
+                                            {m.isStandalone ? "Fristående" : "Program"}
+                                          </span>
+                                          <span className="text-border/60 text-[10px]">•</span>
+                                          <span className="text-[10px] rounded bg-surface-2/50 border border-border/30 px-1.5 py-0.2 text-muted-foreground/90 shrink-0">
+                                            {m.mode === "distans" ? "Distans" : "Campus"}
+                                          </span>
+                                        </div>
+
+                                        {m.isLateReporting && (
+                                          <span
+                                            className="inline-flex items-center gap-1 text-[9px] font-semibold px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30 shrink-0"
+                                            title="Sen rapportering: Inrapporterat under en termin då kursen inte var schemalagd"
+                                          >
+                                            <Clock className="h-2.5 w-2.5 text-amber-400" />
+                                            Sen
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+
+                      {/* Om sommarterminen är tom visas den som en stilren kompakt rad istället för att stjäla 33% av skärmen */}
+                      {!hasSummerModules && (
+                        <div className="flex items-center justify-between rounded-xl border border-border/40 bg-surface-2/20 px-3.5 py-2.5 text-xs text-muted-foreground">
+                          <div className="flex items-center gap-2">
+                            <span className="h-2 w-2 rounded-full bg-emerald-400/50" />
+                            <span className="font-semibold text-foreground/90 font-display">Sommartermin</span>
+                            <span className="text-[11px] font-mono text-muted-foreground">(0 HP)</span>
+                          </div>
+                          <span className="text-[11px] text-muted-foreground/60 italic">Inga inrapporterade moment under sommaren</span>
+                        </div>
+                      )}
                     </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </section>
