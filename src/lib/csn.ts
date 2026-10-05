@@ -9,6 +9,7 @@ export type CsnPeriod = {
   startDate: string; // YYYY-MM-DD
   endDate: string; // YYYY-MM-DD
   weeks: number;
+  requirementPercent?: number; // 75 (standard för universitet efter 40 v) eller 62.5 (första 40 heltidsveckorna)
   createdAt?: string;
   updatedAt?: string;
 };
@@ -31,8 +32,10 @@ export type CsnPeriodProgress = {
   period: CsnPeriod;
   status: CsnPeriodStatus;
   weeks: number;
+  requirementPercent: number; // 75 eller 62.5
   totalHp: number; // e.g. 20 * 1.5 = 30 HP
-  requiredHp: number; // 75% of totalHp, e.g. 22.5 HP
+  requiredHp: number; // Avrundat nedåt till närmaste heltal enligt CSN
+  exactRequiredHp: number; // T.ex. 22.5
   registeredHp: number; // sum of modules registered in period
   remainingHp: number; // max(0, requiredHp - registeredHp)
   surplusHp: number; // max(0, registeredHp - requiredHp)
@@ -61,18 +64,33 @@ export function calculateWeeksFromDates(startDate: string, endDate: string): num
 }
 
 /**
- * Beräknar CSN HP-mått baserat på veckor.
- * Heltid (100%) = 1,5 HP per vecka.
- * CSN studiekrav = 75 % av beviljade HP.
+ * Beräknar CSN HP-mått baserat på veckor för universitetsstudier på heltid.
+ *
+ * Enligt CSN:s officiella regler (Universitet och högskola):
+ * - 1 heltidsvecka motsvarar 1,5 högskolepoäng (hp).
+ *   (T.ex. 40 heltidsveckor = 60 hp, 20 veckor = 30 hp).
+ * - Studiekrav:
+ *   - Under de första 40 heltidsveckorna: 62,5 %
+ *   - Efter de första 40 veckorna: 75 %
+ * - Avrundning:
+ *   - "CSN avrundar kravet nedåt till närmaste heltal." (Math.floor)
+ *   Exempel: 20 veckor = 30 hp. 30 * 0,75 = 22,5 -> avrundas nedåt till 22 hp.
+ *   Exempel: 40 veckor = 60 hp. 60 * 0,625 = 37,5 -> avrundas nedåt till 37 hp.
  */
-export function calculateCsnMetrics(weeks: number) {
+export function calculateCsnMetrics(weeks: number, _requirementPercent: number = 75) {
   const safeWeeks = Math.max(0, Number(weeks) || 0);
+  // Heltid = 1,5 HP per vecka
   const totalHp = +(safeWeeks * 1.5).toFixed(1);
-  const requiredHp = +(totalHp * 0.75).toFixed(2);
+  const pct = 75; // Alltid 75 % för universitetsstudier på heltid enligt användarens önskemål
+  // CSN-regel: "CSN avrundar kravet nedåt till närmaste heltal."
+  const exactRequiredHp = +(totalHp * (pct / 100)).toFixed(3);
+  const requiredHp = Math.floor(exactRequiredHp);
   return {
     weeks: safeWeeks,
     totalHp,
     requiredHp,
+    exactRequiredHp,
+    requirementPercent: 75,
   };
 }
 
@@ -155,6 +173,7 @@ export function useCsnPeriods() {
               startDate: row.start_date,
               endDate: row.end_date,
               weeks: Number(row.weeks) || calculateWeeksFromDates(row.start_date, row.end_date),
+              requirementPercent: Number(row.requirement_percent) || 75,
               createdAt: row.created_at,
               updatedAt: row.updated_at,
             }));
@@ -196,6 +215,7 @@ export function useCsnPeriods() {
                 start_date: p.startDate,
                 end_date: p.endDate,
                 weeks: p.weeks,
+                ...(p.requirementPercent ? { requirement_percent: p.requirementPercent } : {}),
                 updated_at: new Date().toISOString(),
               } as never,
               { onConflict: "id" },

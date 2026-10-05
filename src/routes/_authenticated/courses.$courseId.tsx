@@ -76,7 +76,7 @@ import {
   formatPeriods,
 } from "@/lib/course-presets";
 import { useUniversities } from "@/lib/settings";
-import { cn } from "@/lib/utils";
+import { cn, hasEnteredValue } from "@/lib/utils";
 import { EditCourseDialog } from "@/components/courses/edit-course-dialog";
 import { FilesCard } from "@/components/courses/files-card";
 import { formatDateYYYYMMDD } from "@/lib/date-utils";
@@ -1108,12 +1108,12 @@ function CourseDetail() {
                     </span>
                     {m.completed && (
                       <div className="ml-auto flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground">
-                        {m.grade && (
+                        {hasEnteredValue(m.grade) && (
                           <span className="rounded-full bg-surface-2 px-1.5 py-0.5">
                             Betyg: {m.grade}
                           </span>
                         )}
-                        {m.points && (
+                        {hasEnteredValue(m.points) && (
                           <span className="rounded-full bg-surface-2 px-1.5 py-0.5">
                             Poäng: {m.points}
                           </span>

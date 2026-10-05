@@ -98,7 +98,7 @@ import {
 import { periodWindows, resolvePeriod, makeArskursMapper, getArskursFromDate } from "@/lib/academic-periods";
 import { formatDateYYYYMMDD } from "@/lib/date-utils";
 import { PERIOD_TO_TERM, type CoursePeriod } from "@/lib/course-presets";
-import { cn } from "@/lib/utils";
+import { cn, hasEnteredValue } from "@/lib/utils";
 
 import { z } from "zod";
 
@@ -1139,7 +1139,7 @@ function StatsPage() {
 
     // Processera ENDAST course_reporting_modules (klarmarkerade eller med betyg/datum/poäng)
     for (const m of allModules) {
-      const isDone = Boolean(m.completed || m.grade || m.registered_on || m.points);
+      const isDone = Boolean(m.completed || hasEnteredValue(m.grade) || m.registered_on || hasEnteredValue(m.points));
       if (!isDone) continue;
       const course = courseById.get(m.course_id);
       if (!course) continue;
@@ -1361,7 +1361,7 @@ function StatsPage() {
 
     const periodResults: CsnPeriodProgress[] = csnPeriods.map((period) => {
       const status = getCsnPeriodStatus(period);
-      const metrics = calculateCsnMetrics(period.weeks);
+      const metrics = calculateCsnMetrics(period.weeks, period.requirementPercent ?? 75);
       const pStart = period.startDate ? period.startDate.slice(0, 10) : "";
       const pEnd = period.endDate ? period.endDate.slice(0, 10) : "";
 
@@ -1369,7 +1369,7 @@ function StatsPage() {
       let periodRegisteredHp = 0;
 
       for (const m of allModules) {
-        const isDone = Boolean(m.completed || m.grade || m.registered_on || m.points);
+        const isDone = Boolean(m.completed || hasEnteredValue(m.grade) || m.registered_on || hasEnteredValue(m.points));
         if (!isDone) continue;
 
         const regDate = m.registered_on ? m.registered_on.slice(0, 10) : null;
@@ -1413,8 +1413,10 @@ function StatsPage() {
         period,
         status,
         weeks: period.weeks,
+        requirementPercent: metrics.requirementPercent,
         totalHp,
         requiredHp,
+        exactRequiredHp: metrics.exactRequiredHp,
         registeredHp,
         remainingHp,
         surplusHp,
@@ -1506,7 +1508,7 @@ function StatsPage() {
       .sort((a, b) => b.Antal - a.Antal);
 
     const gradedTasks = tasks.filter(
-      (t) => (t.grade && t.grade.trim() !== "") || (t.points && t.points.trim() !== ""),
+      (t) => hasEnteredValue(t.grade) || hasEnteredValue(t.points),
     );
 
     return {
@@ -2754,12 +2756,12 @@ function StatsPage() {
                                             </div>
                                             <div className="flex flex-wrap items-center gap-1.5 text-xs">
                                               <span className="font-medium text-foreground/90 break-words">{m.moduleName}</span>
-                                              {m.grade && (
+                                              {hasEnteredValue(m.grade) && (
                                                 <span className="rounded bg-emerald-500/10 border border-emerald-500/25 px-1.5 py-0.2 text-[10px] font-bold text-emerald-400 shrink-0">
                                                   Betyg: {m.grade}
                                                 </span>
                                               )}
-                                              {m.points && (
+                                              {hasEnteredValue(m.points) && (
                                                 <span className="rounded bg-purple-500/10 border border-purple-500/25 px-1.5 py-0.2 text-[10px] font-medium text-purple-300 shrink-0">
                                                   Poäng: {m.points}
                                                 </span>
@@ -2831,18 +2833,15 @@ function StatsPage() {
           </section>
 
           {/* ───────────────────────────────────────────────────────────── */}
-          {/* HUVUDRUBRIK 4: Högskolepoäng - CSN                           */}
+          {/* HUVUDRUBRIK 4: Högskolepoäng - Studiekrav CSN                 */}
           {/* ───────────────────────────────────────────────────────────── */}
           <section id="hp-csn" className="space-y-4 pt-4 border-t border-border/40">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/40 pb-3">
               <div>
                 <h2 className="font-display text-lg font-bold tracking-tight text-foreground flex items-center gap-2">
                   <GraduationCap className="h-5 w-5 text-amber-400" />
-                  Högskolepoäng - CSN
+                  Högskolepoäng - Studiekrav CSN
                 </h2>
-                <p className="text-xs text-muted-foreground mt-1 leading-relaxed max-w-3xl">
-                  Uppföljning av studiekravet för CSN (75 % av beviljade veckor med CSN). Studiekravet grundar sig på hur många veckor du har CSN för i perioden, där 1 heltidsvecka motsvarar 1,5 HP (40 veckor = 60 HP, studiekrav 45 HP). Här sammanställs dina registrerade HP gentemot studiekravet.
-                </p>
               </div>
 
               <div className="flex items-center gap-2">
@@ -2981,7 +2980,7 @@ function StatsPage() {
                         </div>
                       </Card>
 
-                      {/* KPI 2: Studiekrav (75 %) */}
+                      {/* KPI 2: Studiekrav */}
                       <Card className="border-border/60 bg-surface-2/40 p-3.5 flex flex-col justify-between">
                         <div>
                           <div className="flex items-center justify-between">
@@ -3002,7 +3001,7 @@ function StatsPage() {
                           </div>
                         </div>
                         <div className="mt-2 text-[10px] text-muted-foreground truncate font-mono">
-                          Baserat på {csnStats.activePeriod.weeks} v ({csnStats.activePeriod.totalHp} HP beviljat)
+                          Baserat på {csnStats.activePeriod.weeks} v ({csnStats.activePeriod.totalHp} HP beviljat • avrundat nedåt)
                         </div>
                       </Card>
 
@@ -3073,36 +3072,46 @@ function StatsPage() {
                         </span>
                       </div>
 
-                      {/* Bar med 75%-markör */}
-                      <div className="relative h-4 w-full overflow-hidden rounded-full bg-surface-2 border border-border/50">
-                        {/* Fyllning för registrerade HP i relation till beviljat (100%) */}
-                        <div
-                          className={cn(
-                            "h-full rounded-full transition-all duration-500",
-                            csnStats.activePeriod.isFulfilled
-                              ? "bg-gradient-to-r from-emerald-500 to-emerald-400 shadow-[0_0_12px_rgba(16,185,129,0.35)]"
-                              : "bg-gradient-to-r from-sky-500 to-amber-400"
-                          )}
-                          style={{
-                            width: `${Math.min(100, (csnStats.activePeriod.registeredHp / (csnStats.activePeriod.totalHp || 1)) * 100)}%`,
-                          }}
-                        />
+                      {/* Bar med CSN-kravmarkör */}
+                      {(() => {
+                        const totalHp = csnStats.activePeriod.totalHp || 1;
+                        const reqPct = Math.min(100, Math.max(0, (csnStats.activePeriod.requiredHp / totalHp) * 100));
+                        const regPct = Math.min(100, Math.max(0, (csnStats.activePeriod.registeredHp / totalHp) * 100));
+                        return (
+                          <div>
+                            <div className="relative h-4 w-full overflow-hidden rounded-full bg-surface-2 border border-border/50">
+                              {/* Fyllning för registrerade HP i relation till beviljat (100%) */}
+                              <div
+                                className={cn(
+                                  "h-full rounded-full transition-all duration-500",
+                                  csnStats.activePeriod.isFulfilled
+                                    ? "bg-gradient-to-r from-emerald-500 to-emerald-400 shadow-[0_0_12px_rgba(16,185,129,0.35)]"
+                                    : "bg-gradient-to-r from-sky-500 to-amber-400"
+                                )}
+                                style={{ width: `${regPct}%` }}
+                              />
 
-                        {/* Vertikalt CSN 75% krav-streck */}
-                        <div
-                          className="absolute top-0 bottom-0 w-0.5 bg-amber-400 z-10 shadow-[0_0_6px_rgba(251,191,36,0.8)]"
-                          style={{ left: "75%" }}
-                          title={`CSN Studiekrav (75% = ${csnStats.activePeriod.requiredHp} HP)`}
-                        />
-                      </div>
+                              {/* Vertikalt CSN krav-streck */}
+                              <div
+                                className="absolute top-0 bottom-0 w-0.5 bg-amber-400 z-10 shadow-[0_0_6px_rgba(251,191,36,0.8)]"
+                                style={{ left: `${reqPct}%` }}
+                                title={`CSN Studiekrav (75% = ${csnStats.activePeriod.requiredHp} HP, avrundat nedåt till heltal)`}
+                              />
+                            </div>
 
-                      <div className="relative flex justify-between text-[10px] font-mono text-muted-foreground pt-0.5">
-                        <span>0 HP</span>
-                        <span className="absolute left-[75%] -translate-x-1/2 text-amber-400 font-bold">
-                          ▲ Krav 75% ({csnStats.activePeriod.requiredHp} HP)
-                        </span>
-                        <span>100% ({csnStats.activePeriod.totalHp} HP)</span>
-                      </div>
+                            <div className="relative flex justify-between text-[10px] font-mono text-muted-foreground pt-0.5">
+                              <span>0 HP</span>
+                              <span
+                                className="absolute -translate-x-1/2 text-amber-400 font-bold whitespace-nowrap"
+                                style={{ left: `${reqPct}%` }}
+                              >
+                                ▲ Krav 75% ({csnStats.activePeriod.requiredHp} HP)
+                              </span>
+                              <span>100% beviljat ({csnStats.activePeriod.totalHp} HP)</span>
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
                 )}
@@ -3244,28 +3253,33 @@ function StatsPage() {
                             </div>
 
                             {/* Mini progress bar */}
-                            <div className="space-y-1">
-                              <div className="relative h-2.5 w-full overflow-hidden rounded-full bg-surface-2">
-                                <div
-                                  className={cn(
-                                    "h-full rounded-full transition-all duration-300",
-                                    p.isFulfilled ? "bg-emerald-500" : "bg-amber-400"
-                                  )}
-                                  style={{
-                                    width: `${Math.min(100, (p.registeredHp / (p.totalHp || 1)) * 100)}%`,
-                                  }}
-                                />
-                                <div
-                                  className="absolute top-0 bottom-0 w-0.5 bg-amber-400 z-10"
-                                  style={{ left: "75%" }}
-                                  title="Studiekrav (75%)"
-                                />
-                              </div>
-                              <div className="flex justify-between text-[10px] font-mono text-muted-foreground">
-                                <span>{p.requirementPercentReached} % av studiekravet</span>
-                                <span>Kravlinje vid 75 %</span>
-                              </div>
-                            </div>
+                            {(() => {
+                              const tHp = p.totalHp || 1;
+                              const reqPct = Math.min(100, Math.max(0, (p.requiredHp / tHp) * 100));
+                              const regPct = Math.min(100, Math.max(0, (p.registeredHp / tHp) * 100));
+                              return (
+                                <div className="space-y-1">
+                                  <div className="relative h-2.5 w-full overflow-hidden rounded-full bg-surface-2">
+                                    <div
+                                      className={cn(
+                                        "h-full rounded-full transition-all duration-300",
+                                        p.isFulfilled ? "bg-emerald-500" : "bg-amber-400"
+                                      )}
+                                      style={{ width: `${regPct}%` }}
+                                    />
+                                    <div
+                                      className="absolute top-0 bottom-0 w-0.5 bg-amber-400 z-10"
+                                      style={{ left: `${reqPct}%` }}
+                                      title={`Studiekrav (${p.requiredHp} HP, avrundat nedåt)`}
+                                    />
+                                  </div>
+                                  <div className="flex justify-between text-[10px] font-mono text-muted-foreground">
+                                    <span>{p.requirementPercentReached} % av studiekravet</span>
+                                    <span>Krav: {p.requiredHp} HP (75 %)</span>
+                                  </div>
+                                </div>
+                              );
+                            })()}
 
                             {/* Toggle-knapp för att fälla ut registrerade moment & Ändra-knapp */}
                             <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-border/40">
@@ -3359,9 +3373,14 @@ function StatsPage() {
                                         <span className="text-muted-foreground text-[11px]">
                                           Reg: {mod.registeredOn}
                                         </span>
-                                        {mod.grade && (
+                                        {hasEnteredValue(mod.grade) && (
                                           <span className="rounded bg-primary/10 border border-primary/20 px-1.5 py-0.5 text-[10px] font-bold text-primary">
                                             Betyg: {mod.grade}
+                                          </span>
+                                        )}
+                                        {hasEnteredValue(mod.points) && (
+                                          <span className="rounded bg-purple-500/10 border border-purple-500/20 px-1.5 py-0.5 text-[10px] font-medium text-purple-300">
+                                            Poäng: {mod.points}
                                           </span>
                                         )}
                                         <span className="font-bold text-foreground">
@@ -3595,7 +3614,7 @@ function StatsPage() {
                         <div>
                           <div className="flex items-center justify-between gap-2 mb-1">
                             <span className="font-medium truncate text-foreground">{t.title}</span>
-                            {t.grade && (
+                            {hasEnteredValue(t.grade) && (
                               <span className="rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 font-bold font-mono text-[11px] text-emerald-400 shrink-0">
                                 {t.grade}
                               </span>
@@ -3611,7 +3630,7 @@ function StatsPage() {
                             </div>
                           )}
                         </div>
-                        {t.points && (
+                        {hasEnteredValue(t.points) && (
                           <div className="text-[10px] font-mono text-muted-foreground">
                             Poäng: {t.points}
                           </div>
@@ -3689,6 +3708,7 @@ function EditCsnPeriodDialog({
         startDate: start,
         endDate: end,
         weeks: Math.max(1, Number(weeks)),
+        requirementPercent: 75,
       });
       toast.success("CSN-perioden har sparats");
       onOpenChange(false);
@@ -3757,12 +3777,15 @@ function EditCsnPeriodDialog({
           {/* Live förhandsvisning av krav baserat på angivna veckor */}
           <div className="rounded-xl bg-surface-2/60 border border-border/50 p-3 text-xs space-y-1">
             <div className="flex justify-between font-mono">
-              <span className="text-muted-foreground">Beviljade poäng:</span>
+              <span className="text-muted-foreground">Beviljade poäng (1,5 HP/v):</span>
               <span className="font-semibold text-foreground">{metrics.totalHp} HP ({numWeeks} veckor)</span>
             </div>
             <div className="flex justify-between font-mono">
               <span className="text-muted-foreground">Studiekrav (75 %):</span>
               <span className="font-bold text-amber-400">{metrics.requiredHp} HP</span>
+            </div>
+            <div className="text-[10px] text-muted-foreground pt-0.5 italic">
+              Avrundat nedåt till närmaste heltal enligt CSN:s regler.
             </div>
           </div>
 

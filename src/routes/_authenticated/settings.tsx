@@ -947,6 +947,7 @@ function CsnPeriodsCard() {
         startDate: editStart,
         endDate: editEnd,
         weeks: finalWeeks,
+        requirementPercent: 75,
       });
       toast.success("CSN-perioden har sparats");
       setEditingId(null);
@@ -966,6 +967,7 @@ function CsnPeriodsCard() {
         startDate: start,
         endDate: end,
         weeks: finalWeeks,
+        requirementPercent: 75,
       });
       toast.success("CSN-period tillagd");
       setName("");
@@ -1007,13 +1009,8 @@ function CsnPeriodsCard() {
       <CardContent className="space-y-4">
         {/* Lista över befintliga CSN-perioder */}
         <div className="space-y-2.5">
-          <div className="text-xs font-semibold text-foreground/80 flex items-center justify-between">
+          <div className="text-xs font-semibold text-foreground/80">
             <span>Dina inlagda CSN-perioder ({periods.length})</span>
-            {periods.length > 0 && (
-              <span className="text-[11px] text-muted-foreground font-normal">
-                Klicka på "Ändra" för att uppdatera sista utbetalningsvecka
-              </span>
-            )}
           </div>
 
           {periods.length === 0 ? (
@@ -1043,11 +1040,11 @@ function CsnPeriodsCard() {
 
                     <div className="grid gap-2.5 sm:grid-cols-2">
                       <div className="space-y-1">
-                        <Label className="text-xs">Periodens namn / beskrivning</Label>
+                        <Label className="text-xs">Periodens namn</Label>
                         <Input
                           value={editName}
                           onChange={(e) => setEditName(e.target.value)}
-                          placeholder="t.ex. Hösttermin 2024 eller Beslut 1"
+                          placeholder="t.ex. Hösttermin 2024"
                           className="rounded-xl h-9 text-xs"
                         />
                       </div>
@@ -1090,11 +1087,14 @@ function CsnPeriodsCard() {
                     <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-surface/80 border border-border/50 px-3 py-2 text-xs">
                       <div className="flex flex-wrap items-center gap-3">
                         <span className="font-mono text-foreground font-semibold">
-                          {editPreviewWeeks} veckor = {editPreviewMetrics.totalHp} HP beviljat
+                          {editPreviewWeeks} veckor = {editPreviewMetrics.totalHp} HP beviljat (1,5 HP/v)
                         </span>
                         <span className="text-muted-foreground">•</span>
                         <span className="text-amber-400 font-semibold font-mono">
                           Studiekrav (75 %): {editPreviewMetrics.requiredHp} HP
+                        </span>
+                        <span className="text-[10px] text-muted-foreground italic">
+                          (avrundat nedåt enligt CSN:s regler)
                         </span>
                       </div>
                       <div className="flex items-center gap-2 ml-auto">
@@ -1200,11 +1200,11 @@ function CsnPeriodsCard() {
 
           <div className="grid gap-2.5 sm:grid-cols-2">
             <div className="space-y-1">
-              <Label className="text-xs">Periodens namn / termin (valfritt)</Label>
+              <Label className="text-xs">Periodens namn (valfritt)</Label>
               <Input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="t.ex. Hösttermin 2024 eller Beslut HT24"
+                placeholder="t.ex. Hösttermin 2024"
                 className="rounded-xl h-9 text-xs"
               />
             </div>
@@ -1248,8 +1248,8 @@ function CsnPeriodsCard() {
             <div className="text-xs text-muted-foreground font-mono">
               {weeks && Number(weeks) > 0 ? (
                 <span>
-                  {previewWeeks} veckor = <strong className="text-foreground">{previewMetrics.totalHp} HP</strong> beviljat.{" "}
-                  Studiekrav (75 %): <strong className="text-amber-400">{previewMetrics.requiredHp} HP</strong>.
+                  {previewWeeks} veckor = <strong className="text-foreground">{previewMetrics.totalHp} HP</strong> beviljat (1,5 HP/v).{" "}
+                  Studiekrav (75 %): <strong className="text-amber-400">{previewMetrics.requiredHp} HP</strong> (avrundat nedåt enligt CSN:s regler).
                 </span>
               ) : (
                 <span>Fyll i antal veckor samt start- och slutdatum.</span>
