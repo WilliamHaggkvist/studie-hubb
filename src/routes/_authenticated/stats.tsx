@@ -1629,15 +1629,15 @@ function StatsPage() {
   }, [courses, tasks]);
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8 lg:px-8">
+    <div className="mx-auto max-w-7xl overflow-x-hidden px-3 py-6 sm:px-4 sm:py-8 lg:px-8">
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h1 className="font-display text-3xl font-bold tracking-tight">Statistik</h1>
+            <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">Statistik</h1>
             {activeTab === "time" && <p className="text-sm text-muted-foreground">{range.label}</p>}
           </div>
           {activeTab === "time" && (
-            <div className="flex flex-wrap items-center gap-4">
+            <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto">
               <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-surface/60 px-3 py-1.5 shadow-sm">
                 <Switch
                   id="include-archived"
@@ -1652,7 +1652,7 @@ function StatsPage() {
                 </Label>
               </div>
               <Select value={period} onValueChange={setPeriod}>
-                <SelectTrigger className="w-[14rem]">
+                <SelectTrigger className="w-full sm:w-[14rem]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -1671,7 +1671,7 @@ function StatsPage() {
           )}
         </div>
 
-        <TabsList className="mb-6 inline-flex h-auto justify-start gap-1 p-1">
+        <TabsList className="mb-6 flex h-auto w-full flex-wrap justify-start gap-1 p-1 sm:inline-flex sm:w-auto">
           <TabsTrigger value="time" className="gap-2 justify-start text-left">
             <Clock className="h-4 w-4" /> Studietid
           </TabsTrigger>
@@ -1685,7 +1685,7 @@ function StatsPage() {
 
         <TabsContent value="time" className="space-y-6">
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card className="relative overflow-hidden border-border/60 bg-surface/60">
+        <Card className="relative min-w-0 overflow-hidden border-border/60 bg-surface/60">
           <CardContent className="p-5">
             <div className="mb-1 flex items-center gap-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
               <Clock className="h-4 w-4 text-primary" /> Total tid
@@ -1695,7 +1695,7 @@ function StatsPage() {
             </div>
           </CardContent>
         </Card>
-        <Card className="relative overflow-hidden border-border/60 bg-surface/60">
+        <Card className="relative min-w-0 overflow-hidden border-border/60 bg-surface/60">
           <CardContent className="p-5">
             <div className="mb-1 flex items-center gap-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
               <TrendingUp className="h-4 w-4 text-sunset-orange" /> Snitt per dag
@@ -1705,7 +1705,7 @@ function StatsPage() {
             </div>
           </CardContent>
         </Card>
-        <Card className="relative overflow-hidden border-border/60 bg-surface/60">
+        <Card className="relative min-w-0 overflow-hidden border-border/60 bg-surface/60">
           <CardContent className="p-5">
             <div className="mb-1 flex items-center gap-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
               <Target className="h-4 w-4 text-emerald-500" /> Studiepass
@@ -1713,7 +1713,7 @@ function StatsPage() {
             <div className="font-display text-3xl font-bold tabular-nums">{sessionsCount}</div>
           </CardContent>
         </Card>
-        <Card className="relative overflow-hidden border-border/60 bg-surface/60">
+        <Card className="relative min-w-0 overflow-hidden border-border/60 bg-surface/60">
           <CardContent className="p-5">
             <div className="mb-1 flex items-center gap-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
               <CheckCircle2 className="h-4 w-4 text-purple-500" /> Klara uppgifter
@@ -1788,7 +1788,7 @@ function StatsPage() {
       </Card>
 
       <div className="grid gap-4 lg:grid-cols-3">
-        <Card className="border-border/60 bg-surface/60 lg:col-span-2">
+        <Card className="min-w-0 border-border/60 bg-surface/60 lg:col-span-2">
           <CardHeader className="pb-2">
             <CardTitle className="font-display text-base">Studietid per kurs över tid</CardTitle>
             <p className="text-xs text-muted-foreground">
@@ -1902,7 +1902,7 @@ function StatsPage() {
           </CardContent>
         </Card>
 
-        <Card className="border-border/60 bg-surface/60">
+        <Card className="min-w-0 border-border/60 bg-surface/60">
           <CardHeader className="pb-2">
             <CardTitle className="font-display text-base">Tid per kurs</CardTitle>
           </CardHeader>
@@ -1947,7 +1947,7 @@ function StatsPage() {
           </CardContent>
         </Card>
 
-        <Card className="border-border/60 bg-surface/60 lg:col-span-2">
+        <Card className="min-w-0 border-border/60 bg-surface/60 lg:col-span-2">
           <CardHeader className="pb-2">
             <CardTitle className="font-display text-base">Topp uppgifter</CardTitle>
           </CardHeader>
@@ -1990,7 +1990,7 @@ function StatsPage() {
           </CardContent>
         </Card>
 
-        <Card className="border-border/60 bg-surface/60">
+        <Card className="min-w-0 border-border/60 bg-surface/60">
           <CardHeader className="pb-2">
             <CardTitle className="font-display text-base">Uppgiftsstatus</CardTitle>
           </CardHeader>
@@ -2040,7 +2040,7 @@ function StatsPage() {
       {/* ── Streaks & Period-jämförelse ── */}
       <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {/* Nuvarande streak */}
-        <Card className="relative overflow-hidden border-border/60 bg-surface/60">
+        <Card className="relative min-w-0 overflow-hidden border-border/60 bg-surface/60">
           <CardContent className="p-5">
             <div className="mb-1 flex items-center gap-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
               <Flame className="h-4 w-4 text-orange-400" /> Nuvarande streak
@@ -2053,7 +2053,7 @@ function StatsPage() {
         </Card>
 
         {/* Längsta streak */}
-        <Card className="relative overflow-hidden border-border/60 bg-surface/60">
+        <Card className="relative min-w-0 overflow-hidden border-border/60 bg-surface/60">
           <CardContent className="p-5">
             <div className="mb-1 flex items-center gap-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
               <Zap className="h-4 w-4 text-yellow-400" /> Längsta streak
@@ -2068,7 +2068,7 @@ function StatsPage() {
         {/* Period-jämförelse */}
         {periodComparison && (
           <>
-            <Card className="relative overflow-hidden border-border/60 bg-surface/60">
+            <Card className="relative min-w-0 overflow-hidden border-border/60 bg-surface/60">
               <CardContent className="p-5">
                 <div className="mb-1 flex items-center gap-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
                   <CalendarDays className="h-4 w-4 text-sky-400" /> Denna period
@@ -2089,7 +2089,7 @@ function StatsPage() {
                 )}
               </CardContent>
             </Card>
-            <Card className="relative overflow-hidden border-border/60 bg-surface/60">
+            <Card className="relative min-w-0 overflow-hidden border-border/60 bg-surface/60">
               <CardContent className="p-5">
                 <div className="mb-1 flex items-center gap-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
                   <CalendarDays className="h-4 w-4 text-muted-foreground" /> Föregående period
@@ -2106,7 +2106,7 @@ function StatsPage() {
 
       {/* ── Aktivitetsmönster: Veckodag & Klockslag ── */}
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
-        <Card className="border-border/60 bg-surface/60">
+        <Card className="min-w-0 border-border/60 bg-surface/60">
           <CardHeader className="pb-2">
             <CardTitle className="font-display text-base">Studietid per veckodag</CardTitle>
           </CardHeader>
@@ -2159,7 +2159,7 @@ function StatsPage() {
           </CardContent>
         </Card>
 
-        <Card className="border-border/60 bg-surface/60">
+        <Card className="min-w-0 border-border/60 bg-surface/60">
           <CardHeader className="pb-2">
             <CardTitle className="font-display text-base">Studietid per klockslag</CardTitle>
           </CardHeader>
@@ -2369,7 +2369,7 @@ function StatsPage() {
 
             {/* Ultrakompakt KPI-nätverk */}
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <Card className="border-border/60 bg-surface/60 p-3.5">
+              <Card className="min-w-0 border-border/60 bg-surface/60 p-3.5">
                 <div className="flex items-center justify-between text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
                   <span className="flex items-center gap-1.5 text-emerald-400 font-semibold">
                     <CheckCircle2 className="h-3.5 w-3.5" /> Avklarat
@@ -2389,7 +2389,7 @@ function StatsPage() {
                 </div>
               </Card>
 
-              <Card className="border-border/60 bg-surface/60 p-3.5">
+              <Card className="min-w-0 border-border/60 bg-surface/60 p-3.5">
                 <div className="flex items-center justify-between text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
                   <span className="flex items-center gap-1.5 text-sky-400 font-semibold">
                     <BookOpen className="h-3.5 w-3.5" /> Pågående
@@ -2402,7 +2402,7 @@ function StatsPage() {
                 <p className="mt-1 text-[10px] text-muted-foreground truncate">Aktiva kurser just nu</p>
               </Card>
 
-              <Card className="border-border/60 bg-surface/60 p-3.5">
+              <Card className="min-w-0 border-border/60 bg-surface/60 p-3.5">
                 <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                   <GraduationCap className="h-3.5 w-3.5 text-purple-400" /> Totalt antaget
                 </div>
@@ -2412,7 +2412,7 @@ function StatsPage() {
                 <p className="mt-1 text-[10px] text-muted-foreground truncate">Avklarade & pågående</p>
               </Card>
 
-              <Card className="border-border/60 bg-surface/60 p-3.5">
+              <Card className="min-w-0 border-border/60 bg-surface/60 p-3.5">
                 <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                   <span className="flex items-center gap-1.5 text-amber-400">
                     <Award className="h-3.5 w-3.5" /> Slutförandegrad
@@ -2427,7 +2427,7 @@ function StatsPage() {
 
             {/* Ultrakompakt fördelning för Kurstyp & Studieform */}
             <div className="grid gap-3 sm:grid-cols-2">
-              <Card className="border-border/60 bg-surface/60 p-3">
+              <Card className="min-w-0 border-border/60 bg-surface/60 p-3">
                 <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
                   <School className="h-3.5 w-3.5 text-purple-400" /> Kurstyp
                 </div>
@@ -2445,7 +2445,7 @@ function StatsPage() {
                 </div>
               </Card>
 
-              <Card className="border-border/60 bg-surface/60 p-3">
+              <Card className="min-w-0 border-border/60 bg-surface/60 p-3">
                 <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
                   <Building2 className="h-3.5 w-3.5 text-sky-400" /> Studieform
                 </div>
@@ -2502,7 +2502,7 @@ function StatsPage() {
               </div>
 
               {hpStats.yearStats.length === 0 ? (
-                <Card className="border-border/60 bg-surface/60 p-8 text-center text-xs text-muted-foreground">
+                <Card className="min-w-0 border-border/60 bg-surface/60 p-8 text-center text-xs text-muted-foreground">
                   Inga antagna kurser med både årskurs och period registrerade än.
                 </Card>
               ) : (
@@ -2642,7 +2642,7 @@ function StatsPage() {
             </div>
 
             {/* Visualiseringsdiagram per Läsperiod (P1-P5) */}
-            <Card className="border-border/60 bg-surface/60">
+            <Card className="min-w-0 border-border/60 bg-surface/60">
               <CardHeader className="pb-2">
                 <CardTitle className="font-display text-base flex items-center justify-between">
                   <span>HP-fördelning per Läsperiod</span>
@@ -2850,7 +2850,7 @@ function StatsPage() {
             {/* Registrerad HP uppdelad per Årskurs & Termin */}
             <div className="space-y-6 pt-2">
               {displayedYearStats.length === 0 ? (
-                <Card className="border-border/60 bg-surface/60 p-8 text-center text-xs text-muted-foreground">
+                <Card className="min-w-0 border-border/60 bg-surface/60 p-8 text-center text-xs text-muted-foreground">
                   {selectedUniFilter !== "all" ? (
                     <div className="space-y-2">
                       <p>Inga registrerade moment för det valda lärosätet.</p>
@@ -3611,7 +3611,7 @@ function StatsPage() {
 
           {/* KPI Kort for Betyg */}
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Card className="relative overflow-hidden border-border/60 bg-surface/60">
+            <Card className="relative min-w-0 overflow-hidden border-border/60 bg-surface/60">
               <CardContent className="p-5">
                 <div className="mb-1 flex items-center justify-between text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
                   <span className="flex items-center gap-1.5 text-amber-400">
@@ -3628,7 +3628,7 @@ function StatsPage() {
               </CardContent>
             </Card>
 
-            <Card className="relative overflow-hidden border-border/60 bg-surface/60">
+            <Card className="relative min-w-0 overflow-hidden border-border/60 bg-surface/60">
               <CardContent className="p-5">
                 <div className="mb-1 flex items-center justify-between text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
                   <span className="flex items-center gap-1.5 text-sky-400">
@@ -3644,7 +3644,7 @@ function StatsPage() {
               </CardContent>
             </Card>
 
-            <Card className="relative overflow-hidden border-border/60 bg-surface/60">
+            <Card className="relative min-w-0 overflow-hidden border-border/60 bg-surface/60">
               <CardContent className="p-5">
                 <div className="mb-1 flex items-center justify-between text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
                   <span className="flex items-center gap-1.5 text-emerald-400">
@@ -3658,7 +3658,7 @@ function StatsPage() {
               </CardContent>
             </Card>
 
-            <Card className="relative overflow-hidden border-border/60 bg-surface/60">
+            <Card className="relative min-w-0 overflow-hidden border-border/60 bg-surface/60">
               <CardContent className="p-5">
                 <div className="mb-1 flex items-center justify-between text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
                   <span className="flex items-center gap-1.5 text-purple-400">
@@ -3675,7 +3675,7 @@ function StatsPage() {
 
           <div className="grid gap-4 lg:grid-cols-3">
             {/* Betygsfördelning Diagram */}
-            <Card className="border-border/60 bg-surface/60 lg:col-span-1">
+            <Card className="min-w-0 border-border/60 bg-surface/60 lg:col-span-1">
               <CardHeader className="pb-2">
                 <CardTitle className="font-display text-base">Betygsfördelning</CardTitle>
               </CardHeader>
@@ -3729,7 +3729,7 @@ function StatsPage() {
             </Card>
 
             {/* Slutbetyg i Kurser */}
-            <Card className="border-border/60 bg-surface/60 lg:col-span-2">
+            <Card className="min-w-0 border-border/60 bg-surface/60 lg:col-span-2">
               <CardHeader className="pb-2">
                 <CardTitle className="font-display text-base">Slutbetyg i Kurser</CardTitle>
               </CardHeader>
@@ -3791,7 +3791,7 @@ function StatsPage() {
 
           {/* Uppgifts- & Tentabetyg */}
           {gradeStats.gradedTasks.length > 0 && (
-            <Card className="border-border/60 bg-surface/60">
+            <Card className="min-w-0 border-border/60 bg-surface/60">
               <CardHeader className="pb-2">
                 <CardTitle className="font-display text-base">
                   Betygsatta Uppgifter & Tentor
