@@ -616,9 +616,12 @@ function StatsPage() {
       if (!grouped.has(key)) grouped.set(key, { planned: 0, actual: 0 });
       const entry = grouped.get(key)!;
       const planned = Math.max(0, (new Date(s.planned_end).getTime() - new Date(s.planned_start).getTime()) / 3600000);
+      const isDone = s.completed || new Date(s.planned_end).getTime() <= Date.now();
       const actual =
         s.actual_start && s.actual_end
           ? Math.max(0, (new Date(s.actual_end).getTime() - new Date(s.actual_start).getTime()) / 3600000)
+          : isDone
+          ? planned
           : 0;
       entry.planned += planned;
       entry.actual += actual;

@@ -256,6 +256,8 @@ function CourseDetail() {
       const startMs = new Date(start).getTime();
       const endMs = end ? new Date(end).getTime() : startMs;
       if (isNaN(startMs)) continue;
+      // Endast genomförda studiepass räknas i genomförd studietid
+      if (endMs > Date.now() && !s.completed) continue;
       const dur = Math.max(0, Math.floor((endMs - startMs) / 1000));
       out.push({
         started_at: start,

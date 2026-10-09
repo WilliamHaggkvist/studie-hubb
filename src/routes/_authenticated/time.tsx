@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { timerStore, formatDuration, formatHoursCompact } from "@/lib/timer-store";
-import { format, parseISO, subDays, startOfWeek } from "date-fns";
+import { format, parseISO, subDays, startOfWeek, endOfWeek } from "date-fns";
 import { sv } from "date-fns/locale";
 import { Play, Square, CheckCircle2, CalendarPlus, Trash2, Target, Sparkles, Clock } from "lucide-react";
 import { toast } from "sonner";
@@ -26,7 +26,7 @@ import { coursesQuery, tasksQuery, durationSeconds, type Course, type Task } fro
 import { z } from "zod";
 
 const timeSearchSchema = z.object({
-  period: z.enum(["week", "30"]).optional(),
+  period: z.enum(["week", "30", "all"]).optional(),
 });
 
 export const Route = createFileRoute("/_authenticated/time")({
@@ -71,7 +71,7 @@ type SessionAgg = {
 function TimePage() {
   const qc = useQueryClient();
   const search = Route.useSearch();
-  const [period, setPeriod] = useState<"week" | "30">(search.period ?? "week");
+  const [period, setPeriod] = useState<"week" | "30" | "all">(search.period ?? "week");
 
   useEffect(() => {
     if (search.period) {
@@ -117,12 +117,29 @@ function TimePage() {
     },
   });
 
-  // Date range for period
-  const cutoffDate = useMemo(() => {
-    if (period === "week") return startOfWeek(new Date(), { weekStartsOn: 1 });
-    return subDays(new Date(), 30);
+  // Datumintervall för vald period (vecka = måndag 00:00:00 till söndag 23:59:59.999)
+  const range = useMemo(() => {
+    const now = new Date();
+    if (period === "week") {
+      return {
+        start: startOfWeek(now, { weekStartsOn: 1 }),
+        end: endOfWeek(now, { weekStartsOn: 1 }),
+      };
+    }
+    if (period === "30") {
+      return {
+        start: subDays(now, 30),
+        end: now,
+      };
+    }
+    return {
+      start: new Date(0),
+      end: new Date(8640000000000000),
+    };
   }, [period]);
-  const cutoff = cutoffDate.getTime();
+
+  const rangeStart = range.start.getTime();
+  const rangeEnd = range.end.getTime();
 
   const coursesMap = useMemo(() => new Map(allCourses.map((c) => [c.id, c])), [allCourses]);
 
@@ -135,7 +152,7 @@ function TimePage() {
   // 1. GENOMFÖRD STUDIETID: Loggad tid & slutförda pass fram till nu
   const inPeriod = entries.filter((e) => {
     const t = new Date(e.started_at).getTime();
-    if (t < cutoff || t > Date.now() || e.source === "session") return false;
+    if (t < rangeStart || t > Math.min(rangeEnd, Date.now()) || e.source === "session") return false;
     if (e.course_id) {
       const course = coursesMap.get(e.course_id);
       if (course?.archived) return false;
@@ -145,8 +162,12 @@ function TimePage() {
 
   const sessionsInPeriod = allSessions.filter((s) => {
     const start = s.actual_start ? new Date(s.actual_start) : new Date(s.planned_start);
-    const t = start.getTime();
-    if (t < cutoff || t > Date.now()) return false;
+    const end = s.actual_end ? new Date(s.actual_end) : new Date(s.planned_end);
+    const startMs = start.getTime();
+    const endMs = end.getTime();
+    if (startMs < rangeStart || startMs > Math.min(rangeEnd, Date.now())) return false;
+    // Slutfört om markerat klart eller om slut-tiden passerat
+    if (!s.completed && endMs > Date.now()) return false;
     if (s.course_id) {
       const course = coursesMap.get(s.course_id);
       if (course?.archived) return false;
@@ -158,21 +179,27 @@ function TimePage() {
   const sessionSecs = sessionsInPeriod.reduce((s, x) => s + sessionSeconds(x), 0);
   const completedSecs = entrySeconds + sessionSecs;
 
-  // 2. PLANERAD STUDIETID (KVAR): studiepass som ligger kvar att genomföras i kalendern
+  // 2. PLANERAD STUDIETID (KVAR): studiepass som ligger kvar att genomföras i kalendern för aktuell period
   const remainingPlannedSessions = useMemo(() => {
     const now = Date.now();
     return allSessions.filter((s) => {
+      // Slutförda pass räknas inte som planerad kvarvarande tid
+      if (s.completed) return false;
       const start = s.actual_start ? new Date(s.actual_start) : new Date(s.planned_start);
       const end = s.actual_end ? new Date(s.actual_end) : new Date(s.planned_end);
-      if (start.getTime() < cutoff) return false;
-      if (end.getTime() <= now) return false; // Enbart framtida / återstående pass
+      const startMs = start.getTime();
+      const endMs = end.getTime();
+      // Måste ligga inom kalenderveckans/periodens gränser
+      if (startMs < rangeStart || startMs > rangeEnd) return false;
+      // Enbart framtida / återstående pass
+      if (endMs <= now) return false;
       if (s.course_id) {
         const course = coursesMap.get(s.course_id);
         if (course?.archived) return false;
       }
       return true;
     });
-  }, [allSessions, cutoff, coursesMap]);
+  }, [allSessions, rangeStart, rangeEnd, coursesMap]);
 
   const remainingPlannedSecs = remainingPlannedSessions.reduce((s, x) => s + sessionSeconds(x), 0);
 
@@ -258,13 +285,14 @@ function TimePage() {
         <div>
           <h1 className="font-display text-3xl font-bold tracking-tight">Studietid</h1>
         </div>
-        <Select value={period} onValueChange={(v) => setPeriod(v as "week" | "30")}>
-          <SelectTrigger className="w-40">
+        <Select value={period} onValueChange={(v) => setPeriod(v as "week" | "30" | "all")}>
+          <SelectTrigger className="w-44">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="week">Denna vecka</SelectItem>
             <SelectItem value="30">Senaste 30 dagar</SelectItem>
+            <SelectItem value="all">Alla studiepass</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -408,7 +436,7 @@ function TimePage() {
         </TabsList>
 
         <TabsContent value="sessions" className="mt-4">
-          <SessionsPanel courses={courses} allTasks={allTasks} />
+          <SessionsPanel courses={courses} allTasks={allTasks} period={period} />
         </TabsContent>
 
         <TabsContent value="timer" className="mt-4">
@@ -421,7 +449,15 @@ function TimePage() {
 
 /* ============================== Studiepass ============================== */
 
-function SessionsPanel({ courses, allTasks }: { courses: Course[]; allTasks: Task[] }) {
+function SessionsPanel({
+  courses,
+  allTasks,
+  period,
+}: {
+  courses: Course[];
+  allTasks: Task[];
+  period: "week" | "30" | "all";
+}) {
   const qc = useQueryClient();
 
   const { data: sessions = [] } = useQuery({
@@ -433,7 +469,7 @@ function SessionsPanel({ courses, allTasks }: { courses: Course[]; allTasks: Tas
           "id,course_id,planned_start,planned_end,actual_start,actual_end,notes,completed,source,needs_review",
         )
         .order("planned_start", { ascending: false })
-        .limit(200);
+        .limit(500);
       return (data ?? []) as Session[];
     },
   });
@@ -540,13 +576,59 @@ function SessionsPanel({ courses, allTasks }: { courses: Course[]; allTasks: Tas
     onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Synkfel"),
   });
 
+  const range = useMemo(() => {
+    const now = new Date();
+    if (period === "week") {
+      return {
+        start: startOfWeek(now, { weekStartsOn: 1 }),
+        end: endOfWeek(now, { weekStartsOn: 1 }),
+      };
+    }
+    if (period === "30") {
+      return {
+        start: subDays(now, 30),
+        end: now,
+      };
+    }
+    return {
+      start: new Date(0),
+      end: new Date(8640000000000000),
+    };
+  }, [period]);
+
+  const rangeStart = range.start.getTime();
+  const rangeEnd = range.end.getTime();
+
   const activeCourseIds = new Set(courses.map((c) => c.id));
   const filteredSessions = sessions.filter((s) => !s.course_id || activeCourseIds.has(s.course_id));
 
   const inbox = filteredSessions.filter((s) => s.needs_review);
   const reviewed = filteredSessions.filter((s) => !s.needs_review);
-  const planned = reviewed.filter((s) => !s.completed);
-  const completed = reviewed.filter((s) => s.completed);
+
+  // Filtrera studiepass efter vald kalendervecka / period
+  const periodReviewed = useMemo(() => {
+    if (period === "all") return reviewed;
+    return reviewed.filter((s) => {
+      const start = new Date(s.actual_start ?? s.planned_start).getTime();
+      return start >= rangeStart && start <= rangeEnd;
+    });
+  }, [reviewed, period, rangeStart, rangeEnd]);
+
+  const planned = useMemo(() => {
+    return periodReviewed
+      .filter((s) => !s.completed)
+      .sort((a, b) => new Date(a.planned_start).getTime() - new Date(b.planned_start).getTime());
+  }, [periodReviewed]);
+
+  const completed = useMemo(() => {
+    return periodReviewed
+      .filter((s) => s.completed)
+      .sort(
+        (a, b) =>
+          new Date(b.actual_start ?? b.planned_start).getTime() -
+          new Date(a.actual_start ?? a.planned_start).getTime(),
+      );
+  }, [periodReviewed]);
 
   const autoCompleted = useRef<Set<string>>(new Set());
   useEffect(() => {
@@ -573,6 +655,7 @@ function SessionsPanel({ courses, allTasks }: { courses: Course[]; allTasks: Tas
             <span className="mr-2 text-sunset-amber">{inbox.length} i inkorg · </span>
           )}
           {planned.length} planerade · {completed.length} genomförda
+          {period === "week" && <span className="text-xs text-muted-foreground/80"> (denna vecka)</span>}
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <span className="text-xs text-muted-foreground">
@@ -614,12 +697,14 @@ function SessionsPanel({ courses, allTasks }: { courses: Course[]; allTasks: Tas
         </div>
       )}
 
-      {reviewed.length === 0 && inbox.length === 0 && (
+      {periodReviewed.length === 0 && inbox.length === 0 && (
         <div className="rounded-xl border border-dashed border-border/60 bg-surface/40 p-12 text-center">
           <div className="mx-auto mb-3 text-muted-foreground">
             <CalendarPlus className="h-8 w-8 mx-auto" />
           </div>
-          <div className="font-display text-lg">Inga studiepass än</div>
+          <div className="font-display text-lg">
+            Inga studiepass {period === "week" ? "denna vecka" : ""}
+          </div>
           <p className="mt-1 text-sm text-muted-foreground">
             Lägg in ett pass i Google Kalender så synkas det hit.
           </p>

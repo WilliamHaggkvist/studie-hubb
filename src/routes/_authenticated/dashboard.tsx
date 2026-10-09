@@ -403,13 +403,19 @@ function Dashboard() {
     }
 
     for (const s of weekSessions) {
+      if (s.course_id) {
+        const course = coursesMap.get(s.course_id);
+        if (course?.archived) continue;
+      }
       const start = s.actual_start ?? s.planned_start;
       const end = s.actual_end ?? s.planned_end;
-      if (new Date(start).getTime() > now) continue;
+      const endMs = new Date(end).getTime();
+      const startMs = new Date(start).getTime();
+      if (!s.completed && endMs > now) continue;
 
       const dur = Math.max(
         0,
-        Math.floor((new Date(end).getTime() - new Date(start).getTime()) / 1000),
+        Math.floor((endMs - startMs) / 1000),
       );
       out.push({
         started_at: start,
@@ -418,7 +424,7 @@ function Dashboard() {
       });
     }
     return out;
-  }, [weekEntries, weekSessions]);
+  }, [weekEntries, weekSessions, coursesMap]);
 
   const { data: rawTodaysSessions = [] } = useQuery({
     queryKey: ["sessions", "today"],
@@ -530,13 +536,19 @@ function Dashboard() {
   }, [perDay]);
 
   const weekPlannedSeconds = useMemo(() => {
-    return weekSessions.reduce((acc, s) => {
-      const start = new Date(s.planned_start).getTime();
-      const end = new Date(s.planned_end).getTime();
-      const diff = (end - start) / 1000;
-      return acc + (diff > 0 ? diff : 0);
-    }, 0);
-  }, [weekSessions]);
+    return weekSessions
+      .filter((s) => {
+        if (!s.course_id) return true;
+        const course = coursesMap.get(s.course_id);
+        return course ? !course.archived : true;
+      })
+      .reduce((acc, s) => {
+        const start = new Date(s.planned_start).getTime();
+        const end = new Date(s.planned_end).getTime();
+        const diff = (end - start) / 1000;
+        return acc + (diff > 0 ? diff : 0);
+      }, 0);
+  }, [weekSessions, coursesMap]);
 
   const weekCompletedSeconds = useMemo(() => {
     return weekCombinedEntries.reduce((s, e) => s + e.duration_seconds, 0);
