@@ -429,7 +429,7 @@ function StatsPage() {
       unit === "day"
         ? format(d, "yyyy-MM-dd")
         : unit === "week"
-          ? format(startOfWeekMon(d), "yyyy-MM-dd")
+          ? format(startOfWeek(d, { weekStartsOn: 1 }), "yyyy-MM-dd")
           : format(d, "yyyy-MM");
     const labelOf = (d: Date) =>
       unit === "day"
