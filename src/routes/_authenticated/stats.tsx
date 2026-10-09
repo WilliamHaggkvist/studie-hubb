@@ -1147,7 +1147,7 @@ function StatsPage() {
     // Processera ENDAST course_reporting_modules (klarmarkerade eller med betyg/datum/poäng)
     // och ENDAST för kurser med giltig antagningsomgång
     for (const m of allModules) {
-      const isDone = Boolean(m.completed || hasEnteredValue(m.grade) || m.registered_on || hasEnteredValue(m.points));
+      const isDone = isModuleDone(m);
       if (!isDone) continue;
       if (!validCourseIds.has(m.course_id)) continue;
       const course = courseById.get(m.course_id);
@@ -1458,7 +1458,7 @@ function StatsPage() {
       let periodRegisteredHp = 0;
 
       for (const m of allModules) {
-        const isDone = Boolean(m.completed || hasEnteredValue(m.grade) || m.registered_on || hasEnteredValue(m.points));
+        const isDone = isModuleDone(m);
         if (!isDone) continue;
 
         const regDate = m.registered_on ? m.registered_on.slice(0, 10) : null;
