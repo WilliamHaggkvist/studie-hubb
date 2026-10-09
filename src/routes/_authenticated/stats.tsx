@@ -421,6 +421,54 @@ function StatsPage() {
     });
   }, [totalDays, range.end, courses, combined]);
 
+  // Pedagogisk tidslinje: bara kurser med tid i intervallet, grupperat per dag/vecka/månad.
+  const courseTimeline = useMemo(() => {
+    const unit: "day" | "week" | "month" =
+      totalDays <= 31 ? "day" : totalDays <= 180 ? "week" : "month";
+    const keyOf = (d: Date) =>
+      unit === "day"
+        ? format(d, "yyyy-MM-dd")
+        : unit === "week"
+          ? format(startOfWeekMon(d), "yyyy-MM-dd")
+          : format(d, "yyyy-MM");
+    const labelOf = (d: Date) =>
+      unit === "day"
+        ? format(d, "d MMM", { locale: sv })
+        : unit === "week"
+          ? `v. ${format(d, "I")}`
+          : format(d, "MMM yy", { locale: sv });
+
+    const totals = new Map<string, number>();
+    const grouped = new Map<string, Map<string, number>>();
+    for (const e of combined) {
+      if (!e.course_id || !e.duration_seconds || !e.started_at) continue;
+      const d = new Date(e.started_at);
+      if (isNaN(d.getTime())) continue;
+      const k = keyOf(d);
+      if (!grouped.has(k)) grouped.set(k, new Map());
+      const m = grouped.get(k)!;
+      m.set(e.course_id, (m.get(e.course_id) ?? 0) + e.duration_seconds);
+      totals.set(e.course_id, (totals.get(e.course_id) ?? 0) + e.duration_seconds);
+    }
+    const active = courses
+      .filter((c) => (totals.get(c.id) ?? 0) > 0)
+      .sort((a, b) => (totals.get(b.id) ?? 0) - (totals.get(a.id) ?? 0));
+
+    const seen = new Set<string>();
+    const rows: Record<string, number | string>[] = [];
+    for (let i = 0; i < totalDays; i++) {
+      const d = subDays(range.end, totalDays - 1 - i);
+      const k = keyOf(d);
+      if (seen.has(k)) continue;
+      seen.add(k);
+      const m = grouped.get(k);
+      const row: Record<string, number | string> = { label: labelOf(d) };
+      for (const c of active) row[c.id] = +(((m?.get(c.id) ?? 0) / 3600).toFixed(2));
+      rows.push(row);
+    }
+    return { rows, active, totals, unit };
+  }, [totalDays, range.end, courses, combined]);
+
   const perCourse = courses
     .map((c) => ({
       name: c.name,
