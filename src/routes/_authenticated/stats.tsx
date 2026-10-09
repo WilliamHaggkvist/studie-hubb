@@ -496,6 +496,34 @@ function StatsPage() {
     { name: "Klar", value: statusCounts.done, color: "#8B5CF6" },
   ];
 
+  // --- Uppgiftsnyckeltal (flik Uppgifter) ---
+  const taskStats = useMemo(() => {
+    const now = new Date();
+    const in7 = new Date(now.getTime() + 7 * 86400000);
+    const open = tasks.filter((t) => t.status !== "done");
+    const overdue = open.filter((t) => !t.pending_review && t.due_at && new Date(t.due_at) < now).length;
+    const pending = tasks.filter((t) => t.pending_review && t.status !== "done").length;
+    const upcoming = open.filter((t) => t.due_at && new Date(t.due_at) >= now && new Date(t.due_at) <= in7).length;
+    const doneDates = tasks
+      .filter((t) => t.status === "done" && t.completed_at)
+      .map((t) => new Date(t.completed_at as string));
+    const inRange = doneDates.filter((d) => period === "all" || (d >= range.start && d <= range.end));
+    const end = period === "all" ? now : range.end;
+    let start = period === "all"
+      ? (inRange.length ? new Date(Math.min(...inRange.map((d) => d.getTime()))) : subDays(now, 56))
+      : range.start;
+    start = startOfWeek(start, { weekStartsOn: 1 });
+    const weekly: { week: string; Klara: number }[] = [];
+    for (let w = new Date(start); w <= end && weekly.length < 104; w = new Date(w.getTime() + 7 * 86400000)) {
+      const we = endOfWeek(w, { weekStartsOn: 1 });
+      weekly.push({
+        week: `v${format(w, "I", { locale: sv })}`,
+        Klara: inRange.filter((d) => d >= w && d <= we).length,
+      });
+    }
+    return { overdue, pending, upcoming, doneInRange: inRange.length, weekly };
+  }, [tasks, period, range]);
+
   // --- Veckodag-fördelning ---
   const weekdayData = useMemo(() => {
     const labels = ["Mån", "Tis", "Ons", "Tor", "Fre", "Lör", "Sön"];
@@ -1634,9 +1662,9 @@ function StatsPage() {
         <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
           <div>
             <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">Statistik</h1>
-            {activeTab === "time" && <p className="text-sm text-muted-foreground">{range.label}</p>}
+            {(activeTab === "time" || activeTab === "tasks") && <p className="text-sm text-muted-foreground">{range.label}</p>}
           </div>
-          {activeTab === "time" && (
+          {(activeTab === "time" || activeTab === "tasks") && (
             <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto">
               <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-surface/60 px-3 py-1.5 shadow-sm">
                 <Switch
@@ -1675,6 +1703,9 @@ function StatsPage() {
           <TabsTrigger value="time" className="gap-2 justify-start text-left">
             <Clock className="h-4 w-4" /> Studietid
           </TabsTrigger>
+          <TabsTrigger value="tasks" className="gap-2 justify-start text-left">
+            <ListTodo className="h-4 w-4" /> Uppgifter
+          </TabsTrigger>
           <TabsTrigger value="hp" className="gap-2 justify-start text-left">
             <GraduationCap className="h-4 w-4" /> Högskolepoäng
           </TabsTrigger>
@@ -1684,7 +1715,7 @@ function StatsPage() {
         </TabsList>
 
         <TabsContent value="time" className="space-y-6">
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 sm:grid-cols-3">
         <Card className="relative min-w-0 overflow-hidden border-border/60 bg-surface/60">
           <CardContent className="p-5">
             <div className="mb-1 flex items-center gap-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
@@ -1711,17 +1742,6 @@ function StatsPage() {
               <Target className="h-4 w-4 text-emerald-500" /> Studiepass
             </div>
             <div className="font-display text-3xl font-bold tabular-nums">{sessionsCount}</div>
-          </CardContent>
-        </Card>
-        <Card className="relative min-w-0 overflow-hidden border-border/60 bg-surface/60">
-          <CardContent className="p-5">
-            <div className="mb-1 flex items-center gap-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-              <CheckCircle2 className="h-4 w-4 text-purple-500" /> Klara uppgifter
-            </div>
-            <div className="font-display text-3xl font-bold tabular-nums">{statusCounts.done}</div>
-            <p className="mt-1 text-[10px] text-muted-foreground">
-              Med deadline {range.label.toLowerCase()}
-            </p>
           </CardContent>
         </Card>
       </div>
@@ -1947,94 +1967,7 @@ function StatsPage() {
           </CardContent>
         </Card>
 
-        <Card className="min-w-0 border-border/60 bg-surface/60 lg:col-span-2">
-          <CardHeader className="pb-2">
-            <CardTitle className="font-display text-base">Topp uppgifter</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {perTask.length === 0 && (
-              <div className="p-6 text-center text-xs text-muted-foreground">
-                Ingen tid loggad på uppgifter än.
-              </div>
-            )}
-            <div className="space-y-2">
-              {perTask.map((t) => (
-                <div
-                  key={t.id}
-                  className="group relative rounded-xl border border-border/40 bg-surface-2/30 p-2 transition-colors hover:bg-surface-2/60"
-                >
-                  <div className="mb-1.5 flex items-center justify-between text-xs">
-                    <span className="flex min-w-0 items-center gap-2">
-                      <span
-                        className="inline-block h-2.5 w-2.5 shrink-0 rounded-sm"
-                        style={{ background: t.color }}
-                      />
-                      <span className="truncate font-medium">{t.title}</span>
-                    </span>
-                    <span className="font-mono tabular-nums text-muted-foreground">
-                      {t.hours}h
-                    </span>
-                  </div>
-                  <div className="h-1.5 overflow-hidden rounded-full bg-surface-2">
-                    <div
-                      className="h-full rounded-full transition-all duration-500 ease-in-out"
-                      style={{
-                        width: `${Math.min(100, (t.hours / (perTask[0]?.hours || 1)) * 100)}%`,
-                        background: t.color,
-                      }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
 
-        <Card className="min-w-0 border-border/60 bg-surface/60">
-          <CardHeader className="pb-2">
-            <CardTitle className="font-display text-base">Uppgiftsstatus</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-56">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={statusData} layout="vertical">
-                  <XAxis
-                    type="number"
-                    stroke="var(--muted-foreground)"
-                    fontSize={11}
-                    tickLine={false}
-                    axisLine={false}
-                  />
-                  <YAxis
-                    type="category"
-                    dataKey="name"
-                    stroke="var(--muted-foreground)"
-                    fontSize={12}
-                    tickLine={false}
-                    axisLine={false}
-                    width={80}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      background: "var(--popover)",
-                      border: "1px solid var(--border)",
-                      borderRadius: 8,
-                      fontSize: 12,
-                      color: "var(--foreground)",
-                    }}
-                    itemStyle={{ color: "var(--foreground)" }}
-                    labelStyle={{ color: "var(--muted-foreground)" }}
-                  />
-                  <Bar dataKey="value" radius={[4, 4, 4, 4]}>
-                    {statusData.map((r) => (
-                      <Cell key={r.name} fill={r.color} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
       </div>
 
       {/* ── Streaks & Period-jämförelse ── */}
@@ -2215,54 +2148,6 @@ function StatsPage() {
         </Card>
       </div>
 
-      {/* ── Slutförandegrad per kurs ── */}
-      {courseCompletion.length > 0 && (
-        <Card className="mt-4 border-border/60 bg-surface/60">
-          <CardHeader className="pb-2">
-            <CardTitle className="font-display flex items-center gap-2 text-base">
-              <BookOpen className="h-4 w-4 text-primary" /> Slutförandegrad per kurs
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {courseCompletion.map((c) => (
-                <div key={c.name}>
-                  <div className="mb-1 flex items-center justify-between text-xs">
-                    <span className="flex items-center gap-2 font-medium">
-                      <span
-                        className="inline-block h-2.5 w-2.5 shrink-0 rounded-sm"
-                        style={{ background: c.color }}
-                      />
-                      {c.name}
-                    </span>
-                    <span className="flex items-center gap-3 text-muted-foreground">
-                      <span className="font-mono tabular-nums">{c.hours}h studerad</span>
-                      <span className="font-medium text-foreground">
-                        {c.done}/{c.total} uppg.
-                      </span>
-                      <span
-                        className="w-10 text-right font-bold"
-                        style={{ color: c.pct >= 80 ? "#34d399" : c.pct >= 40 ? "#fbbf24" : "#f87171" }}
-                      >
-                        {c.pct}%
-                      </span>
-                    </span>
-                  </div>
-                  <div className="h-2 overflow-hidden rounded-full bg-surface-2">
-                    <div
-                      className="h-full rounded-full transition-all duration-700 ease-in-out"
-                      style={{
-                        width: `${c.pct}%`,
-                        background: c.color,
-                      }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       {/* ── Planerat vs Faktiskt ── */}
       {goalVsActual.length > 0 && (
@@ -2312,6 +2197,204 @@ function StatsPage() {
         </Card>
       )}
         </TabsContent>
+        <TabsContent value="tasks" className="space-y-6">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        <Card className="relative min-w-0 overflow-hidden border-border/60 bg-surface/60">
+          <CardContent className="p-5">
+            <div className="mb-1 flex items-center gap-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+              <CheckCircle2 className="h-4 w-4 text-purple-500" /> Klara uppgifter
+            </div>
+            <div className="font-display text-3xl font-bold tabular-nums">{statusCounts.done}</div>
+            <p className="mt-1 text-[10px] text-muted-foreground">
+              Med deadline {range.label.toLowerCase()}
+            </p>
+          </CardContent>
+        </Card>
+            {[
+              { label: "Försenade", value: taskStats.overdue, icon: AlertCircle, cls: "text-red-400", hint: "Deadline passerad" },
+              { label: "Väntar på bedömning", value: taskStats.pending, icon: Clock, cls: "text-amber-400", hint: "Inlämnade" },
+              { label: "Klara denna period", value: taskStats.doneInRange, icon: TrendingUp, cls: "text-emerald-500", hint: "Klarmarkerade" },
+              { label: "Deadline inom 7 dagar", value: taskStats.upcoming, icon: CalendarDays, cls: "text-sky-400", hint: "Ej klara" },
+            ].map((k) => (
+              <Card key={k.label} className="relative min-w-0 overflow-hidden border-border/60 bg-surface/60">
+                <CardContent className="p-5">
+                  <div className="mb-1 flex items-center gap-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                    <k.icon className={cn("h-4 w-4", k.cls)} /> {k.label}
+                  </div>
+                  <div className="font-display text-3xl font-bold tabular-nums">{k.value}</div>
+                  <p className="mt-1 text-[10px] text-muted-foreground">{k.hint}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          <Card className="min-w-0 border-border/60 bg-surface/60">
+            <CardHeader className="pb-2">
+              <CardTitle className="font-display text-base">Klarmarkerade uppgifter per vecka</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {taskStats.weekly.every((w) => w.Klara === 0) ? (
+                <div className="p-6 text-center text-xs text-muted-foreground">Inga klarmarkerade uppgifter under perioden.</div>
+              ) : (
+                <div className="h-56">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={taskStats.weekly}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                      <XAxis dataKey="week" stroke="var(--muted-foreground)" fontSize={10} tickLine={false} axisLine={false} />
+                      <YAxis allowDecimals={false} stroke="var(--muted-foreground)" fontSize={10} tickLine={false} axisLine={false} width={28} />
+                      <Tooltip
+                        contentStyle={{ background: "var(--popover)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12, color: "var(--foreground)" }}
+                        itemStyle={{ color: "var(--foreground)" }}
+                        labelStyle={{ color: "var(--muted-foreground)" }}
+                      />
+                      <Bar dataKey="Klara" fill="#8B5CF6" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <div className="grid gap-4 lg:grid-cols-2">
+        <Card className="min-w-0 border-border/60 bg-surface/60">
+          <CardHeader className="pb-2">
+            <CardTitle className="font-display text-base">Uppgiftsstatus</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-56">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={statusData} layout="vertical">
+                  <XAxis
+                    type="number"
+                    stroke="var(--muted-foreground)"
+                    fontSize={11}
+                    tickLine={false}
+                    axisLine={false}
+                  />
+                  <YAxis
+                    type="category"
+                    dataKey="name"
+                    stroke="var(--muted-foreground)"
+                    fontSize={12}
+                    tickLine={false}
+                    axisLine={false}
+                    width={80}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      background: "var(--popover)",
+                      border: "1px solid var(--border)",
+                      borderRadius: 8,
+                      fontSize: 12,
+                      color: "var(--foreground)",
+                    }}
+                    itemStyle={{ color: "var(--foreground)" }}
+                    labelStyle={{ color: "var(--muted-foreground)" }}
+                  />
+                  <Bar dataKey="value" radius={[4, 4, 4, 4]}>
+                    {statusData.map((r) => (
+                      <Cell key={r.name} fill={r.color} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="min-w-0 border-border/60 bg-surface/60">
+          <CardHeader className="pb-2">
+            <CardTitle className="font-display text-base">Topp uppgifter</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {perTask.length === 0 && (
+              <div className="p-6 text-center text-xs text-muted-foreground">
+                Ingen tid loggad på uppgifter än.
+              </div>
+            )}
+            <div className="space-y-2">
+              {perTask.map((t) => (
+                <div
+                  key={t.id}
+                  className="group relative rounded-xl border border-border/40 bg-surface-2/30 p-2 transition-colors hover:bg-surface-2/60"
+                >
+                  <div className="mb-1.5 flex items-center justify-between text-xs">
+                    <span className="flex min-w-0 items-center gap-2">
+                      <span
+                        className="inline-block h-2.5 w-2.5 shrink-0 rounded-sm"
+                        style={{ background: t.color }}
+                      />
+                      <span className="truncate font-medium">{t.title}</span>
+                    </span>
+                    <span className="font-mono tabular-nums text-muted-foreground">
+                      {t.hours}h
+                    </span>
+                  </div>
+                  <div className="h-1.5 overflow-hidden rounded-full bg-surface-2">
+                    <div
+                      className="h-full rounded-full transition-all duration-500 ease-in-out"
+                      style={{
+                        width: `${Math.min(100, (t.hours / (perTask[0]?.hours || 1)) * 100)}%`,
+                        background: t.color,
+                      }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+          </div>
+
+      {/* ── Slutförandegrad per kurs ── */}
+      {courseCompletion.length > 0 && (
+        <Card className="border-border/60 bg-surface/60">
+          <CardHeader className="pb-2">
+            <CardTitle className="font-display flex items-center gap-2 text-base">
+              <BookOpen className="h-4 w-4 text-primary" /> Slutförandegrad per kurs
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {courseCompletion.map((c) => (
+                <div key={c.name}>
+                  <div className="mb-1 flex items-center justify-between text-xs">
+                    <span className="flex items-center gap-2 font-medium">
+                      <span
+                        className="inline-block h-2.5 w-2.5 shrink-0 rounded-sm"
+                        style={{ background: c.color }}
+                      />
+                      {c.name}
+                    </span>
+                    <span className="flex items-center gap-3 text-muted-foreground">
+                      <span className="font-mono tabular-nums">{c.hours}h studerad</span>
+                      <span className="font-medium text-foreground">
+                        {c.done}/{c.total} uppg.
+                      </span>
+                      <span
+                        className="w-10 text-right font-bold"
+                        style={{ color: c.pct >= 80 ? "#34d399" : c.pct >= 40 ? "#fbbf24" : "#f87171" }}
+                      >
+                        {c.pct}%
+                      </span>
+                    </span>
+                  </div>
+                  <div className="h-2 overflow-hidden rounded-full bg-surface-2">
+                    <div
+                      className="h-full rounded-full transition-all duration-700 ease-in-out"
+                      style={{
+                        width: `${c.pct}%`,
+                        background: c.color,
+                      }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+        </TabsContent>
+
 
         <TabsContent value="hp" className="space-y-10">
           {/* Snabbnavigering till HP-huvudrubriker */}
