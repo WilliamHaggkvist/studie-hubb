@@ -1822,63 +1822,114 @@ function StatsPage() {
         <Card className="border-border/60 bg-surface/60 lg:col-span-2">
           <CardHeader className="pb-2">
             <CardTitle className="font-display text-base">Studietid per kurs över tid</CardTitle>
+            <p className="text-xs text-muted-foreground">
+              Timmar per{" "}
+              {courseTimeline.unit === "day"
+                ? "dag"
+                : courseTimeline.unit === "week"
+                  ? "vecka"
+                  : "månad"}
+              , staplade per kurs. Visar bara kurser med studietid i valt intervall.
+            </p>
           </CardHeader>
           <CardContent>
-            <div className="h-72">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={days}>
-                  <defs>
-                    {courses.map((c) => (
-                      <linearGradient key={c.id} id={`color-${c.id}`} x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor={c.color} stopOpacity={0.3} />
-                        <stop offset="95%" stopColor={c.color} stopOpacity={0} />
-                      </linearGradient>
-                    ))}
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-                  <XAxis
-                    dataKey="day"
-                    stroke="var(--muted-foreground)"
-                    fontSize={10}
-                    tickLine={false}
-                    axisLine={false}
-                  />
-                  <YAxis
-                    stroke="var(--muted-foreground)"
-                    fontSize={10}
-                    tickLine={false}
-                    axisLine={false}
-                    width={28}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      background: "var(--popover)",
-                      border: "1px solid var(--border)",
-                      borderRadius: 8,
-                      fontSize: 12,
-                      color: "var(--foreground)",
-                    }}
-                    itemStyle={{ color: "var(--foreground)" }}
-                    labelStyle={{ color: "var(--muted-foreground)" }}
-                    formatter={(v: any) => [`${v} h`, ""]}
-                  />
-                  <Legend wrapperStyle={{ fontSize: 11 }} />
-                  {courses.map((c) => (
-                    <Area
-                      key={c.id}
-                      type="monotone"
-                      dataKey={c.id}
-                      name={c.name}
-                      stroke={c.color}
-                      strokeWidth={2}
-                      fillOpacity={1}
-                      fill={`url(#color-${c.id})`}
-                      dot={false}
-                    />
-                  ))}
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
+            {courseTimeline.active.length === 0 ? (
+              <div className="flex h-72 items-center justify-center text-xs text-muted-foreground">
+                Ingen studietid registrerad i valt intervall.
+              </div>
+            ) : (
+              <>
+                <div className="h-64">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={courseTimeline.rows}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                      <XAxis
+                        dataKey="label"
+                        stroke="var(--muted-foreground)"
+                        fontSize={10}
+                        tickLine={false}
+                        axisLine={false}
+                        interval="preserveStartEnd"
+                        minTickGap={12}
+                      />
+                      <YAxis
+                        stroke="var(--muted-foreground)"
+                        fontSize={10}
+                        tickLine={false}
+                        axisLine={false}
+                        width={36}
+                        allowDecimals={false}
+                        tickFormatter={(v) => `${v} h`}
+                      />
+                      <Tooltip
+                        cursor={{ fill: "var(--muted)", opacity: 0.3 }}
+                        content={({ active, payload, label }) => {
+                          if (!active || !payload?.length) return null;
+                          const items = payload
+                            .filter((p) => Number(p.value) > 0)
+                            .sort((a, b) => Number(b.value) - Number(a.value));
+                          const sum = items.reduce((s, p) => s + Number(p.value), 0);
+                          const fmtH = (h: number) => {
+                            const m = Math.round(h * 60);
+                            return `${Math.floor(m / 60)} h ${m % 60} min`;
+                          };
+                          return (
+                            <div className="rounded-lg border border-border bg-popover px-3 py-2 text-xs text-popover-foreground shadow">
+                              <div className="mb-1 text-muted-foreground">{label}</div>
+                              {items.length === 0 && <div>Ingen studietid</div>}
+                              {items.map((p) => (
+                                <div key={String(p.dataKey)} className="flex items-center gap-2">
+                                  <span
+                                    className="inline-block h-2 w-2 rounded-full"
+                                    style={{ background: p.color }}
+                                  />
+                                  <span className="flex-1">{p.name}</span>
+                                  <span className="tabular-nums">{fmtH(Number(p.value))}</span>
+                                </div>
+                              ))}
+                              {items.length > 1 && (
+                                <div className="mt-1 border-t border-border pt-1 font-medium">
+                                  Totalt: {fmtH(sum)}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        }}
+                      />
+                      {courseTimeline.active.map((c, i) => (
+                        <Bar
+                          key={c.id}
+                          dataKey={c.id}
+                          name={c.name}
+                          stackId="t"
+                          fill={c.color}
+                          radius={
+                            i === courseTimeline.active.length - 1 ? [3, 3, 0, 0] : [0, 0, 0, 0]
+                          }
+                        />
+                      ))}
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5 text-xs">
+                  {courseTimeline.active.map((c) => {
+                    const h = (courseTimeline.totals.get(c.id) ?? 0) / 3600;
+                    return (
+                      <div key={c.id} className="flex items-center gap-1.5">
+                        <span
+                          className="inline-block h-2.5 w-2.5 rounded-sm"
+                          style={{ background: c.color }}
+                        />
+                        <span>{c.name}</span>
+                        <span className="tabular-nums text-muted-foreground">
+                          {h.toFixed(1).replace(".", ",")} h
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
 
