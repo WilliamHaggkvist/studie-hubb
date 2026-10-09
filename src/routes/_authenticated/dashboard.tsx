@@ -76,7 +76,7 @@ import {
 import { cn } from "@/lib/utils";
 import { QuickLinksCard } from "@/components/dashboard/quick-links-card";
 import { TaskDialog } from "@/components/tasks/task-dialog";
-import { CompleteDialog } from "@/components/dashboard/complete-dialog";
+import { CompleteDialog } from "@/components/tasks/complete-dialog";
 import { QuickStatusDialog } from "@/components/tasks/quick-status-dialog";
 import { RewardJar } from "@/components/dashboard/reward-jar";
 
@@ -1419,7 +1419,18 @@ function Dashboard() {
         onChangeStatus={(t, s) => {
           setQuickActionFor(null);
           if (s === "done") {
-            setCompleteFor(t);
+            if (t.task_type === "annat" || t.task_type === "modul") {
+              updateTaskStatus.mutate({
+                id: t.id,
+                status: "done",
+                pending_review: false,
+                grade: "-",
+                points: "-",
+                completed_at: new Date().toISOString(),
+              });
+            } else {
+              setCompleteFor(t);
+            }
           } else {
             updateTaskStatus.mutate({
               id: t.id,

@@ -293,11 +293,57 @@ function CourseDetail() {
     return { weekSec, total, avgSec, maxW, minW };
   }, [combinedTime]);
 
+  const now = Date.now();
+  const ws = startOfWeek(new Date(), { weekStartsOn: 1 }).getTime();
+  const we = endOfWeek(new Date(), { weekStartsOn: 1 }).getTime();
+
+  // Planerad studietid för kursen aktuell vecka
+  const weekPlannedSec = useMemo(() => {
+    let totalPlanned = 0;
+    let remainingPlanned = 0;
+
+    for (const s of allSessions) {
+      const start = s.actual_start ? new Date(s.actual_start) : new Date(s.planned_start);
+      const end = s.actual_end ? new Date(s.actual_end) : new Date(s.planned_end);
+      const startMs = start.getTime();
+      const endMs = end.getTime();
+      if (isNaN(startMs)) continue;
+      // Måste ligga inom aktuell vecka
+      if (startMs < ws || startMs > we) continue;
+
+      const durSec = Math.max(0, Math.floor(((isNaN(endMs) ? startMs : endMs) - startMs) / 1000));
+      totalPlanned += durSec;
+
+      // Om passet inte är slutfört och inte redan passerat
+      if (!s.completed && (isNaN(endMs) ? startMs : endMs) > now) {
+        remainingPlanned += durSec;
+      }
+    }
+
+    return {
+      totalHours: totalPlanned / 3600,
+      remainingHours: remainingPlanned / 3600,
+    };
+  }, [allSessions, ws, we, now]);
+
   const goalHours = Number(course?.weekly_goal_hours ?? 0);
   const weekHours = stats.weekSec / 3600;
-  const goalPct = goalHours > 0 ? Math.min(100, (weekHours / goalHours) * 100) : 0;
+  const completedPct = goalHours > 0 ? Math.min(100, (weekHours / goalHours) * 100) : 0;
+  const remainingPlannedPct =
+    goalHours > 0
+      ? Math.min(100 - completedPct, (weekPlannedSec.remainingHours / goalHours) * 100)
+      : 0;
+  const goalPct = goalHours > 0 ? Math.min(100, ((weekHours + weekPlannedSec.remainingHours) / goalHours) * 100) : 0;
   const goalColor =
-    goalPct >= 100 ? "#43aa8b" : goalPct >= 60 ? "#f9c74f" : goalPct >= 30 ? "#f3722c" : "#f94144";
+    weekHours >= goalHours && goalHours > 0
+      ? "#43aa8b"
+      : goalPct >= 100
+      ? "#38bdf8"
+      : goalPct >= 60
+      ? "#f9c74f"
+      : goalPct >= 30
+      ? "#f3722c"
+      : "#f94144";
 
   const [editOpen, setEditOpen] = useState(false);
   const [completeOpen, setCompleteOpen] = useState(false);
@@ -791,21 +837,52 @@ function CourseDetail() {
 
       {/* STATS PANEL */}
       <div className="mb-4 grid gap-3 grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-2xl border border-border/60 bg-surface/60 p-3">
-          <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
-            Denna vecka
-          </div>
-          <div className="mt-1 flex items-baseline gap-2">
-            <div className="font-display text-2xl font-bold tabular-nums">
-              {weekHours.toFixed(2)}
+        <div className="rounded-2xl border border-border/60 bg-surface/60 p-3 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between text-[10px] uppercase tracking-wider text-muted-foreground">
+              <span>Denna vecka</span>
+              {goalHours > 0 && (
+                <span className="font-semibold tabular-nums text-foreground/80">
+                  {Math.round(completedPct)}%
+                </span>
+              )}
             </div>
-            <div className="text-xs text-muted-foreground">/ {goalHours || "—"} h</div>
+
+            <div className="mt-1 flex items-baseline gap-2">
+              <div className="font-display text-2xl font-bold tabular-nums">
+                {weekHours.toFixed(2)}
+              </div>
+              <div className="text-xs text-muted-foreground">/ {goalHours || "—"} h</div>
+            </div>
+
+            <div className="mt-1 text-[11px] text-muted-foreground flex items-center justify-between">
+              <span>Planerat:</span>
+              <span className="font-medium text-foreground/90 tabular-nums">
+                {weekPlannedSec.totalHours.toFixed(2)} h
+                {weekPlannedSec.remainingHours > 0 && weekPlannedSec.remainingHours !== weekPlannedSec.totalHours && (
+                  <span className="text-[10px] text-muted-foreground font-normal ml-1">
+                    ({weekPlannedSec.remainingHours.toFixed(2)} h kvar)
+                  </span>
+                )}
+              </span>
+            </div>
           </div>
-          <div className="mt-2 h-1.5 rounded-full bg-surface-2 overflow-hidden">
-            <div
-              className="h-full rounded-full transition-all"
-              style={{ width: `${goalPct}%`, background: goalColor }}
-            />
+
+          <div className="mt-2.5 space-y-1">
+            <div className="h-1.5 w-full rounded-full bg-surface-2 overflow-hidden flex">
+              <div
+                className="h-full bg-c-7 transition-all duration-500"
+                style={{ width: `${completedPct}%` }}
+                title={`Genomfört: ${weekHours.toFixed(2)} h`}
+              />
+              {remainingPlannedPct > 0 && (
+                <div
+                  className="h-full bg-sky-400/80 transition-all duration-500"
+                  style={{ width: `${remainingPlannedPct}%` }}
+                  title={`Planerat kvar: ${weekPlannedSec.remainingHours.toFixed(2)} h`}
+                />
+              )}
+            </div>
           </div>
         </div>
         <StatBox
