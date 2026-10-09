@@ -448,7 +448,8 @@ function StatsPage() {
           .reduce((s, e) => s + (e.duration_seconds ?? 0), 0) / 3600
       ).toFixed(2),
     }))
-    .filter((r) => r.value > 0);
+    .filter((r) => r.value > 0)
+    .sort((a, b) => b.value - a.value);
   const noCourseHours = +(
     combined.filter((e) => !e.course_id).reduce((s, e) => s + (e.duration_seconds ?? 0), 0) / 3600
   ).toFixed(2);
@@ -477,6 +478,22 @@ function StatsPage() {
 
   const totalSec = combined.reduce((s, e) => s + (e.duration_seconds ?? 0), 0);
   const avgPerDay = totalSec / totalDays;
+  // Snitt per vardag (mån–fre): bara tid på vardagar delat med antal vardagar i intervallet
+  const avgPerWeekday = (() => {
+    let days = 0;
+    const cur = new Date(range.start);
+    cur.setHours(0, 0, 0, 0);
+    for (let i = 0; i < 4000 && cur <= range.end; i++) {
+      const wd = cur.getDay();
+      if (wd >= 1 && wd <= 5) days++;
+      cur.setDate(cur.getDate() + 1);
+    }
+    const sec = combined.reduce((s, e) => {
+      const wd = new Date(e.started_at).getDay();
+      return wd >= 1 && wd <= 5 ? s + (e.duration_seconds ?? 0) : s;
+    }, 0);
+    return days > 0 ? sec / days : 0;
+  })();
 
   const tasksInPeriod = tasks.filter((t) => {
     if (period === "all") return true;
@@ -1734,6 +1751,9 @@ function StatsPage() {
             <div className="font-display text-3xl font-bold tabular-nums">
               {formatHoursCompact(avgPerDay)}
             </div>
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              Mån–fre: <span className="font-semibold tabular-nums text-foreground">{formatHoursCompact(avgPerWeekday)}</span>
+            </p>
           </CardContent>
         </Card>
         <Card className="relative min-w-0 overflow-hidden border-border/60 bg-surface/60">
@@ -1932,38 +1952,50 @@ function StatsPage() {
                 Ingen tid loggad än.
               </div>
             )}
-            {perCourse.length > 0 && (
-              <div className="h-72">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={perCourse}
-                      dataKey="value"
-                      innerRadius={65}
-                      outerRadius={90}
-                      paddingAngle={4}
-                      stroke="none"
-                    >
-                      {perCourse.map((r) => (
-                        <Cell key={r.name} fill={r.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      contentStyle={{
-                        background: "var(--popover)",
-                        border: "1px solid var(--border)",
-                        borderRadius: 8,
-                        fontSize: 12,
-                        color: "var(--foreground)",
-                      }}
-                      itemStyle={{ color: "var(--foreground)" }}
-                      labelStyle={{ color: "var(--muted-foreground)" }}
-                      formatter={(v: any, n: any) => [`${v} h`, n]}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-            )}
+            {perCourse.length > 0 && (() => {
+              const total = perCourse.reduce((t, r) => t + r.value, 0);
+              const fmt = (h: number) => {
+                const m = Math.round(h * 60);
+                return m >= 60 ? `${Math.floor(m / 60)} h ${m % 60} min` : `${m} min`;
+              };
+              return (
+                <div className="flex flex-col items-center gap-4">
+                  <div className="relative h-52 w-full max-w-[16rem]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie data={perCourse} dataKey="value" nameKey="name" innerRadius="62%" outerRadius="92%" paddingAngle={perCourse.length > 1 ? 2 : 0} stroke="none">
+                          {perCourse.map((r) => (
+                            <Cell key={r.name} fill={r.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip
+                          contentStyle={{ background: "var(--popover)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12, color: "var(--foreground)" }}
+                          itemStyle={{ color: "var(--foreground)" }}
+                          formatter={(v: any, n: any) => [`${fmt(Number(v))} (${Math.round((Number(v) / total) * 100)} %)`, n]}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+                      <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Totalt</span>
+                      <span className="font-display text-xl font-bold tabular-nums">{formatHoursCompact(total * 3600)}</span>
+                    </div>
+                  </div>
+                  <ul className="w-full space-y-1.5">
+                    {perCourse.map((r) => (
+                      <li key={r.name} className="flex items-center justify-between gap-2 text-xs">
+                        <span className="flex min-w-0 items-center gap-2">
+                          <span className="inline-block h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: r.color }} />
+                          <span className="truncate">{r.name}</span>
+                        </span>
+                        <span className="shrink-0 tabular-nums text-muted-foreground">
+                          {fmt(r.value)} · <span className="font-semibold text-foreground">{Math.round((r.value / total) * 100)} %</span>
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              );
+            })()}
           </CardContent>
         </Card>
 
