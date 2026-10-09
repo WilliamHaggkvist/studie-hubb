@@ -1633,7 +1633,7 @@ function StatsPage() {
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h1 className="font-display text-3xl font-bold tracking-tight">Statistik</h1>
+            <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">Statistik</h1>
             {activeTab === "time" && <p className="text-sm text-muted-foreground">{range.label}</p>}
           </div>
           {activeTab === "time" && (
