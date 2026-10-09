@@ -1,3 +1,4 @@
+import { format } from "date-fns";
 import type { Course, Task, ReportingModule, CourseEnrollment, TermRow } from "@/lib/queries";
 import type { UserSettings } from "@/lib/settings";
 import { calculateCsnMetrics, type CsnPeriod } from "@/lib/csn";
@@ -89,7 +90,7 @@ export function buildNotifications(input: {
     const prefix = cn ? `${cn} · ` : "";
     if (t.status !== "done" && t.due_at && !t.pending_review) {
       const due = new Date(t.due_at);
-      const dueDay = t.due_at.slice(0, 10);
+      const dueDay = t.due_at.length <= 10 || /T00:00:00/.test(t.due_at) ? t.due_at.slice(0, 10) : format(due, "yyyy-MM-dd");
       const dateOnly = t.due_at.length <= 10 || /T00:00:00/.test(t.due_at);
       const overdue = dateOnly ? dueDay < today : due.getTime() < now.getTime();
       if (overdue) {

@@ -1,3 +1,4 @@
+import { isSessionDone, sessionBounds, sessionSeconds } from "@/lib/study-time";
 import { useMemo, useState, useEffect } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -102,7 +103,7 @@ type Session = {
 };
 
 function todayPeriod(terms: TermRow[]): TermRow["term"] | null {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = format(new Date(), "yyyy-MM-dd");
   const active = terms.find((t) => today >= t.start_date && today <= t.end_date);
   return active?.term ?? null;
 }
@@ -220,11 +221,6 @@ function Dashboard() {
     queryKey: ["recent_study_days"],
     queryFn: async () => {
       const limitDate = subDays(new Date(), 90).toISOString();
-      const { data: entries } = await supabase
-        .from("time_entries")
-        .select("started_at")
-        .neq("source", "session")
-        .gte("started_at", limitDate);
 
       const { data: sessions } = await supabase
         .from("study_sessions")
@@ -233,12 +229,9 @@ function Dashboard() {
         .gte("planned_start", limitDate);
 
       const dates = new Set<string>();
-      (entries ?? []).forEach((e) => {
-        dates.add(format(parseISO(e.started_at), "yyyy-MM-dd"));
-      });
       (sessions ?? []).forEach((s) => {
-        const start = s.actual_start ?? s.planned_start;
-        dates.add(format(parseISO(start), "yyyy-MM-dd"));
+        if (!isSessionDone(s)) return;
+        dates.add(format(sessionBounds(s).start, "yyyy-MM-dd"));
       });
 
       return Array.from(dates).sort((a, b) => b.localeCompare(a));
@@ -360,19 +353,6 @@ function Dashboard() {
     return orderA - orderB;
   });
 
-  const { data: weekEntries = [] } = useQuery({
-    queryKey: ["time_entries", "week", weekStart.toISOString()],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("time_entries")
-        .select("id,started_at,duration_seconds,course_id,source")
-        .gte("started_at", weekStart.toISOString())
-        .lte("started_at", weekEnd.toISOString());
-      return (data ?? []) as TimeEntry[];
-    },
-    enabled: typeof window !== "undefined",
-  });
-
   const { data: weekSessions = [] } = useQuery({
     queryKey: ["study_sessions", "week", weekStart.toISOString()],
     queryFn: async () => {
@@ -392,16 +372,6 @@ function Dashboard() {
       [];
     const now = Date.now();
 
-    for (const e of weekEntries) {
-      if (e.source === "session") continue;
-      if (new Date(e.started_at).getTime() > now) continue;
-      out.push({
-        started_at: e.started_at,
-        duration_seconds: e.duration_seconds ?? 0,
-        course_id: e.course_id,
-      });
-    }
-
     for (const s of weekSessions) {
       if (s.course_id) {
         const course = coursesMap.get(s.course_id);
@@ -411,7 +381,7 @@ function Dashboard() {
       const end = s.actual_end ?? s.planned_end;
       const endMs = new Date(end).getTime();
       const startMs = new Date(start).getTime();
-      if (!s.completed && endMs > now) continue;
+      if (!isSessionDone(s, now)) continue;
 
       const dur = Math.max(
         0,
@@ -424,7 +394,7 @@ function Dashboard() {
       });
     }
     return out;
-  }, [weekEntries, weekSessions, coursesMap]);
+  }, [weekSessions, coursesMap]);
 
   const { data: rawTodaysSessions = [] } = useQuery({
     queryKey: ["sessions", "today"],
