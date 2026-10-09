@@ -1,3 +1,4 @@
+import { isSessionDone, sessionBounds, sessionDayKey, sessionSeconds, splitSeconds, localDayStart, localDayEnd } from "@/lib/study-time";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -176,19 +177,6 @@ function StatsPage() {
   const heatmapStart = useMemo(() => subDays(new Date(), 364), []);
   const heatmapEnd = useMemo(() => new Date(), []);
 
-  const { data: heatmapEntries = [] } = useQuery({
-    queryKey: ["stats", "heatmap-entries", heatmapStart.toISOString(), heatmapEnd.toISOString()],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("time_entries")
-        .select("started_at,duration_seconds")
-        .neq("source", "session")
-        .gte("started_at", heatmapStart.toISOString())
-        .lte("started_at", heatmapEnd.toISOString());
-      return (data ?? []) as Array<{ started_at: string; duration_seconds: number | null }>;
-    },
-  });
-
   const { data: heatmapSessions = [] } = useQuery({
     queryKey: ["stats", "heatmap-sessions", heatmapStart.toISOString(), heatmapEnd.toISOString()],
     queryFn: async () => {
@@ -211,28 +199,14 @@ function StatsPage() {
     const dailyHours: Record<string, number> = {};
     const now = Date.now();
 
-    for (const e of heatmapEntries) {
-      if (!e.started_at) continue;
-      if (new Date(e.started_at).getTime() > now) continue;
-      const day = e.started_at.slice(0, 10);
-      const hours = (e.duration_seconds ?? 0) / 3600;
-      dailyHours[day] = (dailyHours[day] ?? 0) + hours;
-    }
-
     for (const s of heatmapSessions) {
-      const startStr = s.actual_start ?? s.planned_start;
-      const endStr = s.actual_end ?? s.planned_end;
-      if (!startStr || !endStr) continue;
-      if (new Date(endStr).getTime() > now) continue;
-      const day = startStr.slice(0, 10);
-      const startMs = new Date(startStr).getTime();
-      const endMs = new Date(endStr).getTime();
-      const hours = Math.max(0, (endMs - startMs) / (1000 * 3600));
-      dailyHours[day] = (dailyHours[day] ?? 0) + hours;
+      if (!isSessionDone(s, now)) continue;
+      const day = sessionDayKey(s);
+      dailyHours[day] = (dailyHours[day] ?? 0) + sessionSeconds(s) / 3600;
     }
 
     return dailyHours;
-  }, [heatmapEntries, heatmapSessions]);
+  }, [heatmapSessions]);
 
   const heatmapDays = useMemo(() => {
     const days = [];
@@ -285,7 +259,7 @@ function StatsPage() {
       const id = period.slice(5);
       const t = terms.find((x) => x.id === id);
       if (t)
-        return { start: new Date(t.start_date), end: new Date(t.end_date), label: termLabel(t) };
+        return { start: localDayStart(t.start_date), end: localDayEnd(t.end_date), label: termLabel(t) };
     }
     return { start: subDays(new Date(), 29), end: new Date(), label: "30 dagar" };
   }, [period, terms]);
@@ -293,24 +267,6 @@ function StatsPage() {
   // Stabil sträng-nyckel för queries (undviker ny Date() på varje render)
   const rangeStartKey = isAllTime ? "all" : range.start.toISOString().slice(0, 10);
   const rangeEndKey = range.end.toISOString().slice(0, 10);
-
-  const { data: entries = [] } = useQuery({
-    queryKey: ["stats", "entries", rangeStartKey, rangeEndKey],
-    queryFn: async () => {
-      let q = supabase
-        .from("time_entries")
-        .select("id,started_at,duration_seconds,course_id,task_id,source")
-        .neq("source", "session")
-        .lte("started_at", range.end.toISOString());
-
-      if (!isAllTime) {
-        q = q.gte("started_at", range.start.toISOString());
-      }
-
-      const { data } = await q;
-      return (data ?? []) as Entry[];
-    },
-  });
 
   const { data: sessionRows = [] } = useQuery({
     queryKey: ["stats", "sessions-rows", rangeStartKey, rangeEndKey],
@@ -342,21 +298,13 @@ function StatsPage() {
   const earliestDateTimestamp = useMemo(() => {
     let minTime = Infinity;
     const now = Date.now();
-    for (const e of entries) {
-      if (!e.started_at) continue;
-      const t = new Date(e.started_at).getTime();
-      if (!isNaN(t) && t <= now && t < minTime) minTime = t;
-    }
     for (const s of sessionRows) {
-      const start = s.actual_start ?? s.planned_start;
-      const end = s.actual_end ?? s.planned_end;
-      if (!start || !end) continue;
-      if (new Date(end).getTime() > now) continue;
-      const t = new Date(start).getTime();
+      if (!isSessionDone(s, now)) continue;
+      const t = sessionBounds(s).start.getTime();
       if (!isNaN(t) && t < minTime) minTime = t;
     }
     return minTime === Infinity ? subDays(new Date(), 30).getTime() : minTime;
-  }, [entries, sessionRows]);
+  }, [sessionRows]);
 
   // Visa faktiskt startdatum i UI ("All tid sedan YYYY-MM-DD")
   const displayRangeStart = isAllTime && earliestDateTimestamp
@@ -376,35 +324,31 @@ function StatsPage() {
     [allCourses],
   );
 
-  const filteredEntries = useMemo(() => {
-    const now = Date.now();
-    return entries.filter((e) => {
-      if (!e.started_at) return false;
-      if (new Date(e.started_at).getTime() > now) return false;
-      return true;
-    });
-  }, [entries, coursesMap]);
-
   const filteredSessionRows = useMemo(
     () => sessionRows,
     [sessionRows],
   );
+
+  const tasksBySession = useMemo(() => {
+    const m = new Map<string, string[]>();
+    for (const st of sessionTaskRows) {
+      const arr = m.get(st.session_id) ?? [];
+      arr.push(st.task_id);
+      m.set(st.session_id, arr);
+    }
+    return m;
+  }, [sessionTaskRows]);
 
   // Endast genomförda studiepass (där slut-tid har passerats) räknas i statistiken.
   const derivedEntries: Entry[] = useMemo(() => {
     const out: Entry[] = [];
     const now = Date.now();
     for (const s of filteredSessionRows) {
-      const start = s.actual_start ?? s.planned_start;
-      const end = s.actual_end ?? s.planned_end;
-      const endMs = new Date(end).getTime();
-      const startMs = new Date(start).getTime();
-
       // Exkludera alla framtida/planerade pass som inte avslutats än!
-      if (endMs > now) continue;
-
-      const dur = Math.max(0, Math.floor((endMs - startMs) / 1000));
-      const tids = sessionTaskRows.filter((st) => st.session_id === s.id).map((st) => st.task_id);
+      if (!isSessionDone(s, now)) continue;
+      const start = sessionBounds(s).start.toISOString();
+      const dur = sessionSeconds(s);
+      const tids = tasksBySession.get(s.id) ?? [];
       if (tids.length === 0) {
         out.push({
           id: `sess:${s.id}`,
@@ -414,12 +358,12 @@ function StatsPage() {
           task_id: null,
         });
       } else {
-        const per = Math.floor(dur / tids.length);
+        const parts = splitSeconds(dur, tids.length);
         tids.forEach((task_id, i) => {
           out.push({
             id: `sess:${s.id}:${i}`,
             started_at: start,
-            duration_seconds: per,
+            duration_seconds: parts[i],
             course_id: s.course_id,
             task_id,
           });
@@ -427,11 +371,11 @@ function StatsPage() {
       }
     }
     return out;
-  }, [filteredSessionRows, sessionTaskRows]);
+  }, [filteredSessionRows, tasksBySession]);
 
   const combined = useMemo(
-    () => [...filteredEntries, ...derivedEntries],
-    [filteredEntries, derivedEntries],
+    () => derivedEntries,
+    [derivedEntries],
   );
 
   const { data: allTasks = [] } = useQuery(tasksQuery);
@@ -441,10 +385,7 @@ function StatsPage() {
 
   const sessionsCount = useMemo(() => {
     const now = Date.now();
-    return filteredSessionRows.filter((s) => {
-      const end = s.actual_end ?? s.planned_end;
-      return new Date(end).getTime() <= now;
-    }).length;
+    return filteredSessionRows.filter((s) => isSessionDone(s, now)).length;
   }, [filteredSessionRows]);
 
   const totalDays = Math.max(1, differenceInCalendarDays(range.end, range.start) + 1);
