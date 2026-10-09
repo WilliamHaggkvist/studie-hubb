@@ -1,3 +1,4 @@
+import { isSessionDone, sessionBounds, sessionSeconds } from "@/lib/study-time";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -151,21 +152,6 @@ function CourseDetail() {
     },
   });
 
-  const { data: allTime = [] } = useQuery({
-    queryKey: ["time", "course", courseId, "all"],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("time_entries")
-        .select("duration_seconds,started_at,source")
-        .eq("course_id", courseId);
-      return (data ?? []) as Array<{
-        duration_seconds: number | null;
-        started_at: string;
-        source: string;
-      }>;
-    },
-  });
-
   const { data: allSessions = [] } = useQuery({
     queryKey: ["study_sessions", "course", courseId, "all"],
     queryFn: async () => {
@@ -241,14 +227,6 @@ function CourseDetail() {
 
   const combinedTime = useMemo(() => {
     const out: Array<{ started_at: string; duration_seconds: number }> = [];
-    for (const e of allTime) {
-      if (e.source === "session") continue;
-      if (!e.started_at) continue;
-      out.push({
-        started_at: e.started_at,
-        duration_seconds: e.duration_seconds ?? 0,
-      });
-    }
     for (const s of allSessions) {
       const start = s.actual_start ?? s.planned_start;
       const end = s.actual_end ?? s.planned_end;
@@ -257,7 +235,7 @@ function CourseDetail() {
       const endMs = end ? new Date(end).getTime() : startMs;
       if (isNaN(startMs)) continue;
       // Endast genomförda studiepass räknas i genomförd studietid
-      if (endMs > Date.now() && !s.completed) continue;
+      if (!isSessionDone(s)) continue;
       const dur = Math.max(0, Math.floor((endMs - startMs) / 1000));
       out.push({
         started_at: start,
@@ -265,7 +243,7 @@ function CourseDetail() {
       });
     }
     return out;
-  }, [allTime, allSessions]);
+  }, [allSessions]);
 
   const stats = useMemo(() => {
     const ws = startOfWeek(new Date(), { weekStartsOn: 1 });
