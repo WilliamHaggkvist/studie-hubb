@@ -389,37 +389,6 @@ function StatsPage() {
   }, [filteredSessionRows]);
 
   const totalDays = Math.max(1, differenceInCalendarDays(range.end, range.start) + 1);
-  const days = useMemo(() => {
-    const grouped = new Map<string, Map<string, number>>();
-
-    for (const e of combined) {
-      if (!e.course_id || !e.duration_seconds || !e.started_at) continue;
-      const d = new Date(e.started_at);
-      if (isNaN(d.getTime())) continue;
-      const dayKey = format(d, "yyyy-MM-dd");
-      if (!grouped.has(dayKey)) grouped.set(dayKey, new Map());
-      const courseMap = grouped.get(dayKey)!;
-      courseMap.set(e.course_id, (courseMap.get(e.course_id) ?? 0) + e.duration_seconds);
-    }
-
-    return Array.from({ length: totalDays }).map((_, i) => {
-      const d = subDays(range.end, totalDays - 1 - i);
-      const dayKey = format(d, "yyyy-MM-dd");
-      const row: Record<string, number | string> = { day: format(d, "yyyy-MM-dd", { locale: sv }) };
-
-      let total = 0;
-      const courseMap = grouped.get(dayKey);
-
-      for (const c of courses) {
-        const seconds = courseMap?.get(c.id) ?? 0;
-        const h = seconds / 3600;
-        row[c.id] = +h.toFixed(2);
-        total += h;
-      }
-      row.total = +total.toFixed(2);
-      return row;
-    });
-  }, [totalDays, range.end, courses, combined]);
 
   // Pedagogisk tidslinje: bara kurser med tid i intervallet, grupperat per dag/vecka/månad.
   const courseTimeline = useMemo(() => {
