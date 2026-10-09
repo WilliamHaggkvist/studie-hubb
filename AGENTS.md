@@ -15,3 +15,4 @@
 
 - Scheduled jobs (email-jobs, Google Calendar sync) run hourly 04-21 UTC with time windows sized to the cadence; keeps the database able to idle and lowers Cloud cost.
 - Client data uses a 5-min default staleTime and refetch on focus instead of polling intervals; avoids keeping the database awake.
+- Study time is computed only from Google-synced study_sessions via src/lib/study-time.ts (a session counts once its end time has passed); keeps every page's totals identical.
