@@ -336,14 +336,21 @@ function CourseDetail() {
   const [visibleTaskCount, setVisibleTaskCount] = useState(5);
 
   const sortTasks = (a: Task, b: Task) => {
-    // 1. Klarmarkerade uppgifter hamnar längst ned
+    // 1. Pågående uppgifter ska alltid ligga längst upp
+    const aDoing = a.status === "doing";
+    const bDoing = b.status === "doing";
+    if (aDoing !== bDoing) {
+      return aDoing ? -1 : 1;
+    }
+
+    // 2. Klarmarkerade uppgifter hamnar längst ned
     const aDone = a.status === "done";
     const bDone = b.status === "done";
     if (aDone !== bDone) {
       return aDone ? 1 : -1;
     }
 
-    // 2. Sortera efter due_at
+    // 3. Sortera efter due_at
     if (a.due_at && b.due_at) {
       const timeA = new Date(a.due_at).getTime();
       const timeB = new Date(b.due_at).getTime();
@@ -354,7 +361,7 @@ function CourseDetail() {
       return 1;
     }
 
-    // 3. Om samma due_at (eller båda saknar), sortera alfabetiskt
+    // 4. Om samma due_at (eller båda saknar), sortera alfabetiskt
     return a.title.localeCompare(b.title, "sv", { sensitivity: "base" });
   };
 
