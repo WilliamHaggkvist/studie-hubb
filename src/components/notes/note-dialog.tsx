@@ -34,6 +34,7 @@ import {
   Star,
   Trash2,
   BookOpen,
+  Image as ImageIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -99,6 +100,9 @@ export function NoteDialog({
   const [title, setTitle] = useState("");
   const [content, setContent] = useState<Block[]>([]);
   const [saveStatus, setSaveStatus] = useState<"saved" | "saving" | "unsaved">("saved");
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const uploadTriggerRef = useRef<((file: File) => Promise<void>) | null>(null);
 
   // Keep a ref to flush pending changes on close/unmount
   const latestRef = useRef({ title, content, page });
@@ -279,6 +283,32 @@ export function NoteDialog({
           </div>
 
           <div className="flex items-center gap-1.5 pr-8">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f && uploadTriggerRef.current) {
+                  uploadTriggerRef.current(f);
+                }
+                e.target.value = "";
+              }}
+            />
+
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => fileInputRef.current?.click()}
+              className="gap-1 text-xs h-8 rounded-lg cursor-pointer px-2 text-muted-foreground hover:text-foreground"
+              title="Infoga bild"
+            >
+              <ImageIcon className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Infoga bild</span>
+            </Button>
+
             {page && (
               <Button
                 type="button"
@@ -386,7 +416,13 @@ export function NoteDialog({
 
               {/* Redigerare */}
               <div className="pt-2 min-h-[300px]">
-                <BlockEditor value={content} onChange={setContent} />
+                <BlockEditor
+                  value={content}
+                  onChange={setContent}
+                  onRegisterUploadImage={(fn) => {
+                    uploadTriggerRef.current = fn;
+                  }}
+                />
               </div>
             </>
           )}

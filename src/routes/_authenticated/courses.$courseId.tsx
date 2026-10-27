@@ -336,7 +336,9 @@ function CourseDetail() {
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
   const [visibleTaskCount, setVisibleTaskCount] = useState(25);
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
-  const [taskFilter, setTaskFilter] = useState<"all" | "lecture" | "ovning" | "quiz" | "exam_lab">("all");
+  const [taskFilter, setTaskFilter] = useState<
+    "all" | "lecture_other" | "ovning_lab" | "quiz_inlamning" | "tenta_ks"
+  >("all");
 
   const sortTasks = (a: Task, b: Task) => {
     // 1. Pågående uppgifter ska alltid ligga längst upp
@@ -373,28 +375,69 @@ function CourseDetail() {
   }, [tasks]);
 
   const taskCounts = useMemo(() => {
-    let lectures = 0;
-    let ovningar = 0;
-    let quizzes = 0;
-    let examLabs = 0;
+    let lectureOther = 0;
+    let ovningLab = 0;
+    let quizInlamning = 0;
+    let tentaKs = 0;
+
     for (const t of rootTasks) {
-      const titleLower = t.title.toLowerCase();
-      if (titleLower.startsWith("föreläsning") || /^f\d+/i.test(t.title)) lectures++;
-      else if (t.task_type === "ovning" || titleLower.startsWith("övning") || /^övn/i.test(t.title)) ovningar++;
-      else if (t.task_type === "quiz" || titleLower.includes("quiz")) quizzes++;
-      else if (t.task_type === "laboration" || t.task_type === "tenta" || titleLower.includes("lab") || titleLower.includes("tenta")) examLabs++;
+      const type = t.task_type;
+      if (
+        type === "annat" ||
+        type === "modul" ||
+        type === "seminarie" ||
+        type === "redovisning"
+      ) {
+        lectureOther++;
+      } else if (type === "ovning" || type === "laboration") {
+        ovningLab++;
+      } else if (
+        type === "quiz" ||
+        type === "inlamningsuppgift" ||
+        (type as string) === "inlamning"
+      ) {
+        quizInlamning++;
+      } else if (type === "tenta" || type === "kontrollskrivning") {
+        tentaKs++;
+      }
     }
-    return { all: rootTasks.length, lectures, ovningar, quizzes, examLabs };
+
+    return {
+      all: rootTasks.length,
+      lectureOther,
+      ovningLab,
+      quizInlamning,
+      tentaKs,
+    };
   }, [rootTasks]);
 
+  // Filtrering gäller endast rot-uppgifter, aldrig underuppgifter
   const displayedTasks = useMemo(() => {
     if (taskFilter === "all") return rootTasks;
+
     return rootTasks.filter((t) => {
-      const titleLower = t.title.toLowerCase();
-      if (taskFilter === "lecture") return titleLower.startsWith("föreläsning") || /^f\d+/i.test(t.title);
-      if (taskFilter === "ovning") return t.task_type === "ovning" || titleLower.startsWith("övning") || /^övn/i.test(t.title);
-      if (taskFilter === "quiz") return t.task_type === "quiz" || titleLower.includes("quiz");
-      if (taskFilter === "exam_lab") return t.task_type === "laboration" || t.task_type === "tenta" || titleLower.includes("lab") || titleLower.includes("tenta");
+      const type = t.task_type;
+      if (taskFilter === "lecture_other") {
+        return (
+          type === "annat" ||
+          type === "modul" ||
+          type === "seminarie" ||
+          type === "redovisning"
+        );
+      }
+      if (taskFilter === "ovning_lab") {
+        return type === "ovning" || type === "laboration";
+      }
+      if (taskFilter === "quiz_inlamning") {
+        return (
+          type === "quiz" ||
+          type === "inlamningsuppgift" ||
+          (type as string) === "inlamning"
+        );
+      }
+      if (taskFilter === "tenta_ks") {
+        return type === "tenta" || type === "kontrollskrivning";
+      }
       return true;
     });
   }, [rootTasks, taskFilter]);
@@ -953,72 +996,72 @@ function CourseDetail() {
                 >
                   Alla ({taskCounts.all})
                 </button>
-                {taskCounts.lectures > 0 && (
+                {taskCounts.lectureOther > 0 && (
                   <button
                     type="button"
                     onClick={() => {
-                      setTaskFilter("lecture");
+                      setTaskFilter("lecture_other");
                       setVisibleTaskCount(50);
                     }}
                     className={cn(
                       "px-2.5 py-1 rounded-lg text-xs font-medium transition-all cursor-pointer",
-                      taskFilter === "lecture"
+                      taskFilter === "lecture_other"
                         ? "bg-primary text-primary-foreground shadow-sm"
                         : "bg-surface-2/60 text-muted-foreground hover:text-foreground hover:bg-surface-2"
                     )}
                   >
-                    Föreläsningar ({taskCounts.lectures})
+                    Föreläsningar & Annat ({taskCounts.lectureOther})
                   </button>
                 )}
-                {taskCounts.ovningar > 0 && (
+                {taskCounts.ovningLab > 0 && (
                   <button
                     type="button"
                     onClick={() => {
-                      setTaskFilter("ovning");
+                      setTaskFilter("ovning_lab");
                       setVisibleTaskCount(50);
                     }}
                     className={cn(
                       "px-2.5 py-1 rounded-lg text-xs font-medium transition-all cursor-pointer",
-                      taskFilter === "ovning"
+                      taskFilter === "ovning_lab"
                         ? "bg-primary text-primary-foreground shadow-sm"
                         : "bg-surface-2/60 text-muted-foreground hover:text-foreground hover:bg-surface-2"
                     )}
                   >
-                    Övningar ({taskCounts.ovningar})
+                    Övning & Labb ({taskCounts.ovningLab})
                   </button>
                 )}
-                {taskCounts.quizzes > 0 && (
+                {taskCounts.quizInlamning > 0 && (
                   <button
                     type="button"
                     onClick={() => {
-                      setTaskFilter("quiz");
+                      setTaskFilter("quiz_inlamning");
                       setVisibleTaskCount(50);
                     }}
                     className={cn(
                       "px-2.5 py-1 rounded-lg text-xs font-medium transition-all cursor-pointer",
-                      taskFilter === "quiz"
+                      taskFilter === "quiz_inlamning"
                         ? "bg-primary text-primary-foreground shadow-sm"
                         : "bg-surface-2/60 text-muted-foreground hover:text-foreground hover:bg-surface-2"
                     )}
                   >
-                    Quiz ({taskCounts.quizzes})
+                    Quiz & Inlämning ({taskCounts.quizInlamning})
                   </button>
                 )}
-                {taskCounts.examLabs > 0 && (
+                {taskCounts.tentaKs > 0 && (
                   <button
                     type="button"
                     onClick={() => {
-                      setTaskFilter("exam_lab");
+                      setTaskFilter("tenta_ks");
                       setVisibleTaskCount(50);
                     }}
                     className={cn(
                       "px-2.5 py-1 rounded-lg text-xs font-medium transition-all cursor-pointer",
-                      taskFilter === "exam_lab"
+                      taskFilter === "tenta_ks"
                         ? "bg-primary text-primary-foreground shadow-sm"
                         : "bg-surface-2/60 text-muted-foreground hover:text-foreground hover:bg-surface-2"
                     )}
                   >
-                    Labb & Tenta ({taskCounts.examLabs})
+                    Tenta och KS ({taskCounts.tentaKs})
                   </button>
                 )}
               </div>
