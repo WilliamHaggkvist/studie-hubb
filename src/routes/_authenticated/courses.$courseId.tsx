@@ -57,6 +57,7 @@ import { timerStore } from "@/lib/timer-store";
 import { format, startOfWeek, endOfWeek, differenceInCalendarDays, parseISO } from "date-fns";
 import { sv } from "date-fns/locale";
 import { TaskDialog } from "@/components/tasks/task-dialog";
+import { NoteDialog } from "@/components/notes/note-dialog";
 import { QuickStatusDialog } from "@/components/tasks/quick-status-dialog";
 import { CompleteDialog } from "@/components/tasks/complete-dialog";
 import {
@@ -334,6 +335,7 @@ function CourseDetail() {
   const [createParentId, setCreateParentId] = useState<string | null>(null);
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
   const [visibleTaskCount, setVisibleTaskCount] = useState(5);
+  const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
 
   const sortTasks = (a: Task, b: Task) => {
     // 1. Pågående uppgifter ska alltid ligga längst upp
@@ -578,7 +580,7 @@ function CourseDetail() {
     onSuccess: (id) => {
       qc.invalidateQueries({ queryKey: ["pages", "course", courseId] });
       qc.invalidateQueries({ queryKey: ["pages"] });
-      navigate({ to: "/notes/$noteId", params: { noteId: id } });
+      setSelectedNoteId(id);
     },
     onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Fel"),
   });
@@ -1245,11 +1247,11 @@ function CourseDetail() {
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
                 {notes.map((n) => (
-                  <Link
+                  <button
                     key={n.id}
-                    to="/notes/$noteId"
-                    params={{ noteId: n.id }}
-                    className="flex items-center gap-2.5 rounded-xl border border-border/40 bg-surface/40 p-2.5 hover:bg-surface-2/60 hover:border-primary/30 transition-all group"
+                    type="button"
+                    onClick={() => setSelectedNoteId(n.id)}
+                    className="flex items-center gap-2.5 rounded-xl border border-border/40 bg-surface/40 p-2.5 hover:bg-surface-2/60 hover:border-primary/30 transition-all group text-left cursor-pointer w-full"
                   >
                     <span className="text-lg leading-none shrink-0">{n.icon ?? "📝"}</span>
                     <div className="min-w-0 flex-1">
@@ -1262,7 +1264,7 @@ function CourseDetail() {
                           : ""}
                       </div>
                     </div>
-                  </Link>
+                  </button>
                 ))}
               </div>
             )}
@@ -1404,6 +1406,15 @@ function CourseDetail() {
             onSuccess: () => setCompleteFor(null),
           });
         }}
+      />
+
+      <NoteDialog
+        noteId={selectedNoteId}
+        open={!!selectedNoteId}
+        onOpenChange={(o) => !o && setSelectedNoteId(null)}
+        courseId={course?.id}
+        courseName={course?.name}
+        courseColor={course?.color}
       />
     </div>
   );
