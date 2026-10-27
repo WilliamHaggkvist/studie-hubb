@@ -334,8 +334,9 @@ function CourseDetail() {
   const [createOpen, setCreateOpen] = useState(false);
   const [createParentId, setCreateParentId] = useState<string | null>(null);
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
-  const [visibleTaskCount, setVisibleTaskCount] = useState(5);
+  const [visibleTaskCount, setVisibleTaskCount] = useState(25);
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
+  const [taskFilter, setTaskFilter] = useState<"all" | "lecture" | "ovning" | "quiz" | "exam_lab">("all");
 
   const sortTasks = (a: Task, b: Task) => {
     // 1. Pågående uppgifter ska alltid ligga längst upp
@@ -363,13 +364,40 @@ function CourseDetail() {
       return 1;
     }
 
-    // 4. Om samma due_at (eller båda saknar), sortera alfabetiskt
-    return a.title.localeCompare(b.title, "sv", { sensitivity: "base" });
+    // 4. Om samma due_at (eller båda saknar), sortera alfabetiskt och numeriskt
+    return a.title.localeCompare(b.title, "sv", { numeric: true, sensitivity: "base" });
   };
 
   const rootTasks = useMemo(() => {
     return tasks.filter((t) => t.parent_id === null).sort(sortTasks);
   }, [tasks]);
+
+  const taskCounts = useMemo(() => {
+    let lectures = 0;
+    let ovningar = 0;
+    let quizzes = 0;
+    let examLabs = 0;
+    for (const t of rootTasks) {
+      const titleLower = t.title.toLowerCase();
+      if (titleLower.startsWith("föreläsning") || /^f\d+/i.test(t.title)) lectures++;
+      else if (t.task_type === "ovning" || titleLower.startsWith("övning") || /^övn/i.test(t.title)) ovningar++;
+      else if (t.task_type === "quiz" || titleLower.includes("quiz")) quizzes++;
+      else if (t.task_type === "laboration" || t.task_type === "tenta" || titleLower.includes("lab") || titleLower.includes("tenta")) examLabs++;
+    }
+    return { all: rootTasks.length, lectures, ovningar, quizzes, examLabs };
+  }, [rootTasks]);
+
+  const displayedTasks = useMemo(() => {
+    if (taskFilter === "all") return rootTasks;
+    return rootTasks.filter((t) => {
+      const titleLower = t.title.toLowerCase();
+      if (taskFilter === "lecture") return titleLower.startsWith("föreläsning") || /^f\d+/i.test(t.title);
+      if (taskFilter === "ovning") return t.task_type === "ovning" || titleLower.startsWith("övning") || /^övn/i.test(t.title);
+      if (taskFilter === "quiz") return t.task_type === "quiz" || titleLower.includes("quiz");
+      if (taskFilter === "exam_lab") return t.task_type === "laboration" || t.task_type === "tenta" || titleLower.includes("lab") || titleLower.includes("tenta");
+      return true;
+    });
+  }, [rootTasks, taskFilter]);
 
   const childrenByParent = useMemo(() => {
     const m = new Map<string, Task[]>();
@@ -907,14 +935,103 @@ function CourseDetail() {
             </Button>
           </CardHeader>
           <CardContent>
-            {rootTasks.length === 0 ? (
+            {/* Filter-flikar */}
+            {rootTasks.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5 mb-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTaskFilter("all");
+                    setVisibleTaskCount(25);
+                  }}
+                  className={cn(
+                    "px-2.5 py-1 rounded-lg text-xs font-medium transition-all cursor-pointer",
+                    taskFilter === "all"
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "bg-surface-2/60 text-muted-foreground hover:text-foreground hover:bg-surface-2"
+                  )}
+                >
+                  Alla ({taskCounts.all})
+                </button>
+                {taskCounts.lectures > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTaskFilter("lecture");
+                      setVisibleTaskCount(50);
+                    }}
+                    className={cn(
+                      "px-2.5 py-1 rounded-lg text-xs font-medium transition-all cursor-pointer",
+                      taskFilter === "lecture"
+                        ? "bg-primary text-primary-foreground shadow-sm"
+                        : "bg-surface-2/60 text-muted-foreground hover:text-foreground hover:bg-surface-2"
+                    )}
+                  >
+                    Föreläsningar ({taskCounts.lectures})
+                  </button>
+                )}
+                {taskCounts.ovningar > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTaskFilter("ovning");
+                      setVisibleTaskCount(50);
+                    }}
+                    className={cn(
+                      "px-2.5 py-1 rounded-lg text-xs font-medium transition-all cursor-pointer",
+                      taskFilter === "ovning"
+                        ? "bg-primary text-primary-foreground shadow-sm"
+                        : "bg-surface-2/60 text-muted-foreground hover:text-foreground hover:bg-surface-2"
+                    )}
+                  >
+                    Övningar ({taskCounts.ovningar})
+                  </button>
+                )}
+                {taskCounts.quizzes > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTaskFilter("quiz");
+                      setVisibleTaskCount(50);
+                    }}
+                    className={cn(
+                      "px-2.5 py-1 rounded-lg text-xs font-medium transition-all cursor-pointer",
+                      taskFilter === "quiz"
+                        ? "bg-primary text-primary-foreground shadow-sm"
+                        : "bg-surface-2/60 text-muted-foreground hover:text-foreground hover:bg-surface-2"
+                    )}
+                  >
+                    Quiz ({taskCounts.quizzes})
+                  </button>
+                )}
+                {taskCounts.examLabs > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTaskFilter("exam_lab");
+                      setVisibleTaskCount(50);
+                    }}
+                    className={cn(
+                      "px-2.5 py-1 rounded-lg text-xs font-medium transition-all cursor-pointer",
+                      taskFilter === "exam_lab"
+                        ? "bg-primary text-primary-foreground shadow-sm"
+                        : "bg-surface-2/60 text-muted-foreground hover:text-foreground hover:bg-surface-2"
+                    )}
+                  >
+                    Labb & Tenta ({taskCounts.examLabs})
+                  </button>
+                )}
+              </div>
+            )}
+
+            {displayedTasks.length === 0 ? (
               <div className="rounded-xl border border-dashed border-border/60 p-4 text-center text-xs text-muted-foreground">
-                Inga uppgifter.
+                {rootTasks.length === 0 ? "Inga uppgifter." : "Inga uppgifter matchar filtret."}
               </div>
             ) : (
               <>
                 <div className="space-y-2">
-                  {rootTasks.slice(0, visibleTaskCount).map((t) => {
+                  {displayedTasks.slice(0, visibleTaskCount).map((t) => {
                     const kids = childrenByParent.get(t.id) ?? [];
                     const isExpanded = expandedTasks.has(t.id);
                     return (
@@ -992,44 +1109,44 @@ function CourseDetail() {
                   })}
                 </div>
 
-                {rootTasks.length > visibleTaskCount && (
+                {displayedTasks.length > visibleTaskCount && (
                   <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border/40 bg-surface/30 p-2.5">
                     <div className="text-xs text-muted-foreground flex items-center gap-1.5">
                       <span className="font-semibold text-foreground tabular-nums">
-                        {rootTasks.length - visibleTaskCount}
+                        {displayedTasks.length - visibleTaskCount}
                       </span>{" "}
-                      fler {rootTasks.length - visibleTaskCount === 1 ? "uppgift finns" : "uppgifter finns"} att se
+                      fler {displayedTasks.length - visibleTaskCount === 1 ? "uppgift finns" : "uppgifter finns"} att se
                     </div>
                     <div className="flex items-center gap-2">
                       <Button
                         size="sm"
                         variant="secondary"
                         className="h-7 gap-1 rounded-lg text-xs font-medium"
-                        onClick={() => setVisibleTaskCount((prev) => prev + 5)}
+                        onClick={() => setVisibleTaskCount((prev) => prev + 15)}
                       >
                         <ChevronDown className="h-3.5 w-3.5" />
-                        Ladda in {Math.min(5, rootTasks.length - visibleTaskCount)} till
+                        Ladda in {Math.min(15, displayedTasks.length - visibleTaskCount)} till
                       </Button>
-                      {rootTasks.length - visibleTaskCount > 5 && (
+                      {displayedTasks.length - visibleTaskCount > 15 && (
                         <Button
                           size="sm"
                           variant="ghost"
                           className="h-7 text-xs text-muted-foreground hover:text-foreground"
-                          onClick={() => setVisibleTaskCount(rootTasks.length)}
+                          onClick={() => setVisibleTaskCount(displayedTasks.length)}
                         >
-                          Ladda in alla ({rootTasks.length - visibleTaskCount})
+                          Ladda in alla ({displayedTasks.length - visibleTaskCount})
                         </Button>
                       )}
                     </div>
                   </div>
                 )}
 
-                {visibleTaskCount > 5 && rootTasks.length > 5 && (
+                {visibleTaskCount > 25 && displayedTasks.length > 25 && (
                   <div className="mt-2 text-left">
                     <button
                       type="button"
-                      onClick={() => setVisibleTaskCount(5)}
-                      className="text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+                      onClick={() => setVisibleTaskCount(25)}
+                      className="text-[11px] text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
                     >
                       ↑ Visa färre uppgifter
                     </button>
