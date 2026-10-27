@@ -30,6 +30,18 @@ function parseValue(value: string): ParsedValue {
   const str = (value ?? "").trim();
   if (!str) return { date: undefined, time: undefined, hasTime: false };
 
+  // Om strängen innehåller tidszonsinformation (t.ex. 'Z', '+01:00', '-05:00')
+  if (/(Z|[+-]\d{2}(:\d{2})?)$/i.test(str)) {
+    const d = parseISO(str);
+    if (isValid(d)) {
+      return {
+        date: d,
+        time: format(d, "HH:mm"),
+        hasTime: true,
+      };
+    }
+  }
+
   let hasTime = false;
   let time: string | undefined = undefined;
   let datePart = str;

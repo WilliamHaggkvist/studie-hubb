@@ -20,6 +20,33 @@ import {
 import { Trash2 } from "lucide-react";
 import { type Task, type TaskType, type TaskKind, TYPES_ALPHA, TYPE_LABELS } from "@/lib/queries";
 import { DatePicker } from "@/components/ui/date-picker";
+import { format, parseISO, isValid } from "date-fns";
+
+function formatDueAtForInput(iso?: string | null): string {
+  if (!iso) return "";
+  try {
+    const d = parseISO(iso);
+    if (isValid(d)) {
+      return format(d, "yyyy-MM-dd'T'HH:mm");
+    }
+  } catch {
+    // fallback
+  }
+  return "";
+}
+
+function parseInputToISO(val: string): string | null {
+  if (!val) return null;
+  try {
+    const d = parseISO(val);
+    if (isValid(d)) {
+      return d.toISOString();
+    }
+  } catch {
+    // fallback
+  }
+  return null;
+}
 
 type CourseOption = { id: string; name: string; color: string };
 
@@ -62,7 +89,7 @@ export function TaskDialog({
 }) {
   const [title, setTitle] = useState(task?.title ?? "");
   const [description, setDescription] = useState(task?.description ?? "");
-  const [dueAt, setDueAt] = useState(task?.due_at ? task.due_at.slice(0, 16) : "");
+  const [dueAt, setDueAt] = useState(() => formatDueAtForInput(task?.due_at));
   const [courseId, setCourseId] = useState(task?.course_id ?? "none");
   const [type, setType] = useState<TaskType>(task?.task_type ?? "annat");
   const [parentId, setParentId] = useState<string>(
@@ -75,7 +102,7 @@ export function TaskDialog({
     if (!open) return;
     setTitle(task?.title ?? "");
     setDescription(task?.description ?? "");
-    setDueAt(task?.due_at ? task.due_at.slice(0, 16) : "");
+    setDueAt(formatDueAtForInput(task?.due_at));
     
     const initialParentId = task?.parent_id ?? defaultParentId ?? "none";
     setParentId(initialParentId);
@@ -104,7 +131,7 @@ export function TaskDialog({
     onSave({
       title: title.trim(),
       description: description.trim() || null,
-      due_at: dueAt ? new Date(dueAt).toISOString() : null,
+      due_at: parseInputToISO(dueAt),
       course_id: courseId === "none" ? null : courseId,
       task_type: type,
       task_kind: kind,
