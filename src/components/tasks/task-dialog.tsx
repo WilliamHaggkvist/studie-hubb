@@ -121,8 +121,8 @@ export function TaskDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg glass rounded-2xl border-white/5 max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="max-w-lg glass rounded-2xl border-white/10 max-h-[90vh] overflow-y-auto">
+        <DialogHeader className="pr-8 text-left">
           <DialogTitle className="font-display">
             {task ? "Redigera" : "Ny"} {kind === "exam" ? "examination" : "uppgift"}
           </DialogTitle>
